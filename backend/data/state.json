@@ -1,0 +1,41 @@
+{
+  "distributions": [
+    {
+      "distributionId": 0,
+      "snapshotId": 1,
+      "root": "0x6cfe302b4c5e0279de471a1c476d4c4ba84545732693c15a8cb20786c2fafafd",
+      "txHash": "0xa499b0a186511c48f9a1aa6b60ecf5e9ab587ebd2ae2a57f39e5b66207b8ecf0"
+    }
+  ],
+  "snapshots": [
+    {
+      "id": 1,
+      "label": "April Demo Window Live",
+      "payoutToken": "0x0000000000000000000000000000000000000000",
+      "snapshotTimestamp": 1776019527,
+      "metadataURI": "ipfs://assetflow-demo-window-2",
+      "root": "0x6cfe302b4c5e0279de471a1c476d4c4ba84545732693c15a8cb20786c2fafafd",
+      "allocations": [
+        {
+          "account": "0xF8798fbd2a6617dB40EfbEDbDd85124cf11d2cB5",
+          "assetAmount": "600000000000000000000",
+          "payoutAmount": "3000000000000000",
+          "leaf": "0x23d1aded415ad64fa4333fc7a01e4fd52ad43b331eab0af8543189e9c01a81b5",
+          "proof": [
+            "0x1b0b3abb01e104529b21dd2e780cebdcbf03f6b90651a33e5388ba78f3355304"
+          ]
+        },
+        {
+          "account": "0x1111111111111111111111111111111111111111",
+          "assetAmount": "400000000000000000000",
+          "payoutAmount": "2000000000000000",
+          "leaf": "0x1b0b3abb01e104529b21dd2e780cebdcbf03f6b90651a33e5388ba78f3355304",
+          "proof": [
+            "0x23d1aded415ad64fa4333fc7a01e4fd52ad43b331eab0af8543189e9c01a81b5"
+          ]
+        }
+      ]
+    }
+  ],
+  "redemptions": []
+}
