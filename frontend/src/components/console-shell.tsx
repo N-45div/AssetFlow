@@ -58,6 +58,7 @@ const contractLabels: Record<string, string> = {
 
 const defaultAddressA = "0x1111111111111111111111111111111111111111";
 const defaultAddressB = "0x2222222222222222222222222222222222222222";
+const hostedApiFallback = "https://assetflow-backend-1064261519338.us-central1.run.app";
 
 function safeStringify(value: unknown) {
   return JSON.stringify(value, null, 2);
@@ -89,9 +90,26 @@ function nowStamp() {
   });
 }
 
+function resolveInitialApiBase() {
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL;
+  }
+
+  if (typeof window === "undefined") {
+    return hostedApiFallback;
+  }
+
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") {
+    return "http://localhost:4010";
+  }
+
+  return hostedApiFallback;
+}
+
 export function ConsoleShell() {
   const [view, setView] = useState<View>("overview");
-  const [apiBase, setApiBase] = useState("http://localhost:4010");
+  const [apiBase, setApiBase] = useState(resolveInitialApiBase);
   const [adminKey, setAdminKey] = useState("");
   const [healthOutput, setHealthOutput] = useState("Waiting for backend...");
   const [healthLive, setHealthLive] = useState(false);
