@@ -1,0 +1,10 @@
+contracts/node_modules
+contracts/cache
+contracts/artifacts
+contracts/build
+contracts/.env
+backend/node_modules
+backend/.env
+frontend/node_modules
+frontend/.next
+frontend/tsconfig.tsbuildinfo

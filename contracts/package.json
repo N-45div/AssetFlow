@@ -1,0 +1,26 @@
+{
+  "name": "assetflow-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "compile": "./node_modules/.bin/solcjs --base-path . --include-path node_modules --optimize --abi --bin contracts/ComplianceRegistry.sol contracts/ServicedAssetToken.sol contracts/DistributionModule.sol contracts/RedemptionModule.sol contracts/MintableSettlementToken.sol contracts/AssetOracleRouter.sol contracts/MockPriceFeed.sol -o build",
+    "compile:hardhat": "hardhat compile",
+    "clean": "hardhat clean",
+    "deploy:testnet": "node scripts/deploy.js testnet",
+    "deploy:mainnet": "node scripts/deploy.js mainnet",
+    "deploy:oracle:testnet": "node scripts/deployOracle.js testnet",
+    "deploy:oracle:mainnet": "node scripts/deployOracle.js mainnet",
+    "configure:oracle:testnet": "node scripts/configureOracle.js testnet",
+    "configure:oracle:mainnet": "node scripts/configureOracle.js mainnet",
+    "test": "npm run compile && hardhat test --no-compile"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "dotenv": "^16.4.7",
+    "hardhat": "^2.22.19"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0"
+  }
+}
