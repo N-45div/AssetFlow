@@ -1,0 +1,24 @@
+{
+  "network": "testnet",
+  "rpcUrl": "https://testnet.hsk.xyz",
+  "chainId": 133,
+  "deployer": "0xF8798fbd2a6617dB40EfbEDbDd85124cf11d2cB5",
+  "adminAddress": "0xF8798fbd2a6617dB40EfbEDbDd85124cf11d2cB5",
+  "issuerAddress": "0xF8798fbd2a6617dB40EfbEDbDd85124cf11d2cB5",
+  "settlementTokenMode": "native-hsk",
+  "settlementToken": "0x0000000000000000000000000000000000000000",
+  "complianceRegistry": "0xC6234816f981C0bC8E8FB48Ba6FF9fb864212f3c",
+  "servicedAssetToken": "0x4372222b90612bCD37e09452052DE5b44DfBC10C",
+  "distributionModule": "0xE6ab32D718AFe5932c7805c231AD35A6133Aa383",
+  "redemptionModule": "0x367a53A6728771E66f9e430932D7FA75B446fA0a",
+  "oracleRouter": "0xD22602E3114b754a86583ce2d48Cce05d2becd78",
+  "oracleConfig": {
+    "asset": "0x4372222b90612bCD37e09452052DE5b44DfBC10C",
+    "feed": "0xCdB10dC9dB30B6ef2a63aB4460263655808fAE27",
+    "feedLabel": "APRO USDC/USD",
+    "assetDecimals": 18,
+    "staleAfter": 86400,
+    "enabled": true,
+    "txHash": "0x343c031487eca76e1a6184c1786305df2b0a4556dd269c7acdda0495455fdaa3"
+  }
+}
