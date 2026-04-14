@@ -187,13 +187,3 @@ npm run deploy:testnet
 ```
 
 Then wire the deployed addresses into the backend env and start the API.
-
-## Product Framing
-
-If you need the shortest accurate description of AssetFlow, use this:
-
-> AssetFlow is the transfer-agent and fund-administration layer for tokenized assets on HashKey Chain.
-
-If you need the slightly longer version:
-
-> AssetFlow handles the operational layer after tokenization: holder eligibility, payout servicing, redemption workflow, and oracle-backed valuation visibility.
