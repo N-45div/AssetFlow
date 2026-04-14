@@ -1,176 +1,199 @@
 # AssetFlow
 
-`AssetFlow` is a HashKey Chain-native backend and smart contract stack for servicing tokenized assets after issuance.
+**The transfer-agent and fund-administration layer for tokenized assets on HashKey Chain.**
 
-It focuses on the workflow most hackathon demos skip:
+AssetFlow is built for the part of tokenized finance that most demos skip. Issuance is only the start. Once a fund unit, note, commodity-backed token, or private placement asset is live, someone still has to operate it:
 
-- compliance-gated transfers
-- investor eligibility management
-- issuer-declared distributions
-- redemption request queues
-- audit-friendly servicing events
+- decide who is allowed to hold it
+- manage transfer restrictions
+- prepare payout windows
+- service holder claims
+- review redemptions
+- settle exits with an auditable workflow
 
-The MVP is designed for HashKey Chain's institutional and RWA positioning:
+AssetFlow turns that post-issuance servicing layer into a product.
 
-- EVM-compatible deployment on HashKey Chain
-- optional integration point for an external KYC oracle or SBT adapter
-- Safe-friendly issuer admin model
-- merkle-root distributions that can be generated from backend snapshots or subgraph data
+## What AssetFlow Does
 
-## Layout
+AssetFlow gives issuers and operators a live workflow for running tokenized assets after launch.
 
-- [`contracts/`](/home/divij/vincent/assetflow/contracts): Hardhat package for AssetFlow contracts
-- [`backend/`](/home/divij/vincent/assetflow/backend): API server and servicing helpers
-- [`docs/`](/home/divij/vincent/assetflow/docs): architecture and contract notes
+The product combines:
 
-## Verified HashKey Assumptions
+- **holder eligibility controls**
+  Wallets can be approved, frozen, expired, jurisdiction-gated, and tiered for compliant access.
 
-These were checked against official docs before building:
+- **restricted asset servicing**
+  The serviced asset token is policy-aware, not just mintable.
 
-- HashKey Chain testnet RPC: `https://testnet.hsk.xyz`, chain ID `133`
-- HashKey Chain mainnet RPC: `https://mainnet.hsk.xyz`, chain ID `177`
-- HashKey provides KYC tooling and Safe support in its builder docs
-- HashKey supports Subgraph indexing on `hashkeychain`, which fits the merkle snapshot flow
+- **payout window infrastructure**
+  Issuers generate snapshots off-chain, publish merkle-root distributions on-chain, and let holders claim against a verifiable payout window.
 
+- **redemption queue operations**
+  Holders request exit, issuers review and approve or reject, and settlement is completed through a controlled on-chain process.
 
-## Real Vs Demo Components
+- **valuation visibility**
+  Oracle-backed quote reads support redemption pricing checks before settlement.
 
-The core protocol contracts are the real product path:
+## Why This Matters
+
+Most tokenized asset products focus on issuance, access, or trading. The operational burden after launch still falls back to fragmented off-chain tooling: spreadsheets, manual payout coordination, admin portals, and internal reconciliation.
+
+That makes tokenized assets hard to run like real financial products.
+
+AssetFlow focuses on the missing layer:
+
+- who can hold the asset
+- when it pays out
+- how claims are serviced
+- how exits are reviewed
+- how the issuer stays in control
+
+## Who It Is For
+
+AssetFlow is designed for teams issuing or operating:
+
+- tokenized funds
+- tokenized notes or structured products
+- commodity-backed tokens
+- private placement or restricted-access RWAs
+
+In hackathon form, it is best understood as **on-chain servicing infrastructure for compliant tokenized assets**.
+
+## Product Surface
+
+AssetFlow ships as a three-part stack:
+
+### 1. On-chain contracts
 
 - `ComplianceRegistry`
 - `ServicedAssetToken`
 - `DistributionModule`
 - `RedemptionModule`
+- `AssetOracleRouter`
 
-The only replaceable demo dependency is the payout asset:
+These contracts handle policy, asset servicing, distributions, redemptions, and quote reads.
 
-- on testnet, you can use native `HSK` by setting `USE_NATIVE_SETTLEMENT=true`
-- on testnet, you can point `SETTLEMENT_TOKEN_ADDRESS` at a real ERC-20 if you already have one
-- if you do not, the deploy script will deploy `MintableSettlementToken` as a demo settlement asset
+### 2. Backend API
 
-That means the servicing flow is real on HashKey testnet either way. The only question is whether the payout token is an existing asset or a demo asset you control.
+The backend powers issuer/operator actions:
 
-## Quick Start
+- investor approval and policy updates
+- minting
+- snapshot construction
+- payout publication
+- claim proof lookup
+- redemption read/approve/reject/settle actions
+- oracle quote reads
+
+### 3. Frontend
+
+The Next.js frontend has two routes:
+
+- `/`
+  Product framing and positioning
+- `/console`
+  Guided operator workflow for servicing the asset
+
+## Live Demo Narrative
+
+The demo is intentionally simple:
+
+1. connect the console to the live backend
+2. show that the issuer can approve who may hold the asset
+3. issue units to approved holders
+4. prepare and publish a payout window
+5. generate a claim packet for a holder
+6. inspect and resolve a redemption request
+7. run an oracle-backed valuation quote
+
+The point of the demo is not “look, another dashboard.”
+
+The point is:
+
+**this tokenized asset can now be operated like a product, not just minted like a token.**
+
+## Why HashKey Chain
+
+AssetFlow is built specifically for HashKey Chain's strongest narrative:
+
+- compliance-aware on-chain finance
+- institutional-grade tokenized assets
+- RWA infrastructure
+- oracle-backed settlement context
+- EVM-compatible deployment path
+
+HashKey Chain is a strong fit for post-issuance servicing because the chain already leans toward regulated and institution-facing financial infrastructure rather than generic retail DeFi.
+
+## Current Deployment
+
+HashKey testnet:
+
+- `ComplianceRegistry`: `0xC6234816f981C0bC8E8FB48Ba6FF9fb864212f3c`
+- `ServicedAssetToken`: `0x4372222b90612bCD37e09452052DE5b44DfBC10C`
+- `DistributionModule`: `0xE6ab32D718AFe5932c7805c231AD35A6133Aa383`
+- `RedemptionModule`: `0x367a53A6728771E66f9e430932D7FA75B446fA0a`
+- `OracleRouter`: `0xD22602E3114b754a86583ce2d48Cce05d2becd78`
+
+Hosted backend:
+
+- `https://assetflow-backend-1064261519338.us-central1.run.app`
+
+## Repository Layout
+
+- [`contracts/`](/home/divij/vincent/assetflow/contracts)
+  Hardhat contracts, deployment scripts, and integration tests
+- [`backend/`](/home/divij/vincent/assetflow/backend)
+  Express API, chain integration, and demo state
+- [`frontend/`](/home/divij/vincent/assetflow/frontend)
+  Next.js landing page and servicing console
+- [`ARCHITECTURE.md`](/home/divij/vincent/assetflow/ARCHITECTURE.md)
+  System and demo diagrams
+
+## Run It Locally
+
+### Contracts
 
 ```bash
 cd /home/divij/vincent/assetflow/contracts
 npm install
 npm run compile
 npm test
+```
 
+### Backend
+
+```bash
 cd /home/divij/vincent/assetflow/backend
 npm install
+cp .env.example .env
 npm start
 ```
 
-## Smart Contract Design
+### Frontend
 
-- `ComplianceRegistry`: issuer-controlled investor policy layer with jurisdiction, tier, accreditation, freeze state, and an optional external eligibility oracle hook for HashKey-specific KYC adapters.
-- `ServicedAssetToken`: restricted ERC-20 for the serviced asset. Transfers, issuance, and servicing flows check the compliance registry.
-- `DistributionModule`: issuer-funded payout contract using merkle roots for snapshot distributions. This keeps cap-table generation off-chain while leaving claims and funds on-chain.
-- `RedemptionModule`: queue for redemption requests, issuer approval, and final settlement against a configured payout token.
-- `AssetOracleRouter`: oracle-backed valuation module for redemption quotes using Aggregator-style feeds such as the HashKey-documented APRO and Chainlink-style interfaces.
-
-## Backend Scope
-
-Current API coverage:
-
-- investor compliance lookup and profile updates
-- jurisdiction whitelisting
-- snapshot generation with merkle proofs
-- distribution publication
-- claim proof lookup and unsigned claim intents
-- redemption read/approve/settle flows
-- unsigned redemption request intents
-- oracle-backed redemption quote reads via `/oracle/redemption-quote`
-
-## Oracle Notes
-
-The oracle path is implemented but intentionally decoupled from settlement:
-
-- `AssetOracleRouter` quotes asset value and redemption value
-- `RedemptionModule` still settles the approved payout amount explicitly
-
-That split is deliberate for the hackathon demo:
-
-- servicing is already live and deployed on testnet
-- oracle valuation can be added without forcing settlement semantics too early
-- different RWAs may need different feeds, heartbeats, and stale thresholds
-
-Useful official HashKey oracle references:
-
-- SUPRA testnet pull oracle: `0x443A0f4Da5d2fdC47de3eeD45Af41d399F0E5702`
-- APRO testnet USDC/USD: `0xCdB10dC9dB30B6ef2a63aB4460263655808fAE27`
-- APRO testnet USDT/USD: `0xC45D520D18A465Ec23eE99A58Dc4cB96b357E744`
-- Chainlink Streams verifier proxy testnet: `0xE02A72Be64DA496797821f1c4BB500851C286C6c`
-
-Source: [HashKey Oracle Docs](https://docs.hashkeychain.net/docs/Build-on-HashKey-Chain/Tools/Oracle)
+```bash
+cd /home/divij/vincent/assetflow/frontend
+npm install
+npm run dev
+```
 
 ## Deploy To HashKey Testnet
-
-1. Configure env in [`contracts/.env.example`](/home/divij/vincent/assetflow/contracts/.env.example):
 
 ```bash
 cd /home/divij/vincent/assetflow/contracts
 cp .env.example .env
-```
-
-Required:
-
-- `PRIVATE_KEY`: deployer key funded with testnet HSK gas
-
-Optional:
-
-- `ADMIN_PRIVATE_KEY`: required if `ADMIN_ADDRESS` is different from the deployer
-- `ADMIN_ADDRESS`: multisig or admin wallet
-- `ISSUER_ADDRESS`: issuer operator wallet
-- `USE_NATIVE_SETTLEMENT=true`: use native `HSK` for distributions and redemptions
-- `SETTLEMENT_TOKEN_ADDRESS`: existing ERC-20 on testnet
-- `DEFAULT_JURISDICTION`: defaults to `344`
-
-2. Compile:
-
-```bash
 npm run compile
-```
-
-3. Deploy:
-
-```bash
 npm run deploy:testnet
 ```
 
-4. Take the printed addresses and copy them into [`backend/.env.example`](/home/divij/vincent/assetflow/backend/.env.example).
+Then wire the deployed addresses into the backend env and start the API.
 
-5. Start the backend:
+## Product Framing
 
-```bash
-cd /home/divij/vincent/assetflow/backend
-cp .env.example .env
-npm install
-npm start
-```
+If you need the shortest accurate description of AssetFlow, use this:
 
-If you want to protect issuer/admin routes in the live demo, set:
+> AssetFlow is the transfer-agent and fund-administration layer for tokenized assets on HashKey Chain.
 
-- `ADMIN_API_KEY`
-- `ADMIN_PRIVATE_KEY` and `ISSUER_PRIVATE_KEY` when you are operating split admin and issuer wallets
-- `ADMIN_ADDRESS` and `ISSUER_ADDRESS` to make signer-role mismatches fail fast on startup
+If you need the slightly longer version:
 
-Then send that value as `x-admin-key` on:
-
-- `/admin/*`
-- `/redemptions/:requestId/approve`
-- `/redemptions/:requestId/settle`
-
-## Servicing Edge Cases
-
-`RedemptionModule` now returns units with a dedicated servicing transfer path instead of a normal ERC-20 transfer.
-
-That matters when:
-
-- an investor becomes frozen after submitting redemption
-- a KYC profile expires before issuer review
-- a request must be rejected or cancelled during a compliance incident
-
-Normal secondary transfer restrictions remain intact, but the issuer can still unwind the queued servicing position safely.
+> AssetFlow handles the operational layer after tokenization: holder eligibility, payout servicing, redemption workflow, and oracle-backed valuation visibility.
