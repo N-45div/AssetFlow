@@ -64,6 +64,15 @@ function safeStringify(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
+function describeError(error: unknown, maxLength = 160) {
+  const message = error instanceof Error ? error.message : "Unknown error";
+  if (message.length <= maxLength) {
+    return message;
+  }
+
+  return `${message.slice(0, maxLength - 1)}…`;
+}
+
 function shortAddress(value: string) {
   if (!value || value.length < 12) {
     return value;
@@ -228,7 +237,7 @@ export function ConsoleShell() {
       } catch (error) {
         setHealthLive(false);
         setHealthOutput(safeStringify({ error: error instanceof Error ? error.message : "Unknown error" }));
-        pushActivity(`Health refresh failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+        pushActivity(`Health refresh failed: ${describeError(error)}`);
       }
     });
   }
@@ -242,7 +251,7 @@ export function ConsoleShell() {
           setDistributions(payload.distributions || []);
         });
       } catch (error) {
-        pushActivity(`Snapshot refresh failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+        pushActivity(`Snapshot refresh failed: ${describeError(error)}`);
       }
     });
   }
@@ -270,7 +279,7 @@ export function ConsoleShell() {
         if (active) {
           setHealthLive(false);
           setHealthOutput(safeStringify({ error: error instanceof Error ? error.message : "Unknown error" }));
-          pushActivity(`Health refresh failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+          pushActivity(`Health refresh failed: ${describeError(error)}`);
         }
       } finally {
         if (active) {
@@ -298,7 +307,7 @@ export function ConsoleShell() {
         }
       } catch (error) {
         if (active) {
-          pushActivity(`Snapshot refresh failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+          pushActivity(`Snapshot refresh failed: ${describeError(error)}`);
         }
       } finally {
         if (active) {
@@ -576,7 +585,7 @@ export function ConsoleShell() {
                         setOracleOutput(
                           safeStringify({ error: error instanceof Error ? error.message : "Unknown error" })
                         );
-                        pushActivity(`Oracle quote failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+                        pushActivity(`Oracle quote failed: ${describeError(error)}`);
                       }
                     });
                   }}

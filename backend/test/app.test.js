@@ -155,6 +155,7 @@ test("backend health and admin flows work end to end", async () => {
   };
 
   const app = createApp({
+    adminApiKey: undefined,
     services,
     stateStore: {
       loadState: store.loadState,
@@ -378,6 +379,7 @@ test("backend uses mined distribution ids instead of pre-read counters", async (
   });
 
   const app = createApp({
+    adminApiKey: undefined,
     services: {
       chainStatus: () => ({ chainId: 133 }),
       distributionModule: {

@@ -355,6 +355,7 @@ a {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.06);
   transition: background 180ms ease;
+  overflow-wrap: anywhere;
 }
 
 .activity-item:hover {
@@ -401,6 +402,9 @@ a {
   font-size: 0.78rem;
   line-height: 1.7;
   color: #d8efe6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .alloc-row {

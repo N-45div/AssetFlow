@@ -86,6 +86,13 @@ const oracleQuoteSchema = z.object({
 
 const distributionInterface = new Interface(distributionModuleAbi);
 const redemptionInterface = new Interface(redemptionModuleAbi);
+const ORACLE_ERROR_MESSAGES = {
+  "0x8e1409ba": "Oracle feed is not configured for this asset.",
+  "0xa942746e": "Oracle feed is configured but currently disabled.",
+  "0xeb1fe96e": "Oracle price is stale on the configured testnet feed.",
+  "0xdcd07d4f": "Oracle returned an invalid price for this asset.",
+  "0xc6cc5d7f": "Fee or haircut basis points are invalid."
+};
 
 function getDistributionCreatedId(receipt) {
   for (const log of receipt?.logs ?? []) {
@@ -137,12 +144,83 @@ function badRequest(message, details) {
   return { statusCode: 400, message, details };
 }
 
+function extractErrorData(error) {
+  const candidates = [
+    error?.data,
+    error?.info?.error?.data,
+    error?.error?.data,
+    error?.revert?.data
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.startsWith("0x")) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function humanizeOracleError(error) {
+  const data = extractErrorData(error);
+  const selector = data?.slice(0, 10);
+  const message = selector ? ORACLE_ERROR_MESSAGES[selector] : null;
+
+  if (!message) {
+    return null;
+  }
+
+  return {
+    statusCode: 400,
+    message,
+    details: {
+      code: selector,
+      raw: error?.message
+    }
+  };
+}
+
+function formatInvestorProfile(profile) {
+  return {
+    approved: profile.approved ?? profile[0],
+    accredited: profile.accredited ?? profile[1],
+    frozen: profile.frozen ?? profile[2],
+    tier: jsonSafe(profile.tier ?? profile[3]),
+    jurisdiction: jsonSafe(profile.jurisdiction ?? profile[4]),
+    expiry: jsonSafe(profile.expiry ?? profile[5])
+  };
+}
+
+function formatOracleQuote(quote) {
+  return {
+    grossUsdValue18: jsonSafe(quote.grossUsdValue18 ?? quote[0]),
+    netUsdValue18: jsonSafe(quote.netUsdValue18 ?? quote[1]),
+    answer: jsonSafe(quote.answer ?? quote[2]),
+    feedDecimals: jsonSafe(quote.feedDecimals ?? quote[3]),
+    updatedAt: jsonSafe(quote.updatedAt ?? quote[4])
+  };
+}
+
+function formatRedemptionRequest(request) {
+  return {
+    investor: request.investor ?? request[0],
+    assetAmount: jsonSafe(request.assetAmount ?? request[1]),
+    payoutAmount: jsonSafe(request.payoutAmount ?? request[2]),
+    requestedAt: jsonSafe(request.requestedAt ?? request[3]),
+    updatedAt: jsonSafe(request.updatedAt ?? request[4]),
+    status: jsonSafe(request.status ?? request[5]),
+    memo: request.memo ?? request[6]
+  };
+}
+
 export function createApp(options = {}) {
   const {
     services = {},
-    stateStore = {},
-    adminApiKey = config.ADMIN_API_KEY
+    stateStore = {}
   } = options;
+  const adminApiKey = Object.hasOwn(options, "adminApiKey")
+    ? options.adminApiKey
+    : config.ADMIN_API_KEY;
 
   const activeComplianceRegistry = Object.hasOwn(services, "complianceRegistry")
     ? services.complianceRegistry
@@ -210,9 +288,13 @@ export function createApp(options = {}) {
         assetAmount: payload.assetAmount,
         feeBps: payload.feeBps,
         haircutBps: payload.haircutBps,
-        quote: jsonSafe(quote)
+        quote: formatOracleQuote(quote)
       });
     } catch (error) {
+      const friendlyOracleError = humanizeOracleError(error);
+      if (friendlyOracleError) {
+        return next(friendlyOracleError);
+      }
       next(error);
     }
   });
@@ -228,7 +310,7 @@ export function createApp(options = {}) {
         activeComplianceRegistry.isWalletEligible(req.params.account)
       ]);
 
-      res.json({ account: req.params.account, eligible, profile: jsonSafe(profile) });
+      res.json({ account: req.params.account, eligible, profile: formatInvestorProfile(profile) });
     } catch (error) {
       next(error);
     }
@@ -579,7 +661,7 @@ export function createApp(options = {}) {
 
       const { requestId } = redemptionActionSchema.parse(req.params);
       const request = await activeRedemptionModule.getRequest(requestId);
-      res.json({ requestId, request: jsonSafe(request) });
+      res.json({ requestId, request: formatRedemptionRequest(request) });
     } catch (error) {
       next(error);
     }
