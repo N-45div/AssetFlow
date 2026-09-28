@@ -1,0 +1,21 @@
+{
+  "network": "mainnet",
+  "rpcUrl": "https://mainnet.hsk.xyz",
+  "chainId": 177,
+  "deployer": "0xF8798fbd2a6617dB40EfbEDbDd85124cf11d2cB5",
+  "note": "Recorded on 2026-09-28 from the chain: CREATE addresses of the deployer at nonces 0-3, 7 and 8, identified by their view functions. Deployed in April 2026; no units issued, no distributions, no redemption requests as of this note.",
+  "complianceRegistry": "0xd06ea0b9AD8935df0e823555F0433604B880711D",
+  "servicedAssetToken": {
+    "address": "0x59E0f69FF6d25b5ceE757c874adAdC42E9857f2A",
+    "name": "AssetFlow Pilot Unit",
+    "symbol": "AFPU",
+    "decimals": 18
+  },
+  "distributionModule": "0x93995825CA13fBbf74f6876480bf7565f33a8717",
+  "redemptionModule": "0x7495d785B5edA74E2c3ebc4B4c0909DeF86078bB",
+  "settlementTokenMode": "native-hsk",
+  "oracleRouterCandidates": [
+    "0xD22602E3114b754a86583ce2d48Cce05d2becd78",
+    "0xc2bD321D88c509ec95249AB8B8D5eCB5bF5d8029"
+  ]
+}
