@@ -159,6 +159,35 @@ fn burn_as_asset<'info>(
     )
 }
 
+/// The escrow is frozen except inside these instructions, so no unit reaches
+/// it but through a request, and what it holds is exactly the open requests.
+/// The asset thaws it with Token ACL's authority thaw; the gate's own path
+/// would call back into this program, which Solana does not allow, and the
+/// gate refuses to thaw an account the asset owns in any case.
+fn open_escrow<'info>(
+    frozen: bool,
+    asset: &Account<'info, Asset>,
+    mint: &AccountInfo<'info>,
+    escrow: &AccountInfo<'info>,
+    mint_config: &AccountInfo<'info>,
+    token_program: &AccountInfo<'info>,
+) -> Result<()> {
+    if frozen {
+        token_acl_set_frozen(false, asset, mint, escrow, mint_config, token_program)?;
+    }
+    Ok(())
+}
+
+fn close_escrow<'info>(
+    asset: &Account<'info, Asset>,
+    mint: &AccountInfo<'info>,
+    escrow: &AccountInfo<'info>,
+    mint_config: &AccountInfo<'info>,
+    token_program: &AccountInfo<'info>,
+) -> Result<()> {
+    token_acl_set_frozen(true, asset, mint, escrow, mint_config, token_program)
+}
+
 pub fn open_request(ctx: Context<RequestRedemption>, id: u32, units: u64) -> Result<()> {
     require!(units > 0, AssetFlowError::InvalidAmount);
     let a = &ctx.accounts;
@@ -168,19 +197,10 @@ pub fn open_request(ctx: Context<RequestRedemption>, id: u32, units: u64) -> Res
         holder_is_eligible(&a.asset.key(), &a.registry, &a.holder.key(), &a.investor.to_account_info())?,
         AssetFlowError::NotEligible
     );
-    // The escrow starts frozen like every account of the mint. The asset
-    // thaws it with Token ACL's authority thaw: the gate's own path would call
-    // back into this program, which Solana does not allow.
-    if a.escrow.is_frozen() {
-        token_acl_set_frozen(
-            false,
-            &a.asset,
-            &a.mint.to_account_info(),
-            &a.escrow.to_account_info(),
-            &a.mint_config,
-            &a.token_program.to_account_info(),
-        )?;
-    }
+    let mint = a.mint.to_account_info();
+    let escrow = a.escrow.to_account_info();
+    let token_program = a.token_program.to_account_info();
+    open_escrow(a.escrow.is_frozen(), &a.asset, &mint, &escrow, &a.mint_config, &token_program)?;
     token_interface::transfer_checked(
         CpiContext::new(
             a.token_program.key(),
@@ -194,6 +214,7 @@ pub fn open_request(ctx: Context<RequestRedemption>, id: u32, units: u64) -> Res
         units,
         a.mint.decimals,
     )?;
+    close_escrow(&a.asset, &mint, &escrow, &a.mint_config, &token_program)?;
 
     let asset = a.asset.key();
     let holder = a.holder.key();
@@ -238,7 +259,12 @@ pub fn settle_request(ctx: Context<SettleRedemption>) -> Result<()> {
         amount,
         a.currency_mint.decimals,
     )?;
-    burn_as_asset(&a.token_program, &a.mint, &a.escrow.to_account_info(), &a.asset, units)?;
+    let mint = a.mint.to_account_info();
+    let escrow = a.escrow.to_account_info();
+    let token_program = a.token_program.to_account_info();
+    open_escrow(a.escrow.is_frozen(), &a.asset, &mint, &escrow, &a.mint_config, &token_program)?;
+    burn_as_asset(&a.token_program, &a.mint, &escrow, &a.asset, units)?;
+    close_escrow(&a.asset, &mint, &escrow, &a.mint_config, &token_program)?;
 
     let asset = a.asset.key();
     let request = &mut ctx.accounts.request;
@@ -266,6 +292,8 @@ pub fn return_request(ctx: Context<ReturnRedemption>, status: RedemptionStatus) 
     let mint = a.mint.to_account_info();
     let destination = a.destination.to_account_info();
     let token_program = a.token_program.to_account_info();
+    let escrow = a.escrow.to_account_info();
+    open_escrow(a.escrow.is_frozen(), &a.asset, &mint, &escrow, &a.mint_config, &token_program)?;
     let frozen = a.destination.is_frozen();
     if frozen {
         token_acl_set_frozen(false, &a.asset, &mint, &destination, &a.mint_config, &token_program)?;
@@ -274,7 +302,7 @@ pub fn return_request(ctx: Context<ReturnRedemption>, status: RedemptionStatus) 
     let bump = [a.asset.bump];
     transfer_signed(
         &token_program,
-        &a.escrow.to_account_info(),
+        &escrow,
         &a.mint,
         &destination,
         &a.asset.to_account_info(),
@@ -284,6 +312,7 @@ pub fn return_request(ctx: Context<ReturnRedemption>, status: RedemptionStatus) 
     if frozen {
         token_acl_set_frozen(true, &a.asset, &mint, &destination, &a.mint_config, &token_program)?;
     }
+    close_escrow(&a.asset, &mint, &escrow, &a.mint_config, &token_program)?;
 
     let asset = a.asset.key();
     let request = &mut ctx.accounts.request;
@@ -492,6 +521,12 @@ pub struct SettleRedemption<'info> {
     /// CHECK: may not exist. A holder with no profile is not eligible.
     #[account(seeds = [INVESTOR_SEED, registry.key().as_ref(), request.holder.as_ref()], bump)]
     pub investor: UncheckedAccount<'info>,
+    /// CHECK: Token ACL's config for this mint.
+    #[account(seeds = [MINT_CONFIG_SEED, mint.key().as_ref()], bump, seeds::program = token_acl_program.key())]
+    pub mint_config: UncheckedAccount<'info>,
+    /// CHECK: pinned to the Token ACL program id.
+    #[account(address = TOKEN_ACL_ID)]
+    pub token_acl_program: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token2022>,
     pub currency_program: Interface<'info, TokenInterface>,
 }

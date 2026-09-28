@@ -537,6 +537,9 @@ pub mod assetflow {
     /// account's owner is eligible today and can never be changed.
     #[instruction(discriminator = ThawQuestion::SPL_DISCRIMINATOR_SLICE)]
     pub fn can_thaw_permissionless(ctx: Context<GateCheck>) -> Result<()> {
+        // The asset's own accounts (the redemption escrow) are opened only
+        // by the program itself, so nothing can be sent into them from outside.
+        require_keys_neq!(ctx.accounts.owner.key(), ctx.accounts.asset.key(), AssetFlowError::NotAHolding);
         // A thawed account whose owner could still be reassigned would carry
         // one holder's approval to any wallet it is handed to.
         require_immutable_owner(&ctx.accounts.token_account.to_account_info(), &ctx.accounts.mint.key())?;
