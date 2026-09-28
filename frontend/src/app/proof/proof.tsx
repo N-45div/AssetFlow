@@ -19,6 +19,7 @@ import { PageShell } from "@/components/page-shell";
 import { assetFromQuery, PROGRAM_ID } from "@/lib/chain/config";
 import { explorer, shortKey } from "@/lib/chain/explorer";
 import { TokenAcl, TOKEN_ACL_ID } from "@/lib/chain/program";
+import { Redemptions } from "@/lib/chain/redemptions";
 import { formatUnits, program } from "@/lib/chain/use-asset";
 import { HASHKEY_MAINNET, hashkeyAddressUrl } from "@/lib/evm/hashkey";
 
@@ -54,10 +55,11 @@ export function ProofView() {
     (async (): Promise<Proof | null> => {
       const asset = program.assetAddress(mint);
       const mintConfig = TokenAcl.mintConfig(mint);
-      const [info, configInfo, assetAccount] = await Promise.all([
+      const [info, configInfo, assetAccount, maturity] = await Promise.all([
         getMint(connection, mint, "confirmed", TOKEN_2022_PROGRAM_ID),
         connection.getAccountInfo(mintConfig),
         program.fetchAsset(connection, mint),
+        new Redemptions(PROGRAM_ID).fetchMaturity(connection, mint),
       ]);
       if (!assetAccount) return null;
       const config = configInfo?.owner.equals(TOKEN_ACL_ID) ? decodeMintConfig(configInfo.data) : null;
@@ -69,7 +71,10 @@ export function ProofView() {
           pass: getDefaultAccountState(info)?.state === AccountState.Frozen,
           evidence: mint.toBase58(),
         },
-        { id: "mintAuthority", pass: same(info.mintAuthority, asset), evidence: asset.toBase58() },
+        // Maturity drops the mint authority for good: nobody can mint at all.
+        maturity
+          ? { id: "mintAuthorityMatured", pass: info.mintAuthority === null, evidence: mint.toBase58() }
+          : { id: "mintAuthority", pass: same(info.mintAuthority, asset), evidence: asset.toBase58() },
         { id: "freezeAuthority", pass: same(info.freezeAuthority, mintConfig), evidence: mintConfig.toBase58() },
         { id: "gate", pass: !!config && config.gatingProgram.equals(PROGRAM_ID), evidence: PROGRAM_ID.toBase58() },
         { id: "configAuthority", pass: !!config && config.freezeAuthority.equals(asset), evidence: mintConfig.toBase58() },
