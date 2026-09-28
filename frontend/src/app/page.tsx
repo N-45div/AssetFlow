@@ -64,7 +64,10 @@ export default async function Home() {
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {jobs.map((k) => (
             <article key={k} className="card flex flex-col p-5">
-              <h3 className="font-semibold">{t(`jobs.${k}.title`)}</h3>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-semibold">{t(`jobs.${k}.title`)}</h3>
+                {k === "redemptions" && <span className="pill pill-neutral">{t("inProgress")}</span>}
+              </div>
               <p className="mt-2 flex-1 text-sm text-ink-2">{t(`jobs.${k}.body`)}</p>
               <p className="mt-4 border-t border-line pt-3 text-xs text-ink-3">
                 <span className="font-semibold text-ink-2">{t("onSolana")}</span> {t(`jobs.${k}.solana`)}
