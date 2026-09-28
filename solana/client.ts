@@ -72,6 +72,18 @@ export class AssetFlow {
   thawMetas(mint: PublicKey) {
     return pda([Buffer.from("thaw_extra_account_metas"), mint.toBuffer()], this.programId);
   }
+  terms(mint: PublicKey) {
+    return pda([Buffer.from("terms"), mint.toBuffer()], this.programId);
+  }
+  payout(mint: PublicKey, period: number) {
+    return pda([Buffer.from("payout"), mint.toBuffer(), Buffer.from([period])], this.programId);
+  }
+  payoutVault(payout: PublicKey) {
+    return pda([Buffer.from("payout_vault"), payout.toBuffer()], this.programId);
+  }
+  paymentRecord(payout: PublicKey, holder: PublicKey) {
+    return pda([Buffer.from("paid"), payout.toBuffer(), holder.toBuffer()], this.programId);
+  }
   freezeMetas(mint: PublicKey) {
     return pda([Buffer.from("freeze_extra_account_metas"), mint.toBuffer()], this.programId);
   }
@@ -206,6 +218,143 @@ export class AssetFlow {
     );
   }
 
+  setTerms(
+    issuer: PublicKey,
+    mint: PublicKey,
+    currencyMint: PublicKey,
+    facePerUnit: bigint,
+    couponBps: number,
+    periods: Period[],
+  ) {
+    const count = Buffer.alloc(4);
+    count.writeUInt32LE(periods.length);
+    return this.ix(
+      "set_terms",
+      [
+        { pubkey: issuer, isSigner: true, isWritable: true },
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: currencyMint, isSigner: false, isWritable: false },
+        { pubkey: this.terms(mint), isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      [
+        u64(facePerUnit),
+        u16(couponBps),
+        count,
+        ...periods.flatMap((q) => [i64(q.accrualStart), i64(q.accrualEnd), i64(q.recordTs), i64(q.paymentTs)]),
+      ],
+    );
+  }
+
+  /** Anyone, once the record date has passed: pauses the mint for the register. */
+  fixRegister(caller: PublicKey, mint: PublicKey, period: number) {
+    return this.ix(
+      "fix_register",
+      [
+        { pubkey: caller, isSigner: true, isWritable: true },
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: this.terms(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: true },
+        { pubkey: this.payout(mint, period), isSigner: false, isWritable: true },
+        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      [u8(period)],
+    );
+  }
+
+  commitEntitlements(
+    issuer: PublicKey,
+    mint: PublicKey,
+    period: number,
+    currencyMint: PublicKey,
+    currencyProgram: PublicKey,
+    root: Buffer,
+    totalUnits: bigint,
+  ) {
+    const payout = this.payout(mint, period);
+    return this.ix(
+      "commit_entitlements",
+      [
+        { pubkey: issuer, isSigner: true, isWritable: true },
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: this.terms(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: true },
+        { pubkey: payout, isSigner: false, isWritable: true },
+        { pubkey: currencyMint, isSigner: false, isWritable: false },
+        { pubkey: this.payoutVault(payout), isSigner: false, isWritable: true },
+        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: currencyProgram, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      [u8(period), root, u64(totalUnits)],
+    );
+  }
+
+  fundPayout(
+    funder: PublicKey,
+    mint: PublicKey,
+    period: number,
+    currencyMint: PublicKey,
+    currencyProgram: PublicKey,
+    source: PublicKey,
+    amount: bigint,
+  ) {
+    const payout = this.payout(mint, period);
+    return this.ix(
+      "fund_payout",
+      [
+        { pubkey: funder, isSigner: true, isWritable: false },
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: this.terms(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: payout, isSigner: false, isWritable: true },
+        { pubkey: currencyMint, isSigner: false, isWritable: false },
+        { pubkey: source, isSigner: false, isWritable: true },
+        { pubkey: this.payoutVault(payout), isSigner: false, isWritable: true },
+        { pubkey: currencyProgram, isSigner: false, isWritable: false },
+      ],
+      [u8(period), u64(amount)],
+    );
+  }
+
+  /** Anyone: pays one holder, or holds their coupon back if they are not eligible. */
+  payEntitlement(
+    payer: PublicKey,
+    registry: PublicKey,
+    mint: PublicKey,
+    period: number,
+    currencyMint: PublicKey,
+    currencyProgram: PublicKey,
+    destination: PublicKey,
+    holder: PublicKey,
+    units: bigint,
+    proof: Buffer[],
+  ) {
+    const payout = this.payout(mint, period);
+    const count = Buffer.alloc(4);
+    count.writeUInt32LE(proof.length);
+    return this.ix(
+      "pay_entitlement",
+      [
+        { pubkey: payer, isSigner: true, isWritable: true },
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: registry, isSigner: false, isWritable: false },
+        { pubkey: this.terms(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: payout, isSigner: false, isWritable: true },
+        { pubkey: currencyMint, isSigner: false, isWritable: false },
+        { pubkey: this.payoutVault(payout), isSigner: false, isWritable: true },
+        { pubkey: destination, isSigner: false, isWritable: true },
+        { pubkey: this.investor(registry, holder), isSigner: false, isWritable: false },
+        { pubkey: this.paymentRecord(payout, holder), isSigner: false, isWritable: true },
+        { pubkey: currencyProgram, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      [u8(period), holder.toBuffer(), u64(units), count, ...proof],
+    );
+  }
+
   /** The accounts Token ACL must be handed so it can resolve the gate's list. */
   gateAccounts(question: "thaw" | "freeze", mint: PublicKey, registry: PublicKey, owner: PublicKey) {
     const list = question === "thaw" ? this.thawMetas(mint) : this.freezeMetas(mint);
@@ -215,6 +364,47 @@ export class AssetFlow {
       isWritable: false,
     }));
   }
+}
+
+export interface Period {
+  /** Nominal accrual dates, unix seconds at UTC midnight. */
+  accrualStart: number;
+  accrualEnd: number;
+  recordTs: number;
+  paymentTs: number;
+}
+
+const sha256 = (...parts: Buffer[]) => createHash("sha256").update(Buffer.concat(parts)).digest();
+
+/** A leaf: domain byte 0, the payment, the holder, their units (as the program hashes it). */
+export function entitlementLeaf(payout: PublicKey, holder: PublicKey, units: bigint) {
+  return sha256(Buffer.from([0]), payout.toBuffer(), holder.toBuffer(), u64(units));
+}
+
+/**
+ * The entitlement tree: sorted pairs under domain byte 1, an odd node carried
+ * up unchanged. Returns the root and a proof per leaf, in input order.
+ */
+export function entitlementTree(leaves: Buffer[]) {
+  let level = leaves.map((leaf, i) => ({ hash: leaf, members: [i] }));
+  const proofs: Buffer[][] = leaves.map(() => []);
+  while (level.length > 1) {
+    const next: typeof level = [];
+    for (let i = 0; i < level.length; i += 2) {
+      const a = level[i];
+      const b = level[i + 1];
+      if (!b) {
+        next.push(a);
+        continue;
+      }
+      for (const m of a.members) proofs[m].push(b.hash);
+      for (const m of b.members) proofs[m].push(a.hash);
+      const [lo, hi] = Buffer.compare(a.hash, b.hash) <= 0 ? [a.hash, b.hash] : [b.hash, a.hash];
+      next.push({ hash: sha256(Buffer.from([1]), lo, hi), members: [...a.members, ...b.members] });
+    }
+    level = next;
+  }
+  return { root: level[0]?.hash ?? Buffer.alloc(32), proofs };
 }
 
 export interface ProfileTerms {
