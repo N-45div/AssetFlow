@@ -66,7 +66,6 @@ export default async function Home() {
             <article key={k} className="card flex flex-col p-5">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-semibold">{t(`jobs.${k}.title`)}</h3>
-                {k === "redemptions" && <span className="pill pill-neutral">{t("inProgress")}</span>}
               </div>
               <p className="mt-2 flex-1 text-sm text-ink-2">{t(`jobs.${k}.body`)}</p>
               <p className="mt-4 border-t border-line pt-3 text-xs text-ink-3">

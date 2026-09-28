@@ -28,18 +28,20 @@ A plain Token-2022 transfer runs none of AssetFlow's code, so every wallet and p
 
 The public [proof page](https://assetflow-servicing.vercel.app/proof) reads each of these guarantees back from the chain and links to the account that proves it.
 
-**In progress:** instrument terms on-chain and coupons paid on the record date, with every amount computed by the program (30/360, rounded down to the cent on each holder's total holding), redemptions at a program-computed price with burn and USDC payment in one transaction, and maturity.
+**Coupons.** The instrument's terms live on-chain, and every amount is computed by the program: 30/360, rounded down to the cent on each holder's total holding. On the record date anyone can fix the register (the mint pauses so no unit moves), the issuer commits a Merkle root of units per holder that must add up to the supply, and once the payment's own vault is fully funded anyone can pay each holder. A holder who is no longer eligible has their coupon held back.
+
+**Redemptions and maturity.** A holder asks to redeem early and the units wait in an escrow the asset account owns. The issuer settles at face plus accrued interest, priced by the program, and the units burn in the same transaction as the USDC moves; or rejects, and the units go back, into a frozen account too. Units in escrow on a record date still count to their holder. Once the last payment date has passed and every coupon's register is committed, anyone can start maturity: the mint authority is dropped for good, and once the principal is fully funded anyone can redeem any holding at face. An ineligible holder keeps their units, and their principal waits in the vault.
 
 ## The app
 
-- **Issuer console** (`/issuer`): self-serve set-up (an investor registry, then the asset created and registered in one transaction), an investor register joined with every holder account on-chain, issuance, and compliance policy.
-- **Holder portal** (`/holder`): an eligibility checklist that names the rule a wallet fails, and one-transaction account activation. An ineligible wallet can "try anyway" and get the gate's refusal as its own on-chain transaction.
+- **Issuer console** (`/issuer`): self-serve set-up (an investor registry, then the asset created and registered in one transaction), an investor register joined with every holder account on-chain, issuance, coupons from terms to paid, the redemption queue and maturity, and compliance policy.
+- **Holder portal** (`/holder`): an eligibility checklist that names the rule a wallet fails, and one-transaction account activation. An ineligible wallet can "try anyway" and get the gate's refusal as its own on-chain transaction. Holders see each coupon, ask to redeem early with the price shown before they sign, and redeem at maturity.
 - **Proof** (`/proof`): nine guarantees checked live against the chain.
 - English, Simplified Chinese and Traditional Chinese (Hong Kong).
 
 ## Repository
 
-- [`solana/`](solana): the Anchor program, a hand-built client and local-validator tests (18 cases, including the attacks an adversarial review found).
+- [`solana/`](solana): the Anchor program, a hand-built client and local-validator tests (44 cases across eligibility, coupons, and redemptions and maturity, including the attacks an adversarial review found).
 - [`frontend/`](frontend): the Next.js app.
 - [`contracts/`](contracts): the Solidity contracts deployed on HashKey Chain.
 - [`backend/`](backend): the Express API the HashKey console used.

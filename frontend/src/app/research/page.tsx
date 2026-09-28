@@ -132,8 +132,8 @@ export default function ResearchPage() {
       <p className="mt-4 text-lg text-ink-2">
         Issuing a tokenized bond or fund on Solana is solved many times over. Running it afterwards is not: who may hold
         it, what each holder is owed on the record date, and how they redeem. AssetFlow is the open, Solana-native
-        paying agent and register for that work, for licensed transfer agents and mid-market issuers. Eligibility and
-        coupons run on devnet today; redemptions are next.
+        paying agent and register for that work, for licensed transfer agents and mid-market issuers. Eligibility,
+        coupons, redemptions and maturity all run on devnet today.
       </p>
 
       <Section title="Why now">
