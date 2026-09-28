@@ -1,189 +1,71 @@
 # AssetFlow
 
-**The transfer-agent and fund-administration layer for tokenized assets on HashKey Chain.**
+**The servicing layer for tokenized assets: who may hold them, what each holder is owed on the record date, and how they redeem, enforced on-chain and run from one console.**
 
-AssetFlow is built for the part of tokenized finance that most demos skip. Issuance is only the start. Once a fund unit, note, commodity-backed token, or private placement asset is live, someone still has to operate it:
+Issuance is day one. A tokenized bond or fund still has to be run every day after: holder eligibility, transfer restrictions, coupons and dividends, redemptions, maturity. Today that work lives in spreadsheets and email next to a token on-chain. AssetFlow puts it where the token is.
 
-- decide who is allowed to hold it
-- manage transfer restrictions
-- prepare payout windows
-- service holder claims
-- review redemptions
-- settle exits with an auditable workflow
+Live app (Solana devnet): **https://assetflow-hashkey.vercel.app**
 
-AssetFlow turns that post-issuance servicing layer into a product.
+## Where it runs
 
-## What AssetFlow Does
+| Chain | Status | What is there |
+|---|---|---|
+| **Solana** | Devnet | The servicing layer, built natively on Token-2022 and Token ACL (sRFC-37). Program `BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR`. |
+| **HashKey Chain** | Mainnet (chain 177), deployed 11 May 2026 | The EVM contracts AssetFlow started as: [ComplianceRegistry](https://hsk.blockscout.com/address/0xd06ea0b9AD8935df0e823555F0433604B880711D), [ServicedAssetToken "AssetFlow Pilot Unit"](https://hsk.blockscout.com/address/0x59E0f69FF6d25b5ceE757c874adAdC42E9857f2A), [DistributionModule](https://hsk.blockscout.com/address/0x93995825CA13fBbf74f6876480bf7565f33a8717), [RedemptionModule](https://hsk.blockscout.com/address/0x7495d785B5edA74E2c3ebc4B4c0909DeF86078bB). Recorded in [`contracts/deployments/hashkey-mainnet.json`](contracts/deployments/hashkey-mainnet.json). |
+| Base, Arbitrum, Robinhood Chain | Planned | Tokenized stocks there reinvest dividends through a multiplier and never pay cash; AssetFlow is the cash-payout rail. One register, the same record-date payout published on each chain. |
 
-AssetFlow gives issuers and operators a live workflow for running tokenized assets after launch.
+## How it works on Solana
 
-The product combines:
+**Eligibility without a transfer hook.** The asset is a Token-2022 mint whose holder accounts start frozen (Default Account State). Token ACL, the Solana Foundation's sRFC-37 program, holds the freeze authority and asks the AssetFlow program, as the mint's *gate*, before any thaw or freeze:
 
-- **holder eligibility controls**
-  Wallets can be approved, frozen, expired, jurisdiction-gated, and tiered for compliant access.
+- a holder can thaw their own account only if their investor profile passes the registry: approved, KYC in date, allowed jurisdiction, sufficient tier, accreditation where required;
+- anyone can freeze a holder who no longer passes, so a lapsed approval is enforceable without the issuer;
+- nobody can freeze a holder in good standing.
 
-- **restricted asset servicing**
-  The serviced asset token is policy-aware, not just mintable.
+A plain Token-2022 transfer runs none of AssetFlow's code, so every wallet and program that handles Token-2022 handles the asset.
 
-- **payout window infrastructure**
-  Issuers generate snapshots off-chain, publish merkle-root distributions on-chain, and let holders claim against a verifiable payout window.
+**No personal key can reach around the gate.** Every authority over the mint, including mint, freeze via Token ACL, pause and permanent delegate, belongs to the asset account, a PDA of the program. Registration is one step that checks how the mint is built (holder accounts frozen by default, no transfer hook, close authority, confidential transfers or fees) and hands the freeze authority to Token ACL itself. The gate thaws only accounts whose owner can never change, and issuance re-checks eligibility.
 
-- **redemption queue operations**
-  Holders request exit, issuers review and approve or reject, and settlement is completed through a controlled on-chain process.
+The public [proof page](https://assetflow-hashkey.vercel.app/proof) reads each of these guarantees back from the chain and links to the account that proves it.
 
-- **valuation visibility**
-  Oracle-backed quote reads support redemption pricing checks before settlement.
+**In progress:** instrument terms on-chain and coupons paid on the record date, with every amount computed by the program (30/360, rounded down to the cent on each holder's total holding), redemptions at a program-computed price with burn and USDC payment in one transaction, and maturity.
 
-## Why This Matters
+## The app
 
-Most tokenized asset products focus on issuance, access, or trading. The operational burden after launch still falls back to fragmented off-chain tooling: spreadsheets, manual payout coordination, admin portals, and internal reconciliation.
+- **Issuer console** (`/issuer`): self-serve set-up (an investor registry, then the asset created and registered in one transaction), an investor register joined with every holder account on-chain, issuance, and compliance policy.
+- **Holder portal** (`/holder`): an eligibility checklist that names the rule a wallet fails, and one-transaction account activation. An ineligible wallet can "try anyway" and get the gate's refusal as its own on-chain transaction.
+- **Proof** (`/proof`): nine guarantees checked live against the chain.
+- English, Simplified Chinese and Traditional Chinese (Hong Kong).
 
-That makes tokenized assets hard to run like real financial products.
+## Repository
 
-AssetFlow focuses on the missing layer:
+- [`solana/`](solana): the Anchor program, a hand-built client and local-validator tests (18 cases, including the attacks an adversarial review found).
+- [`frontend/`](frontend): the Next.js app.
+- [`contracts/`](contracts): the Solidity contracts deployed on HashKey Chain.
+- [`backend/`](backend): the Express API the HashKey console used.
 
-- who can hold the asset
-- when it pays out
-- how claims are serviced
-- how exits are reviewed
-- how the issuer stays in control
+## Run it locally
 
-## Who It Is For
-
-AssetFlow is designed for teams issuing or operating:
-
-- tokenized funds
-- tokenized notes or structured products
-- commodity-backed tokens
-- private placement or restricted-access RWAs
-
-In hackathon form, it is best understood as **on-chain servicing infrastructure for compliant tokenized assets**.
-
-## Product Surface
-
-AssetFlow ships as a three-part stack:
-
-### 1. On-chain contracts
-
-- `ComplianceRegistry`
-- `ServicedAssetToken`
-- `DistributionModule`
-- `RedemptionModule`
-- `AssetOracleRouter`
-
-These contracts handle policy, asset servicing, distributions, redemptions, and quote reads.
-
-### 2. Backend API
-
-The backend powers issuer/operator actions:
-
-- investor approval and policy updates
-- minting
-- snapshot construction
-- payout publication
-- claim proof lookup
-- redemption read/approve/reject/settle actions
-- oracle quote reads
-
-### 3. Frontend
-
-The Next.js frontend has two routes:
-
-- `/`
-  Product framing and positioning
-- `/console`
-  Guided operator workflow for servicing the asset
-
-## Live Demo Narrative
-
-The demo is intentionally simple:
-
-1. connect the console to the live backend
-2. show that the issuer can approve who may hold the asset
-3. issue units to approved holders
-4. prepare and publish a payout window
-5. generate a claim packet for a holder
-6. inspect and resolve a redemption request
-7. run an oracle-backed valuation quote
-
-The point of the demo is not “look, another dashboard.”
-
-The point is:
-
-**this tokenized asset can now be operated like a product, not just minted like a token.**
-
-## Why HashKey Chain
-
-AssetFlow is built specifically for HashKey Chain's strongest narrative:
-
-- compliance-aware on-chain finance
-- institutional-grade tokenized assets
-- RWA infrastructure
-- oracle-backed settlement context
-- EVM-compatible deployment path
-
-HashKey Chain is a strong fit for post-issuance servicing because the chain already leans toward regulated and institution-facing financial infrastructure rather than generic retail DeFi.
-
-## Current Deployment
-
-HashKey testnet:
-
-- `ComplianceRegistry`: `0xC6234816f981C0bC8E8FB48Ba6FF9fb864212f3c`
-- `ServicedAssetToken`: `0x4372222b90612bCD37e09452052DE5b44DfBC10C`
-- `DistributionModule`: `0xE6ab32D718AFe5932c7805c231AD35A6133Aa383`
-- `RedemptionModule`: `0x367a53A6728771E66f9e430932D7FA75B446fA0a`
-- `OracleRouter`: `0xD22602E3114b754a86583ce2d48Cce05d2becd78`
-
-Hosted backend:
-
-- `https://assetflow-backend-1064261519338.us-central1.run.app`
-
-## Repository Layout
-
-- [`contracts/`](/home/divij/vincent/assetflow/contracts)
-  Hardhat contracts, deployment scripts, and integration tests
-- [`backend/`](/home/divij/vincent/assetflow/backend)
-  Express API, chain integration, and demo state
-- [`frontend/`](/home/divij/vincent/assetflow/frontend)
-  Next.js landing page and servicing console
-- [`ARCHITECTURE.md`](/home/divij/vincent/assetflow/ARCHITECTURE.md)
-  System and demo diagrams
-
-## Run It Locally
-
-### Contracts
+Solana program and tests (in WSL; see `solana/build.sh`):
 
 ```bash
-cd /home/divij/vincent/assetflow/contracts
-npm install
-npm run compile
-npm test
+wsl bash solana/build.sh
+wsl bash solana/tests/validator.sh      # terminal 1: validator with AssetFlow + Token ACL
+cd solana && npm install && npm test    # terminal 2
 ```
 
-### Backend
+App against the local validator:
 
 ```bash
-cd /home/divij/vincent/assetflow/backend
-npm install
-cp .env.example .env
-npm start
+cd frontend && npm install && npm run dev
 ```
 
-### Frontend
+The app defaults to a local validator and offers a dev wallet there. For devnet, set `NEXT_PUBLIC_SOLANA_CLUSTER=devnet`, `NEXT_PUBLIC_RPC_PROXY=1` and a server-side `SOLANA_RPC_URL`.
 
-```bash
-cd /home/divij/vincent/assetflow/frontend
-npm install
-npm run dev
-```
+## Development history
 
-## Deploy To HashKey Testnet
+AssetFlow began as an EVM project for the HashKey Chain Horizon hackathon (April 2026): the Solidity contracts, the Express backend and the first console, deployed to HashKey testnet in April and HashKey mainnet in May. The Solana program, its tests and the current app were written from 28 September 2026 for Colosseum's Crypto World's Fair; see the git history.
 
-```bash
-cd /home/divij/vincent/assetflow/contracts
-cp .env.example .env
-npm run compile
-npm run deploy:testnet
-```
+## License
 
-Then wire the deployed addresses into the backend env and start the API.
+MIT
