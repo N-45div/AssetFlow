@@ -9,7 +9,8 @@
     "issuer": "Issuer console",
     "proof": "On-chain proof",
     "clusterHint": "The Solana cluster this app reads and writes",
-    "language": "Language"
+    "language": "Language",
+    "research": "Research"
   },
   "wallet": {
     "choose": "Connect a wallet",

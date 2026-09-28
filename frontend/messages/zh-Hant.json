@@ -9,7 +9,8 @@
     "issuer": "發行人控制台",
     "proof": "鏈上證明",
     "clusterHint": "本應用讀寫的 Solana 網絡",
-    "language": "語言"
+    "language": "語言",
+    "research": "研究"
   },
   "wallet": {
     "choose": "連接錢包",

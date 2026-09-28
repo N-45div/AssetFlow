@@ -14,6 +14,7 @@ const NAV = [
   { href: "/holder", key: "holder" },
   { href: "/issuer", key: "issuer" },
   { href: "/proof", key: "proof" },
+  { href: "/research", key: "research" },
 ] as const;
 
 const LOCALE_LABEL: Record<string, string> = { en: "EN", "zh-Hans": "简", "zh-Hant": "繁" };
@@ -23,7 +24,7 @@ export function SiteHeader() {
   const pathname = usePathname();
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
         <Link href="/" aria-label="AssetFlow">
           <Logo />
         </Link>
@@ -44,7 +45,7 @@ export function SiteHeader() {
             );
           })}
         </nav>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <ClusterBadge />
           <LocaleSwitch />
           <WalletButton />
