@@ -7,6 +7,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useLocale, useTranslations } from "next-intl";
 import { TOKEN_2022_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 import { EligibilityChecklist } from "@/components/eligibility-checklist";
+import { HolderCoupons } from "@/components/holder-coupons";
 import { PageShell } from "@/components/page-shell";
 import { TxReceipt } from "@/components/tx-receipt";
 import { WalletButton } from "@/components/wallet-button";
@@ -180,6 +181,8 @@ export function HolderPortal() {
               {t("holdings.outstanding", { units: formatUnits(view.supply, view.decimals, locale) })}
             </p>
           </section>
+
+          <HolderCoupons view={view} wallet={publicKey} units={account?.amount ?? 0n} />
         </div>
       </div>
     </PageShell>
