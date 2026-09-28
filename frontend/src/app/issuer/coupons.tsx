@@ -83,15 +83,20 @@ export function CouponsTab({ view }: { view: AssetView }) {
     (async () => {
       const found = await coupons.fetchTerms(connection, mint);
       if (!live) return;
-      setTerms(found);
-      if (!found) return;
+      if (!found) {
+        setTerms(null);
+        return;
+      }
       const [owner, list] = await Promise.all([
         connection.getAccountInfo(found.currencyMint).then((i) => i?.owner ?? TOKEN_PROGRAM_ID),
         Promise.all(found.periods.map((_, i) => coupons.fetchPayout(connection, mint, i))),
       ]);
       if (!live) return;
+      // Terms and payouts together: the schedule shown without its payouts
+      // would offer to fix a register that is already paid.
       setCurrencyProgram(owner);
       setPayouts(list);
+      setTerms(found);
     })().catch(() => live && setTerms(null));
     return () => {
       live = false;
