@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { TOKEN_2022_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 import { EligibilityChecklist } from "@/components/eligibility-checklist";
 import { HolderCoupons } from "@/components/holder-coupons";
+import { HolderRedemptions } from "@/components/holder-redemptions";
 import { PageShell } from "@/components/page-shell";
 import { TxReceipt } from "@/components/tx-receipt";
 import { WalletButton } from "@/components/wallet-button";
@@ -183,6 +184,17 @@ export function HolderPortal() {
           </section>
 
           <HolderCoupons view={view} wallet={publicKey} units={account?.amount ?? 0n} />
+          <HolderRedemptions
+            view={view}
+            wallet={publicKey}
+            account={account}
+            tokenAccount={tokenAccount}
+            eligible={eligible}
+            onChange={() => {
+              holder.refresh();
+              asset.refresh();
+            }}
+          />
         </div>
       </div>
     </PageShell>

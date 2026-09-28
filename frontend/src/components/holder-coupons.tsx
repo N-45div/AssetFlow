@@ -7,9 +7,11 @@ import { useLocale, useTranslations } from "next-intl";
 import { money } from "@/app/issuer/coupons";
 import { PROGRAM_ID } from "@/lib/chain/config";
 import { Coupons, couponAmount, type Payout, type PaymentRecord, type Terms } from "@/lib/chain/coupons";
+import { Redemptions } from "@/lib/chain/redemptions";
 import type { AssetView } from "@/lib/chain/use-asset";
 
 const coupons = new Coupons(PROGRAM_ID);
+const redemptions = new Redemptions(PROGRAM_ID);
 
 interface Row {
   payout: Payout | null;
@@ -23,6 +25,8 @@ export function HolderCoupons({ view, wallet, units }: { view: AssetView; wallet
   const { connection } = useConnection();
   const [terms, setTerms] = useState<Terms | null | undefined>(undefined);
   const [rows, setRows] = useState<Row[]>([]);
+  // Units waiting in the redemption escrow are still this holder's on a record date.
+  const [escrowed, setEscrowed] = useState(0n);
 
   useEffect(() => {
     let live = true;
@@ -31,19 +35,24 @@ export function HolderCoupons({ view, wallet, units }: { view: AssetView; wallet
       if (!live) return;
       setTerms(found);
       if (!found) return;
-      const list = await Promise.all(
-        found.periods.map(async (_, i) => {
-          const payout = await coupons.fetchPayout(connection, view.asset.mint, i);
-          const record = payout ? await coupons.fetchPayment(connection, payout.address, wallet) : null;
-          return { payout, record };
-        }),
-      );
-      if (live) setRows(list);
+      const [list, requests] = await Promise.all([
+        Promise.all(
+          found.periods.map(async (_, i) => {
+            const payout = await coupons.fetchPayout(connection, view.asset.mint, i);
+            const record = payout ? await coupons.fetchPayment(connection, payout.address, wallet) : null;
+            return { payout, record };
+          }),
+        ),
+        redemptions.fetchRequests(connection, view.asset.address, wallet),
+      ]);
+      if (!live) return;
+      setRows(list);
+      setEscrowed(requests.filter((r) => r.status === "requested").reduce((sum, r) => sum + r.units, 0n));
     })().catch(() => live && setTerms(null));
     return () => {
       live = false;
     };
-  }, [connection, view.asset.mint, wallet]);
+  }, [connection, view.asset.mint, view.asset.address, wallet]);
 
   if (terms === undefined) return null;
   const date = (ts: number) => new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(ts * 1000);
@@ -73,7 +82,7 @@ export function HolderCoupons({ view, wallet, units }: { view: AssetView; wallet
                 amount = "—";
                 status = payout.status === "committed" ? t("paying") : t("fixed");
               } else {
-                amount = `${cur(couponAmount(terms, p, units))} ${t("est")}`;
+                amount = `${cur(couponAmount(terms, p, units + escrowed))} ${t("est")}`;
                 status = t("scheduled");
               }
               return (

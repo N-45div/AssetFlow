@@ -558,7 +558,9 @@
         "reject": "Rejecting the request",
         "start": "Starting maturity",
         "fund": "Funding the principal"
-      }
+      },
+      "allEligibleRedeemed": "Every eligible holding redeemed",
+      "heldNote": "{units} units belong to holders who are not eligible. They keep them, and their principal waits in the vault until compliance clears them; redeem them then."
     }
   },
   "proof": {
