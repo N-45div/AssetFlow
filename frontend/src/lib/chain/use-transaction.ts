@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Keypair, SendTransactionError, Transaction, type TransactionInstruction } from "@solana/web3.js";
+import { waitForConfirmation } from "./confirm";
 import { explainFailure, type Refusal } from "./errors";
 
 export type TxState =
@@ -43,21 +44,18 @@ export function useTransaction() {
           skipPreflight: options.recordRefusal ?? false,
         });
         setState({ status: "sent", signature });
-        const result = await connection.confirmTransaction(
-          { signature, blockhash, lastValidBlockHeight },
-          "confirmed",
-        );
-        if (result.value.err) {
+        const result = await waitForConfirmation(connection, signature, lastValidBlockHeight);
+        if (result.err) {
           const landed = await connection.getTransaction(signature, {
             commitment: "confirmed",
             maxSupportedTransactionVersion: 0,
           });
           const logs = landed?.meta?.logMessages ?? [];
-          const next: TxState = { status: "failed", signature, refusal: explainFailure(result.value.err, logs) };
+          const next: TxState = { status: "failed", signature, refusal: explainFailure(result.err, logs) };
           setState(next);
           return next;
         }
-        const next: TxState = { status: "confirmed", signature, slot: result.context.slot };
+        const next: TxState = { status: "confirmed", signature, slot: result.slot };
         setState(next);
         return next;
       } catch (error) {

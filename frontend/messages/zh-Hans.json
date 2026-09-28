@@ -23,7 +23,8 @@
     "fund": "领取测试 SOL",
     "funding": "正在领取测试 SOL…",
     "funded": "已收到 2 个测试 SOL",
-    "fundFailed": "水龙头拒绝了请求，请稍后再试"
+    "fundFailed": "水龙头拒绝了请求，请稍后再试",
+    "faucet": "领取 devnet SOL（水龙头）"
   },
   "footer": {
     "line": "以 MIT 许可开源。基于 Solana 的 Token-2022 和 Token ACL（sRFC-37）构建。",
@@ -40,12 +41,30 @@
       "label": "条款摘要",
       "demo": "演示产品",
       "name": "AssetFlow 票据 10% 2028",
-      "face": { "label": "每张票据面值", "value": "1,000 美元" },
-      "coupon": { "label": "票息", "value": "年利率 10.00%，每半年支付" },
-      "dayCount": { "label": "计息基准", "value": "30/360" },
-      "record": { "label": "登记日", "value": "每次付息前在链上锁定持有人名册" },
-      "settlement": { "label": "结算", "value": "Solana 上的 USDC" },
-      "holders": { "label": "持有人", "value": "仅限合资格钱包" }
+      "face": {
+        "label": "每张票据面值",
+        "value": "1,000 美元"
+      },
+      "coupon": {
+        "label": "票息",
+        "value": "年利率 10.00%，每半年支付"
+      },
+      "dayCount": {
+        "label": "计息基准",
+        "value": "30/360"
+      },
+      "record": {
+        "label": "登记日",
+        "value": "每次付息前在链上锁定持有人名册"
+      },
+      "settlement": {
+        "label": "结算",
+        "value": "Solana 上的 USDC"
+      },
+      "holders": {
+        "label": "持有人",
+        "value": "仅限合资格钱包"
+      }
     },
     "jobsTitle": "发行之后，每位发行人都要做的三件事",
     "jobsLede": "如今这些工作靠电子表格和邮件完成，而代币本身在链上。AssetFlow 把它们放到代币所在的地方。",
@@ -117,9 +136,18 @@
       "pass": "已有投资者档案",
       "fail": "没有投资者档案：发行人尚未为此钱包办理开户"
     },
-    "approved": { "pass": "已获合规批准", "fail": "未获合规批准" },
-    "hold": { "pass": "无合规冻结", "fail": "处于合规冻结中" },
-    "expiry": { "pass": "KYC 有效期至 {date}", "fail": "KYC 已于 {date} 过期" },
+    "approved": {
+      "pass": "已获合规批准",
+      "fail": "未获合规批准"
+    },
+    "hold": {
+      "pass": "无合规冻结",
+      "fail": "处于合规冻结中"
+    },
+    "expiry": {
+      "pass": "KYC 有效期至 {date}",
+      "fail": "KYC 已于 {date} 过期"
+    },
     "tier": {
       "pass": "投资者级别 {tier}，达到最低要求 {min}",
       "fail": "投资者级别 {tier}，低于最低要求 {min}"
@@ -248,7 +276,11 @@
         "jurisdiction": "司法管辖区不获准",
         "accredited": "非认可投资者"
       },
-      "account": { "none": "无", "active": "已激活", "frozen": "已冻结" },
+      "account": {
+        "none": "无",
+        "active": "已激活",
+        "frozen": "已冻结"
+      },
       "enforce": "冻结",
       "edit": "编辑",
       "onboard": "办理开户",

@@ -8,6 +8,20 @@ export const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ??
   (CLUSTER === "localnet" ? "http://127.0.0.1:8899" : `https://api.${CLUSTER}.solana.com`);
 
+/**
+ * Where the browser sends RPC. With NEXT_PUBLIC_RPC_PROXY=1 that is this
+ * site's own /api/rpc, which holds the keyed endpoint server-side.
+ */
+export function rpcEndpoint() {
+  if (process.env.NEXT_PUBLIC_RPC_PROXY === "1" && typeof window !== "undefined") {
+    return `${window.location.origin}/api/rpc`;
+  }
+  return RPC_URL;
+}
+
+/** Local validators get a dev wallet; NEXT_PUBLIC_DEV_WALLET=1 forces it elsewhere, for testing only. */
+export const DEV_WALLET = CLUSTER === "localnet" || process.env.NEXT_PUBLIC_DEV_WALLET === "1";
+
 export const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_ASSETFLOW_PROGRAM_ID ?? "BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR",
 );

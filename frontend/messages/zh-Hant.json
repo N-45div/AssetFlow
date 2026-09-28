@@ -23,7 +23,8 @@
     "fund": "領取測試 SOL",
     "funding": "正在領取測試 SOL…",
     "funded": "已收到 2 個測試 SOL",
-    "fundFailed": "水龍頭拒絕了請求，請稍後再試"
+    "fundFailed": "水龍頭拒絕了請求，請稍後再試",
+    "faucet": "領取 devnet SOL（水龍頭）"
   },
   "footer": {
     "line": "以 MIT 許可開源。基於 Solana 的 Token-2022 和 Token ACL（sRFC-37）構建。",

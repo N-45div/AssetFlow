@@ -23,7 +23,8 @@
     "fund": "Get test SOL",
     "funding": "Requesting test SOL…",
     "funded": "2 test SOL received",
-    "fundFailed": "Faucet refused; try again later"
+    "fundFailed": "Faucet refused; try again later",
+    "faucet": "Get devnet SOL (faucet)"
   },
   "footer": {
     "line": "Open source under MIT. Built on Solana with Token-2022 and Token ACL (sRFC-37).",

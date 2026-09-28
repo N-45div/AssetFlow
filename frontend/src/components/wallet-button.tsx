@@ -5,6 +5,7 @@ import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { CLUSTER } from "@/lib/chain/config";
+import { waitForConfirmation } from "@/lib/chain/confirm";
 import { shortKey } from "@/lib/chain/explorer";
 import { useWalletDialog } from "./wallet-dialog";
 
@@ -60,16 +61,27 @@ export function WalletButton({ className = "" }: { className?: string }) {
           >
             {t("copy")}
           </button>
-          {CLUSTER !== "mainnet-beta" && (
+          {CLUSTER === "devnet" && (
+            <a
+              className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-surface-2"
+              href="https://faucet.solana.com"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("faucet")} ↗
+            </a>
+          )}
+          {CLUSTER === "localnet" && (
             <button
               className="w-full rounded px-3 py-2 text-left text-sm hover:bg-surface-2 disabled:opacity-50"
               disabled={funding === "busy"}
               onClick={async () => {
-                // Test SOL for fees; devnet's faucet rate-limits, so this can fail.
+                // A local validator hands out SOL freely; devnet links to its faucet instead.
                 setFunding("busy");
                 try {
+                  const { lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
                   const sig = await connection.requestAirdrop(publicKey, 2 * LAMPORTS_PER_SOL);
-                  await connection.confirmTransaction(sig, "confirmed");
+                  await waitForConfirmation(connection, sig, lastValidBlockHeight);
                   setFunding("done");
                 } catch {
                   setFunding("failed");
