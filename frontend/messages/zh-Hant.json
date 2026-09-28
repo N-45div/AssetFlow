@@ -1,0 +1,386 @@
+{
+  "meta": {
+    "title": "AssetFlow · Solana 上的代幣化資產服務",
+    "description": "持有人資格、登記日票息和以 USDC 支付的贖回，由 Solana 程序強制執行，在一個控制台中完成。"
+  },
+  "nav": {
+    "label": "主導航",
+    "holder": "持有人門户",
+    "issuer": "發行人控制台",
+    "proof": "鏈上證明",
+    "clusterHint": "本應用讀寫的 Solana 網絡",
+    "language": "語言"
+  },
+  "wallet": {
+    "choose": "連接錢包",
+    "close": "關閉",
+    "none": "此瀏覽器中未找到 Solana 錢包。請安裝 Phantom、Solflare 或 Backpack 後刷新。",
+    "connect": "連接錢包",
+    "connecting": "正在連接…",
+    "copy": "複製地址",
+    "change": "更換錢包",
+    "disconnect": "斷開連接",
+    "fund": "領取測試 SOL",
+    "funding": "正在領取測試 SOL…",
+    "funded": "已收到 2 個測試 SOL",
+    "fundFailed": "水龍頭拒絕了請求，請稍後再試"
+  },
+  "footer": {
+    "line": "以 MIT 許可開源。基於 Solana 的 Token-2022 和 Token ACL（sRFC-37）構建。",
+    "source": "源代碼"
+  },
+  "home": {
+    "kicker": "發行之後的資產服務，在 Solana 上",
+    "title": "發行只是第一天。之後的每一天，交給 AssetFlow。",
+    "lede": "誰可以持有代幣化債券或基金、每位持有人在登記日應得多少、以及如何贖回，全部由 Solana 程序強制執行，並在一個控制台中完成。Mosaic 負責鑄造，AssetFlow 負責運營。",
+    "ctaIssuer": "打開發行人控制台",
+    "ctaHolder": "我是持有人",
+    "ctaProof": "查看鏈上證明",
+    "termSheet": {
+      "label": "條款摘要",
+      "demo": "演示產品",
+      "name": "AssetFlow 票據 10% 2028",
+      "face": {
+        "label": "每張票據面值",
+        "value": "1,000 美元"
+      },
+      "coupon": {
+        "label": "票息",
+        "value": "年利率 10.00%，每半年支付"
+      },
+      "dayCount": {
+        "label": "計息基準",
+        "value": "30/360"
+      },
+      "record": {
+        "label": "登記日",
+        "value": "每次付息前在鏈上鎖定持有人名冊"
+      },
+      "settlement": {
+        "label": "結算",
+        "value": "Solana 上的 USDC"
+      },
+      "holders": {
+        "label": "持有人",
+        "value": "僅限合資格錢包"
+      }
+    },
+    "jobsTitle": "發行之後，每位發行人都要做的三件事",
+    "jobsLede": "如今這些工作靠電子表格和郵件完成，而代幣本身在鏈上。AssetFlow 把它們放到代幣所在的地方。",
+    "onSolana": "在 Solana 上：",
+    "jobs": {
+      "eligibility": {
+        "title": "誰可以持有",
+        "body": "每個持有人賬户開立時即處於凍結狀態。只有當錢包的投資者檔案通過名冊規則（已批准、KYC 有效、司法管轄區獲准、級別足夠）時才會解凍。批准失效後，任何人都可以凍結該錢包。",
+        "solana": "Token-2022 默認凍結賬户，由 Token ACL 在每次解凍或凍結前詢問 AssetFlow 的閘門程序。"
+      },
+      "payments": {
+        "title": "每位持有人應得多少",
+        "body": "在登記日，持有人名冊在鏈上鎖定，程序根據產品條款計算每位持有人的應得金額，並以 USDC 支付票息。操作員無需手動輸入任何金額。",
+        "solana": "用可暫停的鑄幣鎖定登記日，每筆付款使用獨立的預注資金庫，並設上限，任何一筆付款都不能動用另一筆的資金。"
+      },
+      "redemptions": {
+        "title": "如何退出",
+        "body": "持有人提出贖回申請，發行人批准，結算時在同一筆交易中銷燬份額並支付 USDC，價格由程序計算，而不是由持有人自報。",
+        "solana": "由程序賬户託管的託管賬户，以及用於到期兑付的永久委託。"
+      }
+    },
+    "nowTitle": "為什麼是現在",
+    "now": {
+      "jpm": "摩根大通於 2025 年 12 月在 Solana 上安排發行商業票據，發行和贖回均以 USDC 結算。",
+      "hkma": "香港特區政府已發行三批數碼綠色債券，其鏈上記錄即為法律上的所有權記錄。",
+      "stack": "Solana 的代幣化工具已涵蓋發行和訪問控制，發行之後的資產服務仍是缺失的一章。"
+    },
+    "source": "來源",
+    "openTitle": "開源，且可驗證",
+    "openBody": "程序、控制台和測試均以 MIT 許可開源。本網站的每一項保證都可以在鏈上證明頁面中核實。"
+  },
+  "tx": {
+    "signing": "{what}：等待錢包確認…",
+    "sent": "{what}：已發送，正在確認…",
+    "confirmed": "{what}：已確認。",
+    "failed": "{what}：已被拒絕。",
+    "onChainRefusal": "此次拒絕已記錄在鏈上。打開交易即可查看程序本身的日誌。",
+    "logs": "程序日誌"
+  },
+  "refusal": {
+    "Unauthorized": "當前連接的錢包沒有執行此操作所需的角色。",
+    "NotEligible": "被 AssetFlow 閘門拒絕：此錢包不符合持有該資產的資格。",
+    "StillEligible": "已拒絕：該持有人仍然合資格，未經合規人員不得凍結。",
+    "TooManyJurisdictions": "名冊允許的司法管轄區數量已達上限。",
+    "InvalidAmount": "金額必須大於零。",
+    "MintAuthorityNotAsset": "鑄幣權限必須屬於資產賬户。",
+    "FreezeAuthorityNotAsset": "凍結權限必須屬於資產賬户。",
+    "MintNotFresh": "只能登記尚未發行任何份額的鑄幣。",
+    "MintNotToken2022": "資產必須是 Token-2022 鑄幣。",
+    "ForbiddenExtension": "該鑄幣帶有受服務資產不允許的擴展。",
+    "DefaultStateNotFrozen": "受服務資產的持有人賬户開立時必須處於凍結狀態。",
+    "DelegateNotAsset": "永久委託必須是資產賬户。",
+    "PauseAuthorityNotAsset": "暫停權限必須屬於資產賬户。",
+    "MintPaused": "該資產已暫停。",
+    "OwnerNotImmutable": "已拒絕：該持有人賬户的所有者日後可以更改，因此閘門不會開放它。",
+    "WrongMint": "該代幣賬户屬於另一種資產。",
+    "AccountFrozen": "被 Token-2022 拒絕：賬户已凍結。",
+    "Rejected": "你在錢包中拒絕了該請求。",
+    "Unknown": "交易失敗。詳情請見下方程序日誌。"
+  },
+  "eligibility": {
+    "title": "資格",
+    "eligible": "合資格",
+    "notEligible": "不合資格",
+    "skipped": "無需",
+    "passed": "通過",
+    "failed": "未通過",
+    "profile": {
+      "pass": "已有投資者檔案",
+      "fail": "沒有投資者檔案：發行人尚未為此錢包辦理開户"
+    },
+    "approved": {
+      "pass": "已獲合規批准",
+      "fail": "未獲合規批准"
+    },
+    "hold": {
+      "pass": "無合規凍結",
+      "fail": "處於合規凍結中"
+    },
+    "expiry": {
+      "pass": "KYC 有效期至 {date}",
+      "fail": "KYC 已於 {date} 過期"
+    },
+    "tier": {
+      "pass": "投資者級別 {tier}，達到最低要求 {min}",
+      "fail": "投資者級別 {tier}，低於最低要求 {min}"
+    },
+    "jurisdiction": {
+      "pass": "{name} 是獲准的司法管轄區",
+      "fail": "{name} 不在獲准名單中"
+    },
+    "accredited": {
+      "pass": "認可投資者",
+      "fail": "要求認可投資者資格，但檔案中沒有",
+      "skipped": "此資產不要求認可投資者資格"
+    }
+  },
+  "holder": {
+    "title": "持有人門户",
+    "noAsset": "未選擇資產",
+    "noAssetHint": "請通過發行人分享的鏈接打開此頁面，或在發行人控制台中選擇資產。",
+    "toIssuer": "前往發行人控制台",
+    "assetLabel": "資產",
+    "connectTitle": "連接你辦理開户時使用的錢包",
+    "connectBody": "你的資格將從鏈上讀取。在你選擇操作之前，不會簽署任何內容。",
+    "loading": "正在從鏈上讀取你的狀態…",
+    "onboardTitle": "辦理開户",
+    "onboardBody": "請把此地址發給發行人。發行人添加你的檔案後，再回來激活賬户。",
+    "copyAddress": "複製",
+    "account": {
+      "title": "持有賬户",
+      "none": "未開立",
+      "frozen": "已凍結",
+      "active": "已激活",
+      "noneBody": "你還沒有此資產的賬户。開立賬户並請求閘門激活只需一筆交易。",
+      "frozenBody": "此資產的賬户開立時處於凍結狀態，或在批准失效時被凍結。一旦你合資格，閘門就會激活它。",
+      "activeBody": "你的賬户可以接收此資產，並轉給其他合資格持有人。",
+      "activate": "激活我的持有賬户",
+      "tryAnyway": "仍然嘗試",
+      "tryAnywayHint": "請求會上鍊並被閘門拒絕；這次拒絕會有自己的交易記錄，可以打開查看。",
+      "what": "激活持有賬户"
+    },
+    "holdings": {
+      "title": "持倉",
+      "units": "持有份額",
+      "share": "佔流通份額比例",
+      "outstanding": "流通份額 {units}"
+    }
+  },
+  "issuer": {
+    "title": "發行人控制台",
+    "connectTitle": "連接發行人錢包",
+    "connectBody": "控制台從鏈上讀取你的名冊和資產。每一項更改都是一筆由你簽署的交易。",
+    "loading": "正在從鏈上讀取…",
+    "assetLabel": "資產",
+    "holderLink": "持有人門户鏈接",
+    "tabsLabel": "控制台板塊",
+    "tabs": {
+      "overview": "概覽",
+      "investors": "投資者",
+      "issuance": "發行",
+      "policy": "合規政策"
+    },
+    "onboarding": {
+      "step": "設置：第 {n} 步，共 {of} 步",
+      "registryTitle": "創建投資者名冊",
+      "registryBody": "名冊保存你的合規政策，以及每個獲批錢包的檔案。你發行的每項資產都可以由它把關。",
+      "minTier": "最低投資者級別",
+      "tier0": "任何投資者",
+      "tier1": "級別 1：零售投資者",
+      "tier2": "級別 2：專業投資者",
+      "tier3": "級別 3：機構投資者",
+      "requireAccredited": "要求認可投資者資格",
+      "jurisdictions": "獲准的司法管轄區",
+      "offByDefault": "默認關閉",
+      "chinaNote": "中國內地默認關閉：其 2026 年的規定禁止未經監管批准在境外將內地資產代幣化。",
+      "createRegistry": "創建名冊",
+      "registryWhat": "創建名冊",
+      "assetTitle": "創建受服務資產",
+      "assetBody": "一筆交易即可創建 Token-2022 鑄幣並將其納入 AssetFlow 管理。任何不按此方式構建的鑄幣都會被程序拒絕。",
+      "assetPoints": {
+        "frozen": "每個持有人賬户開立時處於凍結狀態，直到閘門放行其所有者。",
+        "gate": "Token ACL 持有凍結權限，並在每次解凍或凍結前詢問 AssetFlow。",
+        "authorities": "鑄幣、暫停和永久委託權限屬於資產賬户，而不是任何人的私鑰。",
+        "extensions": "沒有轉賬鈎子、關閉權限或保密轉賬：沒有任何繞過閘門的途徑。"
+      },
+      "createAsset": "創建資產",
+      "assetWhat": "創建資產"
+    },
+    "overview": {
+      "outstanding": "流通份額",
+      "investors": "名冊上的投資者",
+      "eligible": "今日合資格",
+      "active": "已激活的持有賬户",
+      "attentionTitle": "需要處理",
+      "attentionNone": "所有已激活的持有人今日均合資格。",
+      "attentionLapsed": "已激活但不再合資格",
+      "attentionHint": "可在投資者頁面凍結他們。任何人都可以操作；閘門只會同意凍結不再合資格的持有人。",
+      "factsTitle": "鏈上賬户",
+      "facts": {
+        "mint": "鑄幣",
+        "asset": "資產賬户",
+        "registry": "名冊",
+        "mintConfig": "Token ACL 配置",
+        "gate": "閘門程序",
+        "tokenAcl": "Token ACL 程序"
+      }
+    },
+    "investors": {
+      "lede": "名冊中的每份檔案，以及鏈上該資產的持有人賬户。",
+      "add": "添加投資者",
+      "col": {
+        "wallet": "錢包",
+        "jurisdiction": "司法管轄區",
+        "tier": "級別",
+        "expiry": "KYC 有效期至",
+        "status": "狀態",
+        "account": "賬户",
+        "units": "份額"
+      },
+      "loading": "正在讀取名冊…",
+      "empty": "還沒有投資者。請添加第一位。",
+      "reason": {
+        "profile": "沒有檔案",
+        "approved": "未獲批准",
+        "hold": "合規凍結",
+        "expiry": "KYC 已過期",
+        "tier": "級別過低",
+        "jurisdiction": "司法管轄區不獲準",
+        "accredited": "非認可投資者"
+      },
+      "account": {
+        "none": "無",
+        "active": "已激活",
+        "frozen": "已凍結"
+      },
+      "enforce": "凍結",
+      "edit": "編輯",
+      "onboard": "辦理開户",
+      "enforceWhat": "凍結資格已失效的持有人",
+      "editor": {
+        "editTitle": "編輯投資者檔案",
+        "addTitle": "添加投資者",
+        "cancel": "取消",
+        "wallet": "錢包地址",
+        "walletPlaceholder": "Solana 地址",
+        "walletInvalid": "這不是有效的 Solana 地址。",
+        "jurisdiction": "司法管轄區",
+        "notAllowed": "不獲準",
+        "tier": "投資者級別",
+        "tier0": "級別 0",
+        "tier1": "級別 1：零售投資者",
+        "tier2": "級別 2：專業投資者",
+        "tier3": "級別 3：機構投資者",
+        "expiry": "KYC 有效期至",
+        "approved": "已批准",
+        "accredited": "認可投資者",
+        "hold": "合規凍結",
+        "note": "保存只會更改檔案。已激活的賬户會保持激活，直到有人將其凍結；從現在起，閘門會對每次解凍和凍結應用新檔案。",
+        "save": "保存檔案",
+        "what": "保存檔案"
+      }
+    },
+    "issuance": {
+      "title": "發行份額",
+      "lede": "只能發行給合資格持有人。如果對方的賬户尚未開立或激活，會在同一筆交易中開立並通過閘門。",
+      "to": "持有人",
+      "choose": "選擇合資格持有人",
+      "noneEligible": "還沒有合資格持有人",
+      "amount": "份額",
+      "submit": "發行",
+      "what": "發行份額",
+      "rulesTitle": "程序會檢查什麼",
+      "rules": {
+        "eligible": "持有人今天仍通過名冊規則，而不只是在開户時通過。",
+        "recheck": "持有人賬户的所有者永遠不能被更改。",
+        "authority": "份額由資產賬户鑄造，只有本程序能為其簽名。"
+      },
+      "outstanding": "流通份額 {units}。"
+    },
+    "policy": {
+      "title": "合規政策",
+      "lede": "閘門對由此名冊把關的資產，在每次解凍和凍結時應用的規則。",
+      "notCompliance": "當前連接的錢包不是此名冊的合規負責人，因此無法更改政策。",
+      "effect": "收緊政策本身不會凍結任何人。不再合資格的持有人會出現在“需要處理”中，任何人都可以凍結他們。",
+      "save": "保存政策",
+      "what": "保存政策"
+    }
+  },
+  "proof": {
+    "title": "鏈上證明",
+    "noAsset": "未選擇資產。請使用 ?asset=<鑄幣地址> 打開此頁面，或從發行人控制台進入。",
+    "lede": "AssetFlow 的每一項保證，都從鏈上讀取核實，資產",
+    "loading": "正在讀取鑄幣及其配置…",
+    "checksTitle": "保證",
+    "passed": "{total} 項中 {passed} 項成立",
+    "checks": {
+      "token2022": {
+        "title": "Token-2022 鑄幣",
+        "why": "以下擴展只存在於 Token-2022 中。"
+      },
+      "frozenDefault": {
+        "title": "持有人賬户開立時即凍結",
+        "why": "默認賬户狀態為凍結，因此在閘門放行之前，任何賬户都不能持有或轉移份額。"
+      },
+      "mintAuthority": {
+        "title": "只有資產賬户可以鑄幣",
+        "why": "新份額只能通過 AssetFlow 的發行指令產生，並會重新檢查資格。"
+      },
+      "freezeAuthority": {
+        "title": "凍結權限由 Token ACL 持有",
+        "why": "任何人都無法直接凍結或解凍持有人。"
+      },
+      "gate": {
+        "title": "AssetFlow 是閘門",
+        "why": "Token ACL 在每次無需許可的解凍或凍結前都會詢問本程序。"
+      },
+      "configAuthority": {
+        "title": "Token ACL 的配置由資產賬户控制",
+        "why": "沒有任何個人私鑰可以更換閘門、刪除配置或繞過閘門解凍。"
+      },
+      "permissionless": {
+        "title": "持有人自行開户；任何人都可以執行合規",
+        "why": "無需許可的解凍和凍結均已開啓，每一次都由閘門決定。"
+      },
+      "delegate": {
+        "title": "永久委託是資產賬户",
+        "why": "到期銷燬和法院命令的轉移都要經過程序的角色檢查。"
+      },
+      "pause": {
+        "title": "只有資產賬户可以暫停",
+        "why": "暫停用於在登記日鎖定名冊；其他人無法停止轉賬。"
+      }
+    },
+    "supplyTitle": "流通份額",
+    "supplyHint": "從鑄幣讀取。",
+    "extensionsTitle": "鑄幣擴展",
+    "extensionsHint": "登記時會拒絕此集合以外的任何擴展。"
+  }
+}

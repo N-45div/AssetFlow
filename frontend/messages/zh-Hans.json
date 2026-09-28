@@ -1,0 +1,355 @@
+{
+  "meta": {
+    "title": "AssetFlow · Solana 上的代币化资产服务",
+    "description": "持有人资格、登记日票息和以 USDC 支付的赎回，由 Solana 程序强制执行，在一个控制台中完成。"
+  },
+  "nav": {
+    "label": "主导航",
+    "holder": "持有人门户",
+    "issuer": "发行人控制台",
+    "proof": "链上证明",
+    "clusterHint": "本应用读写的 Solana 网络",
+    "language": "语言"
+  },
+  "wallet": {
+    "choose": "连接钱包",
+    "close": "关闭",
+    "none": "此浏览器中未找到 Solana 钱包。请安装 Phantom、Solflare 或 Backpack 后刷新。",
+    "connect": "连接钱包",
+    "connecting": "正在连接…",
+    "copy": "复制地址",
+    "change": "更换钱包",
+    "disconnect": "断开连接",
+    "fund": "领取测试 SOL",
+    "funding": "正在领取测试 SOL…",
+    "funded": "已收到 2 个测试 SOL",
+    "fundFailed": "水龙头拒绝了请求，请稍后再试"
+  },
+  "footer": {
+    "line": "以 MIT 许可开源。基于 Solana 的 Token-2022 和 Token ACL（sRFC-37）构建。",
+    "source": "源代码"
+  },
+  "home": {
+    "kicker": "发行之后的资产服务，在 Solana 上",
+    "title": "发行只是第一天。之后的每一天，交给 AssetFlow。",
+    "lede": "谁可以持有代币化债券或基金、每位持有人在登记日应得多少、以及如何赎回，全部由 Solana 程序强制执行，并在一个控制台中完成。Mosaic 负责铸造，AssetFlow 负责运营。",
+    "ctaIssuer": "打开发行人控制台",
+    "ctaHolder": "我是持有人",
+    "ctaProof": "查看链上证明",
+    "termSheet": {
+      "label": "条款摘要",
+      "demo": "演示产品",
+      "name": "AssetFlow 票据 10% 2028",
+      "face": { "label": "每张票据面值", "value": "1,000 美元" },
+      "coupon": { "label": "票息", "value": "年利率 10.00%，每半年支付" },
+      "dayCount": { "label": "计息基准", "value": "30/360" },
+      "record": { "label": "登记日", "value": "每次付息前在链上锁定持有人名册" },
+      "settlement": { "label": "结算", "value": "Solana 上的 USDC" },
+      "holders": { "label": "持有人", "value": "仅限合资格钱包" }
+    },
+    "jobsTitle": "发行之后，每位发行人都要做的三件事",
+    "jobsLede": "如今这些工作靠电子表格和邮件完成，而代币本身在链上。AssetFlow 把它们放到代币所在的地方。",
+    "onSolana": "在 Solana 上：",
+    "jobs": {
+      "eligibility": {
+        "title": "谁可以持有",
+        "body": "每个持有人账户开立时即处于冻结状态。只有当钱包的投资者档案通过名册规则（已批准、KYC 有效、司法管辖区获准、级别足够）时才会解冻。批准失效后，任何人都可以冻结该钱包。",
+        "solana": "Token-2022 默认冻结账户，由 Token ACL 在每次解冻或冻结前询问 AssetFlow 的闸门程序。"
+      },
+      "payments": {
+        "title": "每位持有人应得多少",
+        "body": "在登记日，持有人名册在链上锁定，程序根据产品条款计算每位持有人的应得金额，并以 USDC 支付票息。操作员无需手动输入任何金额。",
+        "solana": "用可暂停的铸币锁定登记日，每笔付款使用独立的预注资金库，并设上限，任何一笔付款都不能动用另一笔的资金。"
+      },
+      "redemptions": {
+        "title": "如何退出",
+        "body": "持有人提出赎回申请，发行人批准，结算时在同一笔交易中销毁份额并支付 USDC，价格由程序计算，而不是由持有人自报。",
+        "solana": "由程序账户托管的托管账户，以及用于到期兑付的永久委托。"
+      }
+    },
+    "nowTitle": "为什么是现在",
+    "now": {
+      "jpm": "摩根大通于 2025 年 12 月在 Solana 上安排发行商业票据，发行和赎回均以 USDC 结算。",
+      "hkma": "香港特区政府已发行三批数码绿色债券，其链上记录即为法律上的所有权记录。",
+      "stack": "Solana 的代币化工具已涵盖发行和访问控制，发行之后的资产服务仍是缺失的一章。"
+    },
+    "source": "来源",
+    "openTitle": "开源，且可验证",
+    "openBody": "程序、控制台和测试均以 MIT 许可开源。本网站的每一项保证都可以在链上证明页面中核实。"
+  },
+  "tx": {
+    "signing": "{what}：等待钱包确认…",
+    "sent": "{what}：已发送，正在确认…",
+    "confirmed": "{what}：已确认。",
+    "failed": "{what}：已被拒绝。",
+    "onChainRefusal": "此次拒绝已记录在链上。打开交易即可查看程序本身的日志。",
+    "logs": "程序日志"
+  },
+  "refusal": {
+    "Unauthorized": "当前连接的钱包没有执行此操作所需的角色。",
+    "NotEligible": "被 AssetFlow 闸门拒绝：此钱包不符合持有该资产的资格。",
+    "StillEligible": "已拒绝：该持有人仍然合资格，未经合规人员不得冻结。",
+    "TooManyJurisdictions": "名册允许的司法管辖区数量已达上限。",
+    "InvalidAmount": "金额必须大于零。",
+    "MintAuthorityNotAsset": "铸币权限必须属于资产账户。",
+    "FreezeAuthorityNotAsset": "冻结权限必须属于资产账户。",
+    "MintNotFresh": "只能登记尚未发行任何份额的铸币。",
+    "MintNotToken2022": "资产必须是 Token-2022 铸币。",
+    "ForbiddenExtension": "该铸币带有受服务资产不允许的扩展。",
+    "DefaultStateNotFrozen": "受服务资产的持有人账户开立时必须处于冻结状态。",
+    "DelegateNotAsset": "永久委托必须是资产账户。",
+    "PauseAuthorityNotAsset": "暂停权限必须属于资产账户。",
+    "MintPaused": "该资产已暂停。",
+    "OwnerNotImmutable": "已拒绝：该持有人账户的所有者日后可以更改，因此闸门不会开放它。",
+    "WrongMint": "该代币账户属于另一种资产。",
+    "AccountFrozen": "被 Token-2022 拒绝：账户已冻结。",
+    "Rejected": "你在钱包中拒绝了该请求。",
+    "Unknown": "交易失败。详情请见下方程序日志。"
+  },
+  "eligibility": {
+    "title": "资格",
+    "eligible": "合资格",
+    "notEligible": "不合资格",
+    "skipped": "无需",
+    "passed": "通过",
+    "failed": "未通过",
+    "profile": {
+      "pass": "已有投资者档案",
+      "fail": "没有投资者档案：发行人尚未为此钱包办理开户"
+    },
+    "approved": { "pass": "已获合规批准", "fail": "未获合规批准" },
+    "hold": { "pass": "无合规冻结", "fail": "处于合规冻结中" },
+    "expiry": { "pass": "KYC 有效期至 {date}", "fail": "KYC 已于 {date} 过期" },
+    "tier": {
+      "pass": "投资者级别 {tier}，达到最低要求 {min}",
+      "fail": "投资者级别 {tier}，低于最低要求 {min}"
+    },
+    "jurisdiction": {
+      "pass": "{name} 是获准的司法管辖区",
+      "fail": "{name} 不在获准名单中"
+    },
+    "accredited": {
+      "pass": "认可投资者",
+      "fail": "要求认可投资者资格，但档案中没有",
+      "skipped": "此资产不要求认可投资者资格"
+    }
+  },
+  "holder": {
+    "title": "持有人门户",
+    "noAsset": "未选择资产",
+    "noAssetHint": "请通过发行人分享的链接打开此页面，或在发行人控制台中选择资产。",
+    "toIssuer": "前往发行人控制台",
+    "assetLabel": "资产",
+    "connectTitle": "连接你办理开户时使用的钱包",
+    "connectBody": "你的资格将从链上读取。在你选择操作之前，不会签署任何内容。",
+    "loading": "正在从链上读取你的状态…",
+    "onboardTitle": "办理开户",
+    "onboardBody": "请把此地址发给发行人。发行人添加你的档案后，再回来激活账户。",
+    "copyAddress": "复制",
+    "account": {
+      "title": "持有账户",
+      "none": "未开立",
+      "frozen": "已冻结",
+      "active": "已激活",
+      "noneBody": "你还没有此资产的账户。开立账户并请求闸门激活只需一笔交易。",
+      "frozenBody": "此资产的账户开立时处于冻结状态，或在批准失效时被冻结。一旦你合资格，闸门就会激活它。",
+      "activeBody": "你的账户可以接收此资产，并转给其他合资格持有人。",
+      "activate": "激活我的持有账户",
+      "tryAnyway": "仍然尝试",
+      "tryAnywayHint": "请求会上链并被闸门拒绝；这次拒绝会有自己的交易记录，可以打开查看。",
+      "what": "激活持有账户"
+    },
+    "holdings": {
+      "title": "持仓",
+      "units": "持有份额",
+      "share": "占流通份额比例",
+      "outstanding": "流通份额 {units}"
+    }
+  },
+  "issuer": {
+    "title": "发行人控制台",
+    "connectTitle": "连接发行人钱包",
+    "connectBody": "控制台从链上读取你的名册和资产。每一项更改都是一笔由你签署的交易。",
+    "loading": "正在从链上读取…",
+    "assetLabel": "资产",
+    "holderLink": "持有人门户链接",
+    "tabsLabel": "控制台板块",
+    "tabs": {
+      "overview": "概览",
+      "investors": "投资者",
+      "issuance": "发行",
+      "policy": "合规政策"
+    },
+    "onboarding": {
+      "step": "设置：第 {n} 步，共 {of} 步",
+      "registryTitle": "创建投资者名册",
+      "registryBody": "名册保存你的合规政策，以及每个获批钱包的档案。你发行的每项资产都可以由它把关。",
+      "minTier": "最低投资者级别",
+      "tier0": "任何投资者",
+      "tier1": "级别 1：零售投资者",
+      "tier2": "级别 2：专业投资者",
+      "tier3": "级别 3：机构投资者",
+      "requireAccredited": "要求认可投资者资格",
+      "jurisdictions": "获准的司法管辖区",
+      "offByDefault": "默认关闭",
+      "chinaNote": "中国内地默认关闭：其 2026 年的规定禁止未经监管批准在境外将内地资产代币化。",
+      "createRegistry": "创建名册",
+      "registryWhat": "创建名册",
+      "assetTitle": "创建受服务资产",
+      "assetBody": "一笔交易即可创建 Token-2022 铸币并将其纳入 AssetFlow 管理。任何不按此方式构建的铸币都会被程序拒绝。",
+      "assetPoints": {
+        "frozen": "每个持有人账户开立时处于冻结状态，直到闸门放行其所有者。",
+        "gate": "Token ACL 持有冻结权限，并在每次解冻或冻结前询问 AssetFlow。",
+        "authorities": "铸币、暂停和永久委托权限属于资产账户，而不是任何人的私钥。",
+        "extensions": "没有转账钩子、关闭权限或保密转账：没有任何绕过闸门的途径。"
+      },
+      "createAsset": "创建资产",
+      "assetWhat": "创建资产"
+    },
+    "overview": {
+      "outstanding": "流通份额",
+      "investors": "名册上的投资者",
+      "eligible": "今日合资格",
+      "active": "已激活的持有账户",
+      "attentionTitle": "需要处理",
+      "attentionNone": "所有已激活的持有人今日均合资格。",
+      "attentionLapsed": "已激活但不再合资格",
+      "attentionHint": "可在投资者页面冻结他们。任何人都可以操作；闸门只会同意冻结不再合资格的持有人。",
+      "factsTitle": "链上账户",
+      "facts": {
+        "mint": "铸币",
+        "asset": "资产账户",
+        "registry": "名册",
+        "mintConfig": "Token ACL 配置",
+        "gate": "闸门程序",
+        "tokenAcl": "Token ACL 程序"
+      }
+    },
+    "investors": {
+      "lede": "名册中的每份档案，以及链上该资产的持有人账户。",
+      "add": "添加投资者",
+      "col": {
+        "wallet": "钱包",
+        "jurisdiction": "司法管辖区",
+        "tier": "级别",
+        "expiry": "KYC 有效期至",
+        "status": "状态",
+        "account": "账户",
+        "units": "份额"
+      },
+      "loading": "正在读取名册…",
+      "empty": "还没有投资者。请添加第一位。",
+      "reason": {
+        "profile": "没有档案",
+        "approved": "未获批准",
+        "hold": "合规冻结",
+        "expiry": "KYC 已过期",
+        "tier": "级别过低",
+        "jurisdiction": "司法管辖区不获准",
+        "accredited": "非认可投资者"
+      },
+      "account": { "none": "无", "active": "已激活", "frozen": "已冻结" },
+      "enforce": "冻结",
+      "edit": "编辑",
+      "onboard": "办理开户",
+      "enforceWhat": "冻结资格已失效的持有人",
+      "editor": {
+        "editTitle": "编辑投资者档案",
+        "addTitle": "添加投资者",
+        "cancel": "取消",
+        "wallet": "钱包地址",
+        "walletPlaceholder": "Solana 地址",
+        "walletInvalid": "这不是有效的 Solana 地址。",
+        "jurisdiction": "司法管辖区",
+        "notAllowed": "不获准",
+        "tier": "投资者级别",
+        "tier0": "级别 0",
+        "tier1": "级别 1：零售投资者",
+        "tier2": "级别 2：专业投资者",
+        "tier3": "级别 3：机构投资者",
+        "expiry": "KYC 有效期至",
+        "approved": "已批准",
+        "accredited": "认可投资者",
+        "hold": "合规冻结",
+        "note": "保存只会更改档案。已激活的账户会保持激活，直到有人将其冻结；从现在起，闸门会对每次解冻和冻结应用新档案。",
+        "save": "保存档案",
+        "what": "保存档案"
+      }
+    },
+    "issuance": {
+      "title": "发行份额",
+      "lede": "只能发行给合资格持有人。如果对方的账户尚未开立或激活，会在同一笔交易中开立并通过闸门。",
+      "to": "持有人",
+      "choose": "选择合资格持有人",
+      "noneEligible": "还没有合资格持有人",
+      "amount": "份额",
+      "submit": "发行",
+      "what": "发行份额",
+      "rulesTitle": "程序会检查什么",
+      "rules": {
+        "eligible": "持有人今天仍通过名册规则，而不只是在开户时通过。",
+        "recheck": "持有人账户的所有者永远不能被更改。",
+        "authority": "份额由资产账户铸造，只有本程序能为其签名。"
+      },
+      "outstanding": "流通份额 {units}。"
+    },
+    "policy": {
+      "title": "合规政策",
+      "lede": "闸门对由此名册把关的资产，在每次解冻和冻结时应用的规则。",
+      "notCompliance": "当前连接的钱包不是此名册的合规负责人，因此无法更改政策。",
+      "effect": "收紧政策本身不会冻结任何人。不再合资格的持有人会出现在“需要处理”中，任何人都可以冻结他们。",
+      "save": "保存政策",
+      "what": "保存政策"
+    }
+  },
+  "proof": {
+    "title": "链上证明",
+    "noAsset": "未选择资产。请使用 ?asset=<铸币地址> 打开此页面，或从发行人控制台进入。",
+    "lede": "AssetFlow 的每一项保证，都从链上读取核实，资产",
+    "loading": "正在读取铸币及其配置…",
+    "checksTitle": "保证",
+    "passed": "{total} 项中 {passed} 项成立",
+    "checks": {
+      "token2022": {
+        "title": "Token-2022 铸币",
+        "why": "以下扩展只存在于 Token-2022 中。"
+      },
+      "frozenDefault": {
+        "title": "持有人账户开立时即冻结",
+        "why": "默认账户状态为冻结，因此在闸门放行之前，任何账户都不能持有或转移份额。"
+      },
+      "mintAuthority": {
+        "title": "只有资产账户可以铸币",
+        "why": "新份额只能通过 AssetFlow 的发行指令产生，并会重新检查资格。"
+      },
+      "freezeAuthority": {
+        "title": "冻结权限由 Token ACL 持有",
+        "why": "任何人都无法直接冻结或解冻持有人。"
+      },
+      "gate": {
+        "title": "AssetFlow 是闸门",
+        "why": "Token ACL 在每次无需许可的解冻或冻结前都会询问本程序。"
+      },
+      "configAuthority": {
+        "title": "Token ACL 的配置由资产账户控制",
+        "why": "没有任何个人私钥可以更换闸门、删除配置或绕过闸门解冻。"
+      },
+      "permissionless": {
+        "title": "持有人自行开户；任何人都可以执行合规",
+        "why": "无需许可的解冻和冻结均已开启，每一次都由闸门决定。"
+      },
+      "delegate": {
+        "title": "永久委托是资产账户",
+        "why": "到期销毁和法院命令的转移都要经过程序的角色检查。"
+      },
+      "pause": {
+        "title": "只有资产账户可以暂停",
+        "why": "暂停用于在登记日锁定名册；其他人无法停止转账。"
+      }
+    },
+    "supplyTitle": "流通份额",
+    "supplyHint": "从铸币读取。",
+    "extensionsTitle": "铸币扩展",
+    "extensionsHint": "登记时会拒绝此集合以外的任何扩展。"
+  }
+}
