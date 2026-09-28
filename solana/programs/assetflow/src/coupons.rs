@@ -134,10 +134,15 @@ pub fn days_30_360(start_ts: i64, end_ts: i64) -> i64 {
 pub fn coupon_amount(terms: &Terms, period: &Period, units: u64) -> Result<u64> {
     let days = days_30_360(period.accrual_start, period.accrual_end);
     require!(days > 0, AssetFlowError::InvalidTerms);
+    interest(terms, days, units)
+}
+
+/// Interest on `units` for `days` on the 30/360 basis, rounded down to the cent.
+pub fn interest(terms: &Terms, days: i64, units: u64) -> Result<u64> {
     let raw = (units as u128)
         .checked_mul(terms.face_per_unit as u128)
         .and_then(|v| v.checked_mul(terms.coupon_bps as u128))
-        .and_then(|v| v.checked_mul(days as u128))
+        .and_then(|v| v.checked_mul(days.max(0) as u128))
         .ok_or(error!(AssetFlowError::MathOverflow))?
         / (10_000u128 * 360);
     let cent = 10u128.pow(terms.currency_decimals.saturating_sub(2) as u32);

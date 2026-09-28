@@ -39,6 +39,8 @@ use spl_tlv_account_resolution::{
 
 pub mod coupons;
 pub use coupons::*;
+pub mod redemptions;
+pub use redemptions::*;
 
 declare_id!("BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR");
 
@@ -53,6 +55,7 @@ pub const FREEZE_EXTRA_METAS_SEED: &[u8] = b"freeze_extra_account_metas";
 pub const TOKEN_ACL_ID: Pubkey = pubkey!("TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP");
 pub const MINT_CONFIG_SEED: &[u8] = b"MINT_CONFIG";
 const TOKEN_ACL_CREATE_CONFIG: u8 = 0;
+const TOKEN_ACL_THAW: u8 = 4;
 const TOKEN_ACL_FREEZE: u8 = 5;
 const TOKEN_ACL_TOGGLE_PERMISSIONLESS: u8 = 8;
 
@@ -240,6 +243,7 @@ pub mod assetflow {
     /// proof of that: an approval can lapse before anyone freezes the account.
     pub fn issue(ctx: Context<Issue>, amount: u64) -> Result<()> {
         require!(amount > 0, AssetFlowError::InvalidAmount);
+        require!(!is_matured(&ctx.accounts.mint), AssetFlowError::AssetMatured);
         let owner = ctx.accounts.destination.owner;
         require!(
             holder_is_eligible(
@@ -279,28 +283,13 @@ pub mod assetflow {
     /// say: a sanctions hit or a court order does not wait for a profile
     /// update. Goes through Token ACL's own freeze, which never calls the gate.
     pub fn force_freeze(ctx: Context<ForceFreeze>, reason: u16) -> Result<()> {
-        let mint = ctx.accounts.mint.key();
-        let seeds: &[&[u8]] = &[ASSET_SEED, mint.as_ref(), &[ctx.accounts.asset.bump]];
-        invoke_signed(
-            &Instruction {
-                program_id: TOKEN_ACL_ID,
-                accounts: vec![
-                    AccountMeta::new_readonly(ctx.accounts.asset.key(), true),
-                    AccountMeta::new_readonly(mint, false),
-                    AccountMeta::new(ctx.accounts.token_account.key(), false),
-                    AccountMeta::new_readonly(ctx.accounts.mint_config.key(), false),
-                    AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
-                ],
-                data: vec![TOKEN_ACL_FREEZE],
-            },
-            &[
-                ctx.accounts.asset.to_account_info(),
-                ctx.accounts.mint.to_account_info(),
-                ctx.accounts.token_account.to_account_info(),
-                ctx.accounts.mint_config.to_account_info(),
-                ctx.accounts.token_program.to_account_info(),
-            ],
-            &[seeds],
+        token_acl_set_frozen(
+            true,
+            &ctx.accounts.asset,
+            &ctx.accounts.mint,
+            &ctx.accounts.token_account,
+            &ctx.accounts.mint_config,
+            &ctx.accounts.token_program.to_account_info(),
         )?;
         emit!(ComplianceFreeze {
             asset: ctx.accounts.asset.key(),
@@ -502,6 +491,48 @@ pub mod assetflow {
         Ok(())
     }
 
+    /// Ask to redeem units early. They move into the asset's escrow until the
+    /// issuer settles or rejects, or the holder withdraws the request.
+    pub fn request_redemption(ctx: Context<RequestRedemption>, id: u32, units: u64) -> Result<()> {
+        redemptions::open_request(ctx, id, units)
+    }
+
+    /// The issuer settles a request: pays face plus accrued interest, as the
+    /// program computes it, and the escrowed units burn in the same step.
+    pub fn settle_redemption(ctx: Context<SettleRedemption>) -> Result<()> {
+        redemptions::settle_request(ctx)
+    }
+
+    /// The holder withdraws a request the issuer has not answered.
+    pub fn cancel_redemption(ctx: Context<ReturnRedemption>) -> Result<()> {
+        require_keys_eq!(ctx.accounts.authority.key(), ctx.accounts.request.holder, AssetFlowError::Unauthorized);
+        redemptions::return_request(ctx, RedemptionStatus::Cancelled)
+    }
+
+    /// The issuer refuses a request; the units go back to the holder.
+    pub fn reject_redemption(ctx: Context<ReturnRedemption>) -> Result<()> {
+        require_keys_eq!(ctx.accounts.authority.key(), ctx.accounts.asset.issuer, AssetFlowError::Unauthorized);
+        redemptions::return_request(ctx, RedemptionStatus::Rejected)
+    }
+
+    /// Anyone, once the last payment date has passed and every coupon's
+    /// register is committed: no unit can be issued again, and the face of
+    /// every unit outstanding falls due.
+    pub fn start_maturity(ctx: Context<StartMaturity>) -> Result<()> {
+        redemptions::begin_maturity(ctx)
+    }
+
+    /// Put the principal due at maturity into its vault.
+    pub fn fund_maturity(ctx: Context<FundMaturity>, amount: u64) -> Result<()> {
+        redemptions::fund_principal(ctx, amount)
+    }
+
+    /// Anyone, once the principal is fully funded: burn one holding and pay
+    /// its owner the face. A holder who is not eligible keeps their units.
+    pub fn redeem_at_maturity(ctx: Context<RedeemAtMaturity>) -> Result<()> {
+        redemptions::redeem_holding(ctx)
+    }
+
     /// Token ACL asks this before a permissionless thaw: yes only if the
     /// account's owner is eligible today and can never be changed.
     #[instruction(discriminator = ThawQuestion::SPL_DISCRIMINATOR_SLICE)]
@@ -618,6 +649,42 @@ fn require_immutable_owner(token_account: &AccountInfo, mint: &Pubkey) -> Result
         extensions.contains(&ExtensionType::ImmutableOwner),
         AssetFlowError::OwnerNotImmutable
     );
+    Ok(())
+}
+
+/// Freeze or thaw an account of the asset's mint through Token ACL's own
+/// authority instructions, signing as the asset. These never ask the gate.
+pub(crate) fn token_acl_set_frozen<'info>(
+    frozen: bool,
+    asset: &Account<'info, Asset>,
+    mint: &AccountInfo<'info>,
+    token_account: &AccountInfo<'info>,
+    mint_config: &AccountInfo<'info>,
+    token_program: &AccountInfo<'info>,
+) -> Result<()> {
+    let mint_key = mint.key();
+    let seeds: &[&[u8]] = &[ASSET_SEED, mint_key.as_ref(), &[asset.bump]];
+    invoke_signed(
+        &Instruction {
+            program_id: TOKEN_ACL_ID,
+            accounts: vec![
+                AccountMeta::new_readonly(asset.key(), true),
+                AccountMeta::new_readonly(mint_key, false),
+                AccountMeta::new(token_account.key(), false),
+                AccountMeta::new_readonly(mint_config.key(), false),
+                AccountMeta::new_readonly(token_program.key(), false),
+            ],
+            data: vec![if frozen { TOKEN_ACL_FREEZE } else { TOKEN_ACL_THAW }],
+        },
+        &[
+            asset.to_account_info(),
+            mint.clone(),
+            token_account.clone(),
+            mint_config.clone(),
+            token_program.clone(),
+        ],
+        &[seeds],
+    )?;
     Ok(())
 }
 
@@ -984,4 +1051,16 @@ pub enum AssetFlowError {
     MathOverflow,
     #[msg("the payment must go to an account the holder owns")]
     WrongDestination,
+    #[msg("the asset has matured")]
+    AssetMatured,
+    #[msg("the asset has not reached its maturity date")]
+    MaturityNotReached,
+    #[msg("every coupon's register must be committed before maturity")]
+    CouponsOutstanding,
+    #[msg("the redemption request is no longer open")]
+    RequestClosed,
+    #[msg("the holder's account is frozen")]
+    HoldingFrozen,
+    #[msg("accounts the asset owns are not holdings")]
+    NotAHolding,
 }
