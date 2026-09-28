@@ -12,13 +12,14 @@ import { explorer, shortKey } from "@/lib/chain/explorer";
 import type { Asset, Registry } from "@/lib/chain/program";
 import { program, useAssetView } from "@/lib/chain/use-asset";
 import { useRegister } from "@/lib/chain/use-register";
+import { CouponsTab } from "./coupons";
 import { CreateAsset, CreateRegistry } from "./onboarding";
 import { Investors } from "./investors";
 import { Issuance } from "./issuance";
 import { Overview } from "./overview";
 import { Policy } from "./policy";
 
-const TABS = ["overview", "investors", "issuance", "policy"] as const;
+const TABS = ["overview", "investors", "issuance", "coupons", "policy"] as const;
 type Tab = (typeof TABS)[number];
 
 export function IssuerConsole() {
@@ -161,6 +162,8 @@ export function IssuerConsole() {
           <Overview view={view} rows={register.rows} />
         ) : tab === "investors" ? (
           <Investors view={view} rows={register.rows} onChange={() => register.refresh()} />
+        ) : tab === "coupons" ? (
+          <CouponsTab view={view} />
         ) : tab === "issuance" ? (
           <Issuance
             view={view}

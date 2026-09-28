@@ -25,7 +25,11 @@
     "funding": "Requesting test SOL…",
     "funded": "2 test SOL received",
     "fundFailed": "Faucet refused; try again later",
-    "faucet": "Get devnet SOL (faucet)"
+    "faucet": "Get devnet SOL (faucet)",
+    "usdc": "Get 1,000 test USDC",
+    "usdcBusy": "Minting test USDC…",
+    "usdcDone": "1,000 test USDC received",
+    "usdcFailed": "Faucet failed; try again"
   },
   "footer": {
     "line": "Open source under MIT. Built on Solana with Token-2022 and Token ACL (sRFC-37); EVM contracts live on HashKey Chain mainnet.",
@@ -119,7 +123,8 @@
         "status": "Planned",
         "body": "Base, Arbitrum and Robinhood Chain, where tokenized stocks reinvest dividends through a multiplier and never pay them in cash. One register; the same record-date payout published on each chain."
       }
-    }
+    },
+    "inProgress": "In progress"
   },
   "tx": {
     "signing": "{what}: waiting for your wallet…",
@@ -217,7 +222,19 @@
     },
     "onboardTitle": "Get onboarded",
     "onboardBody": "Send this address to the issuer. Once they add your profile, come back and activate your account.",
-    "copyAddress": "Copy"
+    "copyAddress": "Copy",
+    "coupons": {
+      "title": "Coupons",
+      "none": "This asset has no coupon schedule.",
+      "lede": "{rate}% a year, paid to the wallet that holds the units on each record date.",
+      "heldBack": "Held back",
+      "paid": "Paid",
+      "paying": "Being paid",
+      "fixed": "Register fixed",
+      "est": "est.",
+      "scheduled": "Scheduled",
+      "row": "Coupon {n}"
+    }
   },
   "issuer": {
     "title": "Issuer console",
@@ -231,7 +248,8 @@
       "overview": "Overview",
       "investors": "Investors",
       "issuance": "Issuance",
-      "policy": "Policy"
+      "policy": "Policy",
+      "coupons": "Coupons"
     },
     "onboarding": {
       "step": "Set-up, step {n} of {of}",
@@ -357,6 +375,83 @@
       "effect": "A tighter policy does not freeze anyone by itself. Holders who no longer pass show up under Needs attention, and anyone can freeze them.",
       "save": "Save policy",
       "what": "Saving the policy"
+    },
+    "coupons": {
+      "loading": "Reading the terms…",
+      "termsTitle": "Set the instrument terms",
+      "termsLede": "Every coupon is computed by the program from these terms. They are set once and cannot be changed afterwards.",
+      "face": "Face amount per unit (US$)",
+      "rate": "Coupon rate (% a year)",
+      "first": "First accrual date",
+      "count": "Coupons",
+      "countOption": "{n} semi-annual ({years} years)",
+      "currency": "Payment currency (mint)",
+      "testUsdc": "Test USDC on devnet: get 1,000 from the wallet menu.",
+      "demo": "Demo schedule: record dates a few minutes apart, so a whole payment can be shown live",
+      "col": {
+        "accrual": "Accrual period",
+        "days": "Days (30/360)",
+        "perThousand": "Coupon per 1,000 units",
+        "record": "Record date",
+        "cost": "Cost",
+        "status": "Status",
+        "holder": "Holder",
+        "units": "Units at record date",
+        "entitlement": "Entitlement",
+        "payment": "Payment"
+      },
+      "termsNote": "Coupons are rounded down to the cent on each holder's whole holding. Accrual uses the dates above; the record and payment times say when the register is fixed and the coupon is due.",
+      "setTerms": "Set terms",
+      "termsWhat": "Setting the terms",
+      "scheduleTitle": "Coupon schedule",
+      "termsLine": "{face} face per unit · {rate}% a year · 30/360 · paid in",
+      "stage": {
+        "scheduled": "Scheduled",
+        "due": "Record date passed",
+        "fixed": "Register fixed",
+        "funding": "Needs funding",
+        "paying": "Paying",
+        "paid": "Paid"
+      },
+      "panelTitle": "Coupon {n}, for the period ending {date}",
+      "steps": {
+        "record": "Record date: {when}",
+        "fix": "Fix the register (pauses transfers)",
+        "commit": "Commit entitlements (resumes transfers)",
+        "fund": "Fund the payment",
+        "pay": "Pay every holder"
+      },
+      "required": "Payment cost",
+      "funded": "Funded",
+      "paid": "Paid",
+      "heldBack": "Held back",
+      "fixedAt": "Register fixed at slot {slot}: {units} units outstanding.",
+      "waiting": "Waiting for the record date. Anyone can fix the register once it passes.",
+      "fix": "Fix the register",
+      "commit": "Read the register and commit",
+      "fund": "Fund {amount}",
+      "lowBalance": "Your wallet holds {balance} of the payment currency.",
+      "payAll": "Pay all {n} holders",
+      "download": "Download the register",
+      "import": "Load a saved register",
+      "totalMismatch": "The register adds up to {read} units, but {supply} were outstanding at the record date.",
+      "rootMismatch": "This register does not match the root committed on-chain, so it cannot pay anyone.",
+      "badFile": "That file is not a register saved from this console.",
+      "what": {
+        "scheduled": "The payment",
+        "due": "Fixing the register",
+        "fixed": "Committing the entitlements",
+        "funding": "Funding the payment",
+        "paying": "The payment"
+      },
+      "registerNote": "The register is the chain's own record at the record date: anyone can rebuild it and check it against the committed root.",
+      "sending": "Sending…",
+      "failed": "Failed",
+      "unpaid": "Not yet paid",
+      "heldBackPill": "Held back",
+      "paidPill": "Paid",
+      "rebuild": "Rebuild from the chain",
+      "rebuildMismatch": "Holdings have changed since the record date, so the chain no longer rebuilds the committed root. Load the register saved at commit."
     }
   },
   "proof": {

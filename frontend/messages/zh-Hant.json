@@ -25,7 +25,11 @@
     "funding": "正在領取測試 SOL…",
     "funded": "已收到 2 個測試 SOL",
     "fundFailed": "水龍頭拒絕了請求，請稍後再試",
-    "faucet": "領取 devnet SOL（水龍頭）"
+    "faucet": "領取 devnet SOL（水龍頭）",
+    "usdc": "領取 1,000 測試 USDC",
+    "usdcBusy": "正在發放測試 USDC…",
+    "usdcDone": "已收到 1,000 測試 USDC",
+    "usdcFailed": "領取失敗，請重試"
   },
   "footer": {
     "line": "以 MIT 許可開源。基於 Solana 的 Token-2022 和 Token ACL（sRFC-37）構建；EVM 合約已部署在 HashKey Chain 主網。",
@@ -119,7 +123,8 @@
         "status": "規劃中",
         "body": "Base、Arbitrum 和 Robinhood Chain：這些鏈上的代幣化股票通過乘數把股息再投資，從不以現金支付。同一份名冊，在每條鏈上發佈同一筆登記日派付。"
       }
-    }
+    },
+    "inProgress": "開發中"
   },
   "tx": {
     "signing": "{what}：等待錢包確認…",
@@ -217,6 +222,18 @@
       "units": "持有份額",
       "share": "佔流通份額比例",
       "outstanding": "流通份額 {units}"
+    },
+    "coupons": {
+      "title": "票息",
+      "none": "此資產沒有付息時間表。",
+      "lede": "年利率 {rate}%，支付給每個登記日持有單位的錢包。",
+      "heldBack": "已暫扣",
+      "paid": "已支付",
+      "paying": "付息中",
+      "fixed": "名冊已鎖定",
+      "est": "預估",
+      "scheduled": "已排期",
+      "row": "第 {n} 期"
     }
   },
   "issuer": {
@@ -231,7 +248,8 @@
       "overview": "概覽",
       "investors": "投資者",
       "issuance": "發行",
-      "policy": "合規政策"
+      "policy": "合規政策",
+      "coupons": "票息"
     },
     "onboarding": {
       "step": "設置：第 {n} 步，共 {of} 步",
@@ -357,6 +375,83 @@
       "effect": "收緊政策本身不會凍結任何人。不再合資格的持有人會出現在“需要處理”中，任何人都可以凍結他們。",
       "save": "保存政策",
       "what": "保存政策"
+    },
+    "coupons": {
+      "loading": "正在讀取條款…",
+      "termsTitle": "設定產品條款",
+      "termsLede": "每期票息都由程序根據這些條款計算。條款只能設定一次，之後不可更改。",
+      "face": "每單位面值（美元）",
+      "rate": "票面利率（年，%）",
+      "first": "首個計息日",
+      "count": "票息期數",
+      "countOption": "{n} 期半年付息（{years} 年）",
+      "currency": "支付幣種（鑄幣地址）",
+      "testUsdc": "devnet 上的測試 USDC：可在錢包菜單中領取 1,000。",
+      "demo": "演示時間表：登記日相隔幾分鐘，便於現場演示完整付息流程",
+      "col": {
+        "accrual": "計息期",
+        "days": "天數（30/360）",
+        "perThousand": "每 1,000 單位票息",
+        "record": "登記日",
+        "cost": "金額",
+        "status": "狀態",
+        "holder": "持有人",
+        "units": "登記日持有單位",
+        "entitlement": "應得金額",
+        "payment": "支付"
+      },
+      "termsNote": "票息按每位持有人的全部持倉計算，並向下取整到分。計息按上述日期；登記和支付時間決定何時鎖定名冊、何時到期付息。",
+      "setTerms": "設定條款",
+      "termsWhat": "設定條款",
+      "scheduleTitle": "付息時間表",
+      "termsLine": "每單位面值 {face} · 年利率 {rate}% · 30/360 · 支付幣種",
+      "stage": {
+        "scheduled": "已排期",
+        "due": "登記日已過",
+        "fixed": "名冊已鎖定",
+        "funding": "待注資",
+        "paying": "付息中",
+        "paid": "已支付"
+      },
+      "panelTitle": "第 {n} 期票息，計息期截至 {date}",
+      "steps": {
+        "record": "登記日：{when}",
+        "fix": "鎖定名冊（暫停轉賬）",
+        "commit": "提交應得權益（恢復轉賬）",
+        "fund": "為本期付息注資",
+        "pay": "向每位持有人付息"
+      },
+      "required": "本期付息總額",
+      "funded": "已注資",
+      "paid": "已支付",
+      "heldBack": "已暫扣",
+      "fixedAt": "名冊於區塊 {slot} 鎖定：流通 {units} 單位。",
+      "waiting": "等待登記日。登記日過後，任何人都可以鎖定名冊。",
+      "fix": "鎖定名冊",
+      "commit": "讀取名冊並提交",
+      "fund": "注資 {amount}",
+      "lowBalance": "你的錢包持有 {balance} 支付幣種。",
+      "payAll": "向全部 {n} 位持有人付息",
+      "download": "下載名冊",
+      "import": "載入已保存的名冊",
+      "totalMismatch": "名冊合計 {read} 單位，但登記日流通量為 {supply} 單位。",
+      "rootMismatch": "此名冊與鏈上提交的根不符，無法用於付息。",
+      "badFile": "該文件不是從本控制台保存的名冊。",
+      "what": {
+        "scheduled": "本期付息",
+        "due": "鎖定名冊",
+        "fixed": "提交應得權益",
+        "funding": "為付息注資",
+        "paying": "本期付息"
+      },
+      "registerNote": "名冊即登記日鏈上的記錄：任何人都可以重建名冊，並與已提交的根核對。",
+      "sending": "發送中…",
+      "failed": "失敗",
+      "unpaid": "尚未支付",
+      "heldBackPill": "已暫扣",
+      "paidPill": "已支付",
+      "rebuild": "從鏈上重建",
+      "rebuildMismatch": "登記日之後持倉已有變化，鏈上數據已無法重建已提交的根。請載入提交時保存的名冊。"
     }
   },
   "proof": {
