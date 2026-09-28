@@ -4,7 +4,7 @@
 
 Issuance is day one. A tokenized bond or fund still has to be run every day after: holder eligibility, transfer restrictions, coupons and dividends, redemptions, maturity. Today that work lives in spreadsheets and email next to a token on-chain. AssetFlow puts it where the token is.
 
-Live app (Solana devnet): **https://assetflow-hashkey.vercel.app**
+Live app (Solana devnet): **https://assetflow-servicing.vercel.app** (also at assetflow-hashkey.vercel.app)
 
 ## Where it runs
 
@@ -26,7 +26,7 @@ A plain Token-2022 transfer runs none of AssetFlow's code, so every wallet and p
 
 **No personal key can reach around the gate.** Every authority over the mint, including mint, freeze via Token ACL, pause and permanent delegate, belongs to the asset account, a PDA of the program. Registration is one step that checks how the mint is built (holder accounts frozen by default, no transfer hook, close authority, confidential transfers or fees) and hands the freeze authority to Token ACL itself. The gate thaws only accounts whose owner can never change, and issuance re-checks eligibility.
 
-The public [proof page](https://assetflow-hashkey.vercel.app/proof) reads each of these guarantees back from the chain and links to the account that proves it.
+The public [proof page](https://assetflow-servicing.vercel.app/proof) reads each of these guarantees back from the chain and links to the account that proves it.
 
 **In progress:** instrument terms on-chain and coupons paid on the record date, with every amount computed by the program (30/360, rounded down to the cent on each holder's total holding), redemptions at a program-computed price with burn and USDC payment in one transaction, and maturity.
 
