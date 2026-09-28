@@ -37,6 +37,9 @@ use spl_tlv_account_resolution::{
     account::ExtraAccountMeta, pubkey_data::PubkeyData, seeds::Seed, state::ExtraAccountMetaList,
 };
 
+pub mod coupons;
+pub use coupons::*;
+
 declare_id!("BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR");
 
 pub const REGISTRY_SEED: &[u8] = b"registry";
@@ -304,6 +307,198 @@ pub mod assetflow {
             token_account: ctx.accounts.token_account.key(),
             reason,
         });
+        Ok(())
+    }
+
+    /// The instrument's terms: payment currency, face per unit, coupon rate
+    /// and the schedule. Set once; every coupon is computed from them.
+    pub fn set_terms(
+        ctx: Context<SetTerms>,
+        face_per_unit: u64,
+        coupon_bps: u16,
+        periods: Vec<Period>,
+    ) -> Result<()> {
+        require!(face_per_unit > 0, AssetFlowError::InvalidTerms);
+        require!(coupon_bps > 0 && coupon_bps <= 10_000, AssetFlowError::InvalidTerms);
+        // cents must exist in the payment currency
+        require!(ctx.accounts.currency_mint.decimals >= 2, AssetFlowError::InvalidTerms);
+        validate_periods(&periods)?;
+        let terms = &mut ctx.accounts.terms;
+        terms.asset = ctx.accounts.asset.key();
+        terms.currency_mint = ctx.accounts.currency_mint.key();
+        terms.currency_decimals = ctx.accounts.currency_mint.decimals;
+        terms.face_per_unit = face_per_unit;
+        terms.coupon_bps = coupon_bps;
+        terms.periods = periods;
+        terms.bump = ctx.bumps.terms;
+        emit!(TermsSet {
+            asset: terms.asset,
+            currency_mint: terms.currency_mint,
+            face_per_unit,
+            coupon_bps,
+            periods: terms.periods.len() as u8,
+        });
+        Ok(())
+    }
+
+    /// Fix the register for a period: once the record date has passed anyone
+    /// may pause the mint, so no unit moves while the holders are read.
+    pub fn fix_register(ctx: Context<FixRegister>, period: u8) -> Result<()> {
+        let schedule = *ctx
+            .accounts
+            .terms
+            .periods
+            .get(period as usize)
+            .ok_or(error!(AssetFlowError::InvalidPeriod))?;
+        let clock = Clock::get()?;
+        require!(clock.unix_timestamp >= schedule.record_ts, AssetFlowError::RecordDateNotReached);
+        let mint = ctx.accounts.mint.to_account_info();
+        let (supply, paused) = mint_supply_and_paused(&mint)?;
+        require!(!paused, AssetFlowError::RegisterWindowOpen);
+        set_paused(true, &ctx.accounts.token_program, &mint, &ctx.accounts.asset)?;
+
+        let payout = &mut ctx.accounts.payout;
+        payout.asset = ctx.accounts.asset.key();
+        payout.period = period;
+        payout.status = PayoutStatus::RegisterFixed;
+        payout.fixed_ts = clock.unix_timestamp;
+        payout.fixed_slot = clock.slot;
+        payout.supply_at_fix = supply;
+        payout.bump = ctx.bumps.payout;
+        emit!(RegisterFixed { asset: payout.asset, period, supply, slot: clock.slot });
+        Ok(())
+    }
+
+    /// Commit who is entitled to what: a Merkle root over (holder, units) and
+    /// the total, which must be the whole supply at the fix. The cost of the
+    /// payment is computed here from the terms, and the mint resumes.
+    pub fn commit_entitlements(
+        ctx: Context<CommitEntitlements>,
+        period: u8,
+        root: [u8; 32],
+        total_units: u64,
+    ) -> Result<()> {
+        require!(
+            ctx.accounts.payout.status == PayoutStatus::RegisterFixed,
+            AssetFlowError::WrongPayoutStatus
+        );
+        require!(total_units == ctx.accounts.payout.supply_at_fix, AssetFlowError::TotalMismatch);
+        let schedule = ctx.accounts.terms.periods[period as usize];
+        let required = coupon_amount(&ctx.accounts.terms, &schedule, total_units)?;
+        let mint = ctx.accounts.mint.to_account_info();
+        set_paused(false, &ctx.accounts.token_program, &mint, &ctx.accounts.asset)?;
+
+        let payout = &mut ctx.accounts.payout;
+        payout.root = root;
+        payout.total_units = total_units;
+        payout.required = required;
+        payout.status = PayoutStatus::Committed;
+        payout.vault_bump = ctx.bumps.vault;
+        emit!(EntitlementsCommitted { asset: payout.asset, period, root, total_units, required });
+        Ok(())
+    }
+
+    /// Put money in a payment's own vault. Counted as what the vault actually
+    /// received, so a currency that charges a fee cannot inflate it.
+    pub fn fund_payout(ctx: Context<FundPayout>, period: u8, amount: u64) -> Result<()> {
+        require!(amount > 0, AssetFlowError::InvalidAmount);
+        require!(
+            ctx.accounts.payout.status == PayoutStatus::Committed,
+            AssetFlowError::WrongPayoutStatus
+        );
+        let before = ctx.accounts.vault.amount;
+        token_interface::transfer_checked(
+            CpiContext::new(
+                ctx.accounts.currency_program.key(),
+                token_interface::TransferChecked {
+                    from: ctx.accounts.source.to_account_info(),
+                    mint: ctx.accounts.currency_mint.to_account_info(),
+                    to: ctx.accounts.vault.to_account_info(),
+                    authority: ctx.accounts.funder.to_account_info(),
+                },
+            ),
+            amount,
+            ctx.accounts.currency_mint.decimals,
+        )?;
+        ctx.accounts.vault.reload()?;
+        let received = ctx
+            .accounts
+            .vault
+            .amount
+            .checked_sub(before)
+            .ok_or(error!(AssetFlowError::MathOverflow))?;
+        let payout = &mut ctx.accounts.payout;
+        payout.funded = payout.funded.checked_add(received).ok_or(error!(AssetFlowError::MathOverflow))?;
+        emit!(PayoutFunded { asset: payout.asset, period, amount: received, funded: payout.funded });
+        Ok(())
+    }
+
+    /// Pay one holder their coupon. Anyone may send this: the holder proves
+    /// their units against the committed root, the program computes the
+    /// amount, and a holder who is not eligible today has it held back in the
+    /// vault instead. Nothing is paid until the payment is fully funded, so
+    /// holders paid first and holders paid last are treated the same.
+    pub fn pay_entitlement(
+        ctx: Context<PayEntitlement>,
+        period: u8,
+        holder: Pubkey,
+        units: u64,
+        proof: Vec<[u8; 32]>,
+    ) -> Result<()> {
+        let payout_key = ctx.accounts.payout.key();
+        {
+            let payout = &ctx.accounts.payout;
+            require!(payout.status == PayoutStatus::Committed, AssetFlowError::WrongPayoutStatus);
+            require!(payout.funded >= payout.required, AssetFlowError::Underfunded);
+            require!(
+                verify_proof(&proof, &payout.root, coupons::leaf(&payout_key, &holder, units)),
+                AssetFlowError::InvalidProof
+            );
+        }
+        let schedule = ctx.accounts.terms.periods[period as usize];
+        let amount = coupon_amount(&ctx.accounts.terms, &schedule, units)?;
+        let eligible = holder_is_eligible(
+            &ctx.accounts.asset.key(),
+            &ctx.accounts.registry,
+            &holder,
+            &ctx.accounts.investor.to_account_info(),
+        )?;
+        {
+            let payout = &ctx.accounts.payout;
+            let committed = payout
+                .paid
+                .checked_add(payout.held_back)
+                .and_then(|v| v.checked_add(amount))
+                .ok_or(error!(AssetFlowError::MathOverflow))?;
+            require!(committed <= payout.funded, AssetFlowError::Overdrawn);
+        }
+        if eligible && amount > 0 {
+            pay_from_vault(
+                &ctx.accounts.payout,
+                &ctx.accounts.mint.key(),
+                &ctx.accounts.vault,
+                &ctx.accounts.destination,
+                &ctx.accounts.currency_mint,
+                &ctx.accounts.currency_program,
+                amount,
+            )?;
+        }
+
+        let payout = &mut ctx.accounts.payout;
+        if eligible {
+            payout.paid += amount;
+        } else {
+            payout.held_back += amount;
+        }
+        payout.payments += 1;
+        let record = &mut ctx.accounts.record;
+        record.payout = payout_key;
+        record.holder = holder;
+        record.units = units;
+        record.amount = amount;
+        record.held_back = !eligible;
+        record.ts = Clock::get()?.unix_timestamp;
+        emit!(CouponPaid { asset: payout.asset, period, holder, units, amount, held_back: !eligible });
         Ok(())
     }
 
@@ -767,4 +962,26 @@ pub enum AssetFlowError {
     OwnerNotImmutable,
     #[msg("token account belongs to a different mint")]
     WrongMint,
+    #[msg("the instrument terms are not valid")]
+    InvalidTerms,
+    #[msg("no such coupon period")]
+    InvalidPeriod,
+    #[msg("the record date has not been reached")]
+    RecordDateNotReached,
+    #[msg("another register is being fixed; the mint is paused")]
+    RegisterWindowOpen,
+    #[msg("the payment is not at the right stage for this")]
+    WrongPayoutStatus,
+    #[msg("the entitled units must equal the supply at the record date")]
+    TotalMismatch,
+    #[msg("the payment is not fully funded yet")]
+    Underfunded,
+    #[msg("the proof does not match the committed entitlements")]
+    InvalidProof,
+    #[msg("paying this would exceed what the payment was funded with")]
+    Overdrawn,
+    #[msg("arithmetic overflow")]
+    MathOverflow,
+    #[msg("the payment must go to an account the holder owns")]
+    WrongDestination,
 }
