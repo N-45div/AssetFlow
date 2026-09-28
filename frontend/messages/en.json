@@ -1,0 +1,386 @@
+{
+  "meta": {
+    "title": "AssetFlow · Servicing for tokenized assets on Solana",
+    "description": "Holder eligibility, coupons on the record date and redemptions in USDC, enforced by Solana programs and run from one console."
+  },
+  "nav": {
+    "label": "Main",
+    "holder": "Holder portal",
+    "issuer": "Issuer console",
+    "proof": "On-chain proof",
+    "clusterHint": "The Solana cluster this app reads and writes",
+    "language": "Language"
+  },
+  "wallet": {
+    "choose": "Connect a wallet",
+    "close": "Close",
+    "none": "No Solana wallet found in this browser. Install Phantom, Solflare or Backpack and reload.",
+    "connect": "Connect wallet",
+    "connecting": "Connecting…",
+    "copy": "Copy address",
+    "change": "Change wallet",
+    "disconnect": "Disconnect",
+    "fund": "Get test SOL",
+    "funding": "Requesting test SOL…",
+    "funded": "2 test SOL received",
+    "fundFailed": "Faucet refused; try again later"
+  },
+  "footer": {
+    "line": "Open source under MIT. Built on Solana with Token-2022 and Token ACL (sRFC-37).",
+    "source": "Source code"
+  },
+  "home": {
+    "kicker": "Post-issuance servicing, on Solana",
+    "title": "Issuance is day one. AssetFlow runs every day after.",
+    "lede": "Who may hold a tokenized bond or fund, what each holder is owed on the record date, and how they redeem, enforced by Solana programs and run from one console. Mosaic mints it; AssetFlow runs it.",
+    "ctaIssuer": "Open the issuer console",
+    "ctaHolder": "I hold an asset",
+    "ctaProof": "See what is on-chain",
+    "termSheet": {
+      "label": "Term sheet",
+      "demo": "Demo instrument",
+      "name": "AssetFlow Note 10% 2028",
+      "face": {
+        "label": "Face amount per note",
+        "value": "US$1,000"
+      },
+      "coupon": {
+        "label": "Coupon",
+        "value": "10.00% a year, paid semi-annually"
+      },
+      "dayCount": {
+        "label": "Day count",
+        "value": "30/360"
+      },
+      "record": {
+        "label": "Record date",
+        "value": "Register fixed on-chain before each payment"
+      },
+      "settlement": {
+        "label": "Settlement",
+        "value": "USDC on Solana"
+      },
+      "holders": {
+        "label": "Holders",
+        "value": "Eligible wallets only"
+      }
+    },
+    "jobsTitle": "Three jobs every issuer has after launch",
+    "jobsLede": "Today these run on spreadsheets and email next to a token on-chain. AssetFlow puts them where the token is.",
+    "onSolana": "On Solana:",
+    "jobs": {
+      "eligibility": {
+        "title": "Who may hold it",
+        "body": "Every holder account starts frozen. A wallet is let in only when its investor profile passes the registry: approved, KYC in date, allowed jurisdiction, sufficient tier. When an approval lapses, anyone can freeze that wallet.",
+        "solana": "Token-2022 default-frozen accounts, with Token ACL asking AssetFlow's gate before any thaw or freeze."
+      },
+      "payments": {
+        "title": "What each holder is owed",
+        "body": "On the record date the register is fixed on-chain, each holder's entitlement is computed from the instrument's terms, and the coupon is paid in USDC. The operator never types an amount.",
+        "solana": "Pausable mint for the record date, a funded vault per payment, and a cap so no payment can overdraw another."
+      },
+      "redemptions": {
+        "title": "How they get out",
+        "body": "Holders request redemption, the issuer approves, and settlement burns the units and pays USDC in the same transaction, at a price the program computes, not one the holder names.",
+        "solana": "Escrow held by a program account, and the permanent delegate for maturity."
+      }
+    },
+    "nowTitle": "Why now",
+    "now": {
+      "jpm": "J.P. Morgan arranged commercial paper on Solana in December 2025, issued and redeemed in USDC.",
+      "hkma": "Hong Kong's government has issued three batches of digital green bonds whose on-chain records are the legal record of ownership.",
+      "stack": "Solana's tokenization stack covers issuance and access control. Servicing after issuance is the missing chapter."
+    },
+    "source": "Source",
+    "openTitle": "Open, and checkable",
+    "openBody": "The programs, the console and the tests are MIT-licensed. Every guarantee on this site can be checked against the chain on the proof page."
+  },
+  "tx": {
+    "signing": "{what}: waiting for your wallet…",
+    "sent": "{what}: sent, confirming…",
+    "confirmed": "{what}: confirmed.",
+    "failed": "{what}: refused.",
+    "onChainRefusal": "The refusal is recorded on-chain. Open the transaction to see the program's own log.",
+    "logs": "Program log"
+  },
+  "refusal": {
+    "Unauthorized": "The connected wallet does not hold the role this needs.",
+    "NotEligible": "Refused by the AssetFlow gate: this wallet is not eligible to hold the asset.",
+    "StillEligible": "Refused: this holder is still eligible, so nobody can freeze them without compliance.",
+    "TooManyJurisdictions": "The registry already allows the maximum number of jurisdictions.",
+    "InvalidAmount": "The amount must be greater than zero.",
+    "MintAuthorityNotAsset": "The mint's authority must be the asset account.",
+    "FreezeAuthorityNotAsset": "The mint's freeze authority must be the asset account.",
+    "MintNotFresh": "Only a mint with nothing issued yet can be registered.",
+    "MintNotToken2022": "The asset must be a Token-2022 mint.",
+    "ForbiddenExtension": "The mint carries an extension a serviced asset may not have.",
+    "DefaultStateNotFrozen": "Holder accounts of a serviced asset must start frozen.",
+    "DelegateNotAsset": "The permanent delegate must be the asset account.",
+    "PauseAuthorityNotAsset": "The pause authority must be the asset account.",
+    "MintPaused": "The asset is paused.",
+    "OwnerNotImmutable": "Refused: this holder account's owner could be changed later, so the gate will not open it.",
+    "WrongMint": "That token account belongs to a different asset.",
+    "AccountFrozen": "Refused by Token-2022: the account is frozen.",
+    "Rejected": "You declined the request in your wallet.",
+    "Unknown": "The transaction failed. The program log below has the details."
+  },
+  "eligibility": {
+    "title": "Eligibility",
+    "eligible": "Eligible",
+    "notEligible": "Not eligible",
+    "skipped": "not required",
+    "passed": "passed",
+    "failed": "failed",
+    "profile": {
+      "pass": "Investor profile on file",
+      "fail": "No investor profile: the issuer has not onboarded this wallet"
+    },
+    "approved": {
+      "pass": "Approved by compliance",
+      "fail": "Not approved by compliance"
+    },
+    "hold": {
+      "pass": "No compliance hold",
+      "fail": "Under a compliance hold"
+    },
+    "expiry": {
+      "pass": "KYC valid until {date}",
+      "fail": "KYC expired on {date}"
+    },
+    "tier": {
+      "pass": "Investor tier {tier} meets the minimum of {min}",
+      "fail": "Investor tier {tier} is below the minimum of {min}"
+    },
+    "jurisdiction": {
+      "pass": "{name} is an allowed jurisdiction",
+      "fail": "{name} is not on the allowed list"
+    },
+    "accredited": {
+      "pass": "Accredited investor",
+      "fail": "Accreditation required and not on file",
+      "skipped": "Accreditation not required for this asset"
+    }
+  },
+  "holder": {
+    "title": "Holder portal",
+    "noAsset": "No asset selected",
+    "noAssetHint": "Open this page from a link your issuer shares, or pick an asset in the issuer console.",
+    "toIssuer": "Go to the issuer console",
+    "assetLabel": "Asset",
+    "connectTitle": "Connect the wallet you were onboarded with",
+    "connectBody": "Your eligibility is read from the chain for that wallet. Nothing is signed until you choose an action.",
+    "loading": "Reading your standing from the chain…",
+    "account": {
+      "title": "Holding account",
+      "none": "Not opened",
+      "frozen": "Frozen",
+      "active": "Active",
+      "noneBody": "You have no account for this asset yet. Opening one and asking the gate to activate it is a single transaction.",
+      "frozenBody": "Accounts for this asset start frozen, or were frozen when an approval lapsed. The gate activates it once you are eligible.",
+      "activeBody": "Your account can receive and send this asset to other eligible holders.",
+      "activate": "Activate my holding account",
+      "tryAnyway": "Try anyway",
+      "tryAnywayHint": "The request goes on-chain and the gate refuses it; the refusal gets its own transaction you can open.",
+      "what": "Activating your holding account"
+    },
+    "holdings": {
+      "title": "Holdings",
+      "units": "Units held",
+      "share": "Share of outstanding",
+      "outstanding": "{units} units outstanding"
+    },
+    "onboardTitle": "Get onboarded",
+    "onboardBody": "Send this address to the issuer. Once they add your profile, come back and activate your account.",
+    "copyAddress": "Copy"
+  },
+  "issuer": {
+    "title": "Issuer console",
+    "connectTitle": "Connect the issuer's wallet",
+    "connectBody": "The console reads your registry and assets from the chain. Every change is a transaction you sign.",
+    "loading": "Reading from the chain…",
+    "assetLabel": "Asset",
+    "holderLink": "Holder portal link",
+    "tabsLabel": "Console sections",
+    "tabs": {
+      "overview": "Overview",
+      "investors": "Investors",
+      "issuance": "Issuance",
+      "policy": "Policy"
+    },
+    "onboarding": {
+      "step": "Set-up, step {n} of {of}",
+      "registryTitle": "Create your investor registry",
+      "registryBody": "The registry holds your compliance policy and one profile per approved wallet. Every asset you issue can be gated by it.",
+      "minTier": "Minimum investor tier",
+      "tier0": "Any investor",
+      "tier1": "Tier 1: retail",
+      "tier2": "Tier 2: professional investor",
+      "tier3": "Tier 3: institutional",
+      "requireAccredited": "Require accreditation",
+      "jurisdictions": "Allowed jurisdictions",
+      "offByDefault": "Off by default",
+      "chinaNote": "Mainland China is off by default: its 2026 rules bar offshore tokenization of mainland assets without regulator approval.",
+      "createRegistry": "Create registry",
+      "registryWhat": "Creating the registry",
+      "assetTitle": "Create a serviced asset",
+      "assetBody": "One transaction creates the Token-2022 mint and puts it under AssetFlow. The program refuses any mint not built this way.",
+      "assetPoints": {
+        "frozen": "Every holder account starts frozen until the gate lets its owner in.",
+        "gate": "Token ACL holds the freeze authority and asks AssetFlow before any thaw or freeze.",
+        "authorities": "Mint, pause and permanent-delegate authority belong to the asset account, not to anyone's key.",
+        "extensions": "No transfer hook, close authority or confidential transfers: nothing that opens a path around the gate."
+      },
+      "createAsset": "Create asset",
+      "assetWhat": "Creating the asset"
+    },
+    "overview": {
+      "outstanding": "Units outstanding",
+      "investors": "Investors on the register",
+      "eligible": "Eligible today",
+      "active": "Active holder accounts",
+      "attentionTitle": "Needs attention",
+      "attentionNone": "Every active holder is eligible today.",
+      "attentionLapsed": "Active but no longer eligible",
+      "attentionHint": "Freeze them from the Investors tab. Anyone may; the gate agrees only for holders who no longer pass.",
+      "factsTitle": "On-chain accounts",
+      "facts": {
+        "mint": "Mint",
+        "asset": "Asset account",
+        "registry": "Registry",
+        "mintConfig": "Token ACL config",
+        "gate": "Gate program",
+        "tokenAcl": "Token ACL program"
+      }
+    },
+    "investors": {
+      "lede": "Every profile in the registry, with the holder accounts the chain has for this asset.",
+      "add": "Add investor",
+      "col": {
+        "wallet": "Wallet",
+        "jurisdiction": "Jurisdiction",
+        "tier": "Tier",
+        "expiry": "KYC valid until",
+        "status": "Status",
+        "account": "Account",
+        "units": "Units"
+      },
+      "loading": "Reading the register…",
+      "empty": "No investors yet. Add the first one.",
+      "reason": {
+        "profile": "No profile",
+        "approved": "Not approved",
+        "hold": "Compliance hold",
+        "expiry": "KYC expired",
+        "tier": "Tier too low",
+        "jurisdiction": "Jurisdiction not allowed",
+        "accredited": "Not accredited"
+      },
+      "account": {
+        "none": "None",
+        "active": "Active",
+        "frozen": "Frozen"
+      },
+      "enforce": "Freeze",
+      "edit": "Edit",
+      "onboard": "Onboard",
+      "enforceWhat": "Freezing the lapsed holder",
+      "editor": {
+        "editTitle": "Edit investor profile",
+        "addTitle": "Add an investor",
+        "cancel": "Cancel",
+        "wallet": "Wallet address",
+        "walletPlaceholder": "Solana address",
+        "walletInvalid": "That is not a Solana address.",
+        "jurisdiction": "Jurisdiction",
+        "notAllowed": "not allowed",
+        "tier": "Investor tier",
+        "tier0": "Tier 0",
+        "tier1": "Tier 1: retail",
+        "tier2": "Tier 2: professional investor",
+        "tier3": "Tier 3: institutional",
+        "expiry": "KYC valid until",
+        "approved": "Approved",
+        "accredited": "Accredited",
+        "hold": "Compliance hold",
+        "note": "Saving changes the profile only. An account already active stays active until someone freezes it; the gate applies the new profile to every thaw and freeze from now on.",
+        "save": "Save profile",
+        "what": "Saving the profile"
+      }
+    },
+    "issuance": {
+      "title": "Issue units",
+      "lede": "Only to an eligible holder. If their account is not open or active yet, it is opened and let through the gate in the same transaction.",
+      "to": "Holder",
+      "choose": "Choose an eligible holder",
+      "noneEligible": "No eligible holders yet",
+      "amount": "Units",
+      "submit": "Issue",
+      "what": "Issuing units",
+      "rulesTitle": "What the program checks",
+      "rules": {
+        "eligible": "The holder passes the registry today, not only when their account was opened.",
+        "recheck": "The holder account's owner can never be reassigned.",
+        "authority": "Units are minted by the asset account, which only this program can sign for."
+      },
+      "outstanding": "{units} units outstanding."
+    },
+    "policy": {
+      "title": "Compliance policy",
+      "lede": "The rules the gate applies to every thaw and freeze for assets gated by this registry.",
+      "notCompliance": "The connected wallet is not this registry's compliance officer, so it cannot change the policy.",
+      "effect": "A tighter policy does not freeze anyone by itself. Holders who no longer pass show up under Needs attention, and anyone can freeze them.",
+      "save": "Save policy",
+      "what": "Saving the policy"
+    }
+  },
+  "proof": {
+    "title": "On-chain proof",
+    "noAsset": "No asset selected. Open this page with ?asset=<mint> or from the issuer console.",
+    "lede": "Every guarantee AssetFlow makes, read back from the chain for asset",
+    "loading": "Reading the mint and its configuration…",
+    "checksTitle": "Guarantees",
+    "passed": "{passed} of {total} hold",
+    "checks": {
+      "token2022": {
+        "title": "A Token-2022 mint",
+        "why": "The extensions below exist only in Token-2022."
+      },
+      "frozenDefault": {
+        "title": "Holder accounts start frozen",
+        "why": "Default Account State is Frozen, so no account can hold or move units until the gate lets it in."
+      },
+      "mintAuthority": {
+        "title": "Only the asset account can mint",
+        "why": "New units exist only through AssetFlow's issue instruction, which re-checks eligibility."
+      },
+      "freezeAuthority": {
+        "title": "Token ACL holds the freeze authority",
+        "why": "No person can freeze or thaw a holder directly."
+      },
+      "gate": {
+        "title": "AssetFlow is the gate",
+        "why": "Token ACL asks this program before every permissionless thaw or freeze."
+      },
+      "configAuthority": {
+        "title": "Token ACL's config answers to the asset account",
+        "why": "No personal key can swap the gate, delete the config or thaw past it."
+      },
+      "permissionless": {
+        "title": "Holders let themselves in; anyone can enforce",
+        "why": "Permissionless thaw and freeze are both on, and the gate decides each one."
+      },
+      "delegate": {
+        "title": "The permanent delegate is the asset account",
+        "why": "Maturity burns and court-ordered transfers go through the program's role checks."
+      },
+      "pause": {
+        "title": "Only the asset account can pause",
+        "why": "Pausing fixes the register on the record date; no one else can stop transfers."
+      }
+    },
+    "supplyTitle": "Units outstanding",
+    "supplyHint": "Read from the mint.",
+    "extensionsTitle": "Mint extensions",
+    "extensionsHint": "Anything outside this set is refused at registration."
+  }
+}
