@@ -26,10 +26,12 @@ import {
   type Terms,
 } from "@/lib/chain/coupons";
 import { explorer, shortKey } from "@/lib/chain/explorer";
+import { Redemptions } from "@/lib/chain/redemptions";
 import type { AssetView } from "@/lib/chain/use-asset";
 import { useTransaction } from "@/lib/chain/use-transaction";
 
 const coupons = new Coupons(PROGRAM_ID);
+const redemptions = new Redemptions(PROGRAM_ID);
 const DAY = 86_400;
 
 export function money(amount: bigint, decimals: number, locale: string) {
@@ -419,7 +421,12 @@ function PaymentPanel({
   const commit = async () => {
     if (!publicKey || !payout) return;
     setProblem(null);
-    const entitlements = await readRegister(connection, view.asset.mint, view.asset.address);
+    const entitlements = await readRegister(
+      connection,
+      view.asset.mint,
+      view.asset.address,
+      await redemptions.pending(connection, view.asset.address),
+    );
     const total = entitlements.reduce((s, e) => s + e.units, 0n);
     if (total !== payout.supplyAtFix) {
       setProblem(t("totalMismatch", { read: total.toString(), supply: payout.supplyAtFix.toString() }));
@@ -511,7 +518,12 @@ function PaymentPanel({
   const rebuild = async () => {
     if (!payout) return;
     setProblem(null);
-    const entitlements = await readRegister(connection, view.asset.mint, view.asset.address);
+    const entitlements = await readRegister(
+      connection,
+      view.asset.mint,
+      view.asset.address,
+      await redemptions.pending(connection, view.asset.address),
+    );
     const tree = await entitlementTree(payoutKey, entitlements);
     if (!tree.root.equals(payout.root)) {
       setProblem(t("rebuildMismatch"));

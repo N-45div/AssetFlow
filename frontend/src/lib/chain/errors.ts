@@ -20,6 +20,23 @@ const ASSETFLOW_ERRORS = [
   "MintPaused",
   "OwnerNotImmutable",
   "WrongMint",
+  "InvalidTerms",
+  "InvalidPeriod",
+  "RecordDateNotReached",
+  "RegisterWindowOpen",
+  "WrongPayoutStatus",
+  "TotalMismatch",
+  "Underfunded",
+  "InvalidProof",
+  "Overdrawn",
+  "MathOverflow",
+  "WrongDestination",
+  "AssetMatured",
+  "MaturityNotReached",
+  "CouponsOutstanding",
+  "RequestClosed",
+  "HoldingFrozen",
+  "NotAHolding",
 ] as const;
 
 export type RefusalCode = (typeof ASSETFLOW_ERRORS)[number] | "AccountFrozen" | "Rejected" | "Unknown";

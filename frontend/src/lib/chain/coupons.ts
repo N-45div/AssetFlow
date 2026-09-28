@@ -282,11 +282,11 @@ export class Coupons {
   }
 }
 
-function hasDiscriminator(data: Buffer, expected: readonly number[]) {
+export function hasDiscriminator(data: Buffer, expected: readonly number[]) {
   return expected.every((b, i) => data[i] === b);
 }
 
-class Reader {
+export class Reader {
   private at = 8;
   constructor(private readonly data: Buffer) {}
   bytes(n: number) {
@@ -396,10 +396,17 @@ export async function entitlementTree(payout: PublicKey, entitlements: Entitleme
 
 /**
  * The register as the chain holds it now: units per owner across every
- * holder account of the mint, leaving out accounts the asset itself owns.
- * Read while the mint is paused, this is the record-date register.
+ * holder account of the mint, leaving out accounts the asset itself owns,
+ * plus `pending`: units waiting in the redemption escrow, which still belong
+ * to whoever asked to redeem them. Read while the mint is paused, this is the
+ * record-date register.
  */
-export async function readRegister(connection: Connection, mint: PublicKey, asset: PublicKey): Promise<Entitlement[]> {
+export async function readRegister(
+  connection: Connection,
+  mint: PublicKey,
+  asset: PublicKey,
+  pending: Entitlement[] = [],
+): Promise<Entitlement[]> {
   const rows = await connection.getProgramAccounts(TOKEN_2022_PROGRAM_ID, {
     filters: [{ memcmp: { offset: 0, bytes: mint.toBase58() } }],
   });
@@ -415,6 +422,12 @@ export async function readRegister(connection: Connection, mint: PublicKey, asse
     const key = acct.owner.toBase58();
     const e = byOwner.get(key) ?? { holder: acct.owner, units: 0n };
     e.units += acct.amount;
+    byOwner.set(key, e);
+  }
+  for (const p of pending) {
+    const key = p.holder.toBase58();
+    const e = byOwner.get(key) ?? { holder: p.holder, units: 0n };
+    e.units += p.units;
     byOwner.set(key, e);
   }
   // A fixed order, so anyone who reads the same register builds the same tree.
