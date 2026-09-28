@@ -23,6 +23,7 @@ import {
   TOKEN_2022_PROGRAM_ID,
   createInitializeDefaultAccountStateInstruction,
   createInitializeMint2Instruction,
+  createInitializeMintCloseAuthorityInstruction,
   createInitializePausableConfigInstruction,
   createInitializePermanentDelegateInstruction,
   getMintLen,
@@ -132,38 +133,76 @@ export class AssetFlow {
     );
   }
 
-  registerAsset(admin: PublicKey, registry: PublicKey, mint: PublicKey) {
+  /**
+   * One step: checks the mint, writes the gate's account lists, and hands the
+   * mint's freeze authority to Token ACL with this program as the gate. The
+   * mint's own key and the registry admin both sign.
+   */
+  registerAsset(issuer: PublicKey, admin: PublicKey, registry: PublicKey, mint: PublicKey) {
     return this.ix("register_asset", [
-      { pubkey: admin, isSigner: true, isWritable: true },
-      { pubkey: registry, isSigner: false, isWritable: false },
-      { pubkey: mint, isSigner: false, isWritable: false },
-      { pubkey: this.asset(mint), isSigner: false, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    ]);
-  }
-
-  initializeGate(issuer: PublicKey, mint: PublicKey) {
-    return this.ix("initialize_gate", [
       { pubkey: issuer, isSigner: true, isWritable: true },
-      { pubkey: this.asset(mint), isSigner: false, isWritable: false },
-      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: admin, isSigner: true, isWritable: false },
+      { pubkey: registry, isSigner: false, isWritable: false },
+      { pubkey: mint, isSigner: true, isWritable: true },
+      { pubkey: this.asset(mint), isSigner: false, isWritable: true },
       { pubkey: this.thawMetas(mint), isSigner: false, isWritable: true },
       { pubkey: this.freezeMetas(mint), isSigner: false, isWritable: true },
+      { pubkey: TokenAcl.mintConfig(mint), isSigner: false, isWritable: true },
+      { pubkey: TOKEN_ACL_ID, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ]);
   }
 
-  issue(issuer: PublicKey, mint: PublicKey, destination: PublicKey, amount: bigint) {
+  setCompliance(admin: PublicKey, registry: PublicKey, compliance: PublicKey) {
+    return this.ix(
+      "set_compliance",
+      [
+        { pubkey: admin, isSigner: true, isWritable: false },
+        { pubkey: registry, isSigner: false, isWritable: true },
+      ],
+      [compliance.toBuffer()],
+    );
+  }
+
+  issue(
+    issuer: PublicKey,
+    registry: PublicKey,
+    mint: PublicKey,
+    destination: PublicKey,
+    owner: PublicKey,
+    amount: bigint,
+  ) {
     return this.ix(
       "issue",
       [
         { pubkey: issuer, isSigner: true, isWritable: false },
         { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: registry, isSigner: false, isWritable: false },
         { pubkey: mint, isSigner: false, isWritable: true },
         { pubkey: destination, isSigner: false, isWritable: true },
+        { pubkey: this.investor(registry, owner), isSigner: false, isWritable: false },
         { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
       ],
       [u64(amount)],
+    );
+  }
+
+  /** Compliance freezes an account outright, through Token ACL's own freeze. */
+  forceFreeze(compliance: PublicKey, registry: PublicKey, mint: PublicKey, tokenAccount: PublicKey, reason: number) {
+    return this.ix(
+      "force_freeze",
+      [
+        { pubkey: compliance, isSigner: true, isWritable: false },
+        { pubkey: registry, isSigner: false, isWritable: false },
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: tokenAccount, isSigner: false, isWritable: true },
+        { pubkey: TokenAcl.mintConfig(mint), isSigner: false, isWritable: false },
+        { pubkey: TOKEN_ACL_ID, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+      ],
+      [u16(reason)],
     );
   }
 
@@ -196,30 +235,21 @@ export const TokenAcl = {
     return pda([Buffer.from("FLAG_ACCOUNT"), tokenAccount.toBuffer()], TOKEN_ACL_ID);
   },
 
-  /** Hands the mint's freeze authority to Token ACL, naming the gate. */
-  createConfig(payer: PublicKey, authority: PublicKey, mint: PublicKey, gate: PublicKey) {
+  /**
+   * The freeze authority's own thaw, which skips the gate. Only the asset
+   * account holds that authority, so any personal key calling it is refused.
+   */
+  thaw(authority: PublicKey, mint: PublicKey, tokenAccount: PublicKey) {
     return new TransactionInstruction({
       programId: TOKEN_ACL_ID,
       keys: [
-        { pubkey: payer, isSigner: true, isWritable: true },
         { pubkey: authority, isSigner: true, isWritable: false },
-        { pubkey: mint, isSigner: false, isWritable: true },
-        { pubkey: this.mintConfig(mint), isSigner: false, isWritable: true },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: tokenAccount, isSigner: false, isWritable: true },
+        { pubkey: this.mintConfig(mint), isSigner: false, isWritable: false },
         { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
       ],
-      data: Buffer.concat([u8(0), gate.toBuffer()]),
-    });
-  },
-
-  togglePermissionless(authority: PublicKey, mint: PublicKey, freeze: boolean, thaw: boolean) {
-    return new TransactionInstruction({
-      programId: TOKEN_ACL_ID,
-      keys: [
-        { pubkey: authority, isSigner: true, isWritable: false },
-        { pubkey: this.mintConfig(mint), isSigner: false, isWritable: true },
-      ],
-      data: Buffer.from([8, freeze ? 1 : 0, thaw ? 1 : 0]),
+      data: u8(4),
     });
   },
 
@@ -254,9 +284,9 @@ export const TokenAcl = {
 
 /**
  * The instructions that create a serviced asset's mint. Every authority the
- * issuer would otherwise hold personally belongs to the asset account, so it
- * is only ever exercised through the program's role checks. The freeze
- * authority starts with the issuer only so Token ACL can take it over.
+ * issuer would otherwise hold personally, the freeze authority included,
+ * belongs to the asset account; registration then hands the freeze authority
+ * on to Token ACL. `extra` lets a test build a mint that must be refused.
  */
 export async function createServicedMint(
   connection: Connection,
@@ -264,11 +294,13 @@ export async function createServicedMint(
   mint: PublicKey,
   asset: PublicKey,
   decimals: number,
+  extra: { freezeAuthority?: PublicKey; closeAuthority?: PublicKey } = {},
 ) {
   const extensions = [
     ExtensionType.DefaultAccountState,
     ExtensionType.PermanentDelegate,
     ExtensionType.PausableConfig,
+    ...(extra.closeAuthority ? [ExtensionType.MintCloseAuthority] : []),
   ];
   const space = getMintLen(extensions);
   return [
@@ -282,7 +314,16 @@ export async function createServicedMint(
     createInitializeDefaultAccountStateInstruction(mint, AccountState.Frozen, TOKEN_2022_PROGRAM_ID),
     createInitializePermanentDelegateInstruction(mint, asset, TOKEN_2022_PROGRAM_ID),
     createInitializePausableConfigInstruction(mint, asset, TOKEN_2022_PROGRAM_ID),
-    createInitializeMint2Instruction(mint, decimals, asset, payer, TOKEN_2022_PROGRAM_ID),
+    ...(extra.closeAuthority
+      ? [createInitializeMintCloseAuthorityInstruction(mint, extra.closeAuthority, TOKEN_2022_PROGRAM_ID)]
+      : []),
+    createInitializeMint2Instruction(
+      mint,
+      decimals,
+      asset,
+      extra.freezeAuthority ?? asset,
+      TOKEN_2022_PROGRAM_ID,
+    ),
   ];
 }
 
