@@ -12,10 +12,26 @@
 //! the gate approves a permissionless freeze exactly when the holder is no
 //! longer eligible. A transfer hook would refuse the next transfer on its own;
 //! here enforcement waits for that freeze.
+//!
+//! Every authority over the mint (mint, permanent delegate, pause, and Token
+//! ACL's own freeze authority) is the asset account, a PDA of this program.
+//! No personal key can thaw a holder past the gate or swap the gate out.
 
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program_option::COption;
-use anchor_spl::token_interface::{self, Mint, MintTo, TokenAccount, TokenInterface};
+use anchor_lang::solana_program::{
+    instruction::{AccountMeta, Instruction},
+    program::invoke_signed,
+};
+use anchor_spl::token_2022::spl_token_2022::{
+    extension::{
+        default_account_state::DefaultAccountState, pausable::PausableConfig,
+        permanent_delegate::PermanentDelegate, BaseStateWithExtensions, ExtensionType,
+        StateWithExtensions,
+    },
+    state::{Account as TokenAccountState, AccountState, Mint as MintState},
+};
+use anchor_spl::token_2022::Token2022;
+use anchor_spl::token_interface::{self, Mint, MintTo, TokenAccount};
 use spl_discriminator::SplDiscriminate;
 use spl_tlv_account_resolution::{
     account::ExtraAccountMeta, pubkey_data::PubkeyData, seeds::Seed, state::ExtraAccountMetaList,
@@ -30,9 +46,27 @@ pub const ASSET_SEED: &[u8] = b"asset";
 pub const THAW_EXTRA_METAS_SEED: &[u8] = b"thaw_extra_account_metas";
 pub const FREEZE_EXTRA_METAS_SEED: &[u8] = b"freeze_extra_account_metas";
 
+/// Token ACL, the Solana Foundation's sRFC-37 program, and its per-mint config.
+pub const TOKEN_ACL_ID: Pubkey = pubkey!("TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP");
+pub const MINT_CONFIG_SEED: &[u8] = b"MINT_CONFIG";
+const TOKEN_ACL_CREATE_CONFIG: u8 = 0;
+const TOKEN_ACL_FREEZE: u8 = 5;
+const TOKEN_ACL_TOGGLE_PERMISSIONLESS: u8 = 8;
+
 pub const MAX_JURISDICTIONS: usize = 32;
 /// Accounts the gate needs beyond the five Token ACL always passes.
 const GATE_EXTRA_ACCOUNTS: usize = 3;
+
+/// The only mint extensions a serviced asset may carry. Anything else (a
+/// transfer hook, a close authority, confidential transfers, fees) either
+/// reopens a path around the gate or changes what a unit is.
+const ALLOWED_MINT_EXTENSIONS: [ExtensionType; 5] = [
+    ExtensionType::DefaultAccountState,
+    ExtensionType::PermanentDelegate,
+    ExtensionType::Pausable,
+    ExtensionType::MetadataPointer,
+    ExtensionType::TokenMetadata,
+];
 
 /// The two questions Token ACL asks a gate, named by the sRFC-37 standard.
 #[derive(SplDiscriminate)]
@@ -49,7 +83,7 @@ pub mod assetflow {
 
     /// A registry holds the compliance policy and the investor profiles that
     /// one or more assets are gated by. The admin starts as its compliance
-    /// officer.
+    /// officer and can hand that role to another key.
     pub fn create_registry(
         ctx: Context<CreateRegistry>,
         min_tier: u8,
@@ -62,6 +96,12 @@ pub mod assetflow {
         registry.require_accredited = require_accredited;
         registry.jurisdictions = Vec::new();
         registry.bump = ctx.bumps.registry;
+        Ok(())
+    }
+
+    pub fn set_compliance(ctx: Context<RegistryAdmin>, compliance: Pubkey) -> Result<()> {
+        ctx.accounts.registry.compliance = compliance;
+        emit!(ComplianceRotated { registry: ctx.accounts.registry.key(), compliance });
         Ok(())
     }
 
@@ -86,6 +126,7 @@ pub mod assetflow {
         let registry = &mut ctx.accounts.registry;
         registry.min_tier = min_tier;
         registry.require_accredited = require_accredited;
+        emit!(PolicyUpdated { registry: registry.key(), min_tier, require_accredited });
         Ok(())
     }
 
@@ -111,26 +152,26 @@ pub mod assetflow {
         Ok(())
     }
 
-    /// Put a mint under AssetFlow servicing. Its mint authority must already
-    /// be the asset account, so every unit that ever exists was issued here.
+    /// Put a freshly created mint under AssetFlow servicing, in one step: check
+    /// the mint is built the way a serviced asset must be, write the gate's
+    /// account lists, and hand the mint's freeze authority to Token ACL with
+    /// this program as the gate. The mint's own key and the registry admin both
+    /// sign, so nobody can register a mint they did not create, or gate one by
+    /// a registry whose admin did not agree.
     pub fn register_asset(ctx: Context<RegisterAsset>) -> Result<()> {
         let asset_key = ctx.accounts.asset.key();
-        require!(
-            ctx.accounts.mint.mint_authority == COption::Some(asset_key),
-            AssetFlowError::MintAuthorityNotAsset
-        );
+        verify_fresh_mint(
+            &ctx.accounts.mint.to_account_info(),
+            &ctx.accounts.token_program.key(),
+            &asset_key,
+        )?;
+
         let asset = &mut ctx.accounts.asset;
         asset.registry = ctx.accounts.registry.key();
         asset.mint = ctx.accounts.mint.key();
-        asset.issuer = ctx.accounts.admin.key();
+        asset.issuer = ctx.accounts.issuer.key();
         asset.bump = ctx.bumps.asset;
-        Ok(())
-    }
 
-    /// Write the lists Token ACL uses to find the gate's extra accounts. Both
-    /// questions need the same three: the asset, its registry, and the
-    /// holder's profile in that registry.
-    pub fn initialize_gate(ctx: Context<InitializeGate>) -> Result<()> {
         let metas = gate_extra_metas()?;
         ExtraAccountMetaList::init::<ThawQuestion>(
             &mut ctx.accounts.thaw_metas.try_borrow_mut_data()?[..],
@@ -140,13 +181,74 @@ pub mod assetflow {
             &mut ctx.accounts.freeze_metas.try_borrow_mut_data()?[..],
             &metas,
         )?;
+
+        let mint = ctx.accounts.mint.key();
+        let seeds: &[&[u8]] = &[ASSET_SEED, mint.as_ref(), &[ctx.bumps.asset]];
+        let mut data = vec![TOKEN_ACL_CREATE_CONFIG];
+        data.extend_from_slice(crate::ID.as_ref());
+        invoke_signed(
+            &Instruction {
+                program_id: TOKEN_ACL_ID,
+                accounts: vec![
+                    AccountMeta::new(ctx.accounts.issuer.key(), true),
+                    AccountMeta::new_readonly(asset_key, true),
+                    AccountMeta::new(mint, false),
+                    AccountMeta::new(ctx.accounts.mint_config.key(), false),
+                    AccountMeta::new_readonly(ctx.accounts.system_program.key(), false),
+                    AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+                ],
+                data,
+            },
+            &[
+                ctx.accounts.issuer.to_account_info(),
+                ctx.accounts.asset.to_account_info(),
+                ctx.accounts.mint.to_account_info(),
+                ctx.accounts.mint_config.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
+            ],
+            &[seeds],
+        )?;
+        // Permissionless thaw and freeze both on: holders let themselves in,
+        // and anyone may enforce a lapsed approval.
+        invoke_signed(
+            &Instruction {
+                program_id: TOKEN_ACL_ID,
+                accounts: vec![
+                    AccountMeta::new_readonly(asset_key, true),
+                    AccountMeta::new(ctx.accounts.mint_config.key(), false),
+                ],
+                data: vec![TOKEN_ACL_TOGGLE_PERMISSIONLESS, 1, 1],
+            },
+            &[ctx.accounts.asset.to_account_info(), ctx.accounts.mint_config.to_account_info()],
+            &[seeds],
+        )?;
+
+        emit!(AssetRegistered {
+            asset: asset_key,
+            mint,
+            registry: ctx.accounts.registry.key(),
+            issuer: ctx.accounts.issuer.key(),
+        });
         Ok(())
     }
 
-    /// Issue units. The destination must already be thawed, which means its
-    /// owner passed the gate: Token-2022 refuses to mint into a frozen account.
+    /// Issue units to a holder who is eligible today. A thawed account is not
+    /// proof of that: an approval can lapse before anyone freezes the account.
     pub fn issue(ctx: Context<Issue>, amount: u64) -> Result<()> {
         require!(amount > 0, AssetFlowError::InvalidAmount);
+        let owner = ctx.accounts.destination.owner;
+        require!(
+            holder_is_eligible(
+                &ctx.accounts.asset.key(),
+                &ctx.accounts.registry,
+                &owner,
+                &ctx.accounts.investor.to_account_info(),
+            )?,
+            AssetFlowError::NotEligible
+        );
+        require_immutable_owner(&ctx.accounts.destination.to_account_info(), &ctx.accounts.mint.key())?;
+
         let mint = ctx.accounts.mint.key();
         let seeds: &[&[u8]] = &[ASSET_SEED, mint.as_ref(), &[ctx.accounts.asset.bump]];
         token_interface::mint_to(
@@ -160,13 +262,58 @@ pub mod assetflow {
                 &[seeds],
             ),
             amount,
-        )
+        )?;
+        emit!(Issued {
+            asset: ctx.accounts.asset.key(),
+            destination: ctx.accounts.destination.key(),
+            owner,
+            amount,
+        });
+        Ok(())
+    }
+
+    /// Compliance freezes a holder account directly, whatever the gate would
+    /// say: a sanctions hit or a court order does not wait for a profile
+    /// update. Goes through Token ACL's own freeze, which never calls the gate.
+    pub fn force_freeze(ctx: Context<ForceFreeze>, reason: u16) -> Result<()> {
+        let mint = ctx.accounts.mint.key();
+        let seeds: &[&[u8]] = &[ASSET_SEED, mint.as_ref(), &[ctx.accounts.asset.bump]];
+        invoke_signed(
+            &Instruction {
+                program_id: TOKEN_ACL_ID,
+                accounts: vec![
+                    AccountMeta::new_readonly(ctx.accounts.asset.key(), true),
+                    AccountMeta::new_readonly(mint, false),
+                    AccountMeta::new(ctx.accounts.token_account.key(), false),
+                    AccountMeta::new_readonly(ctx.accounts.mint_config.key(), false),
+                    AccountMeta::new_readonly(ctx.accounts.token_program.key(), false),
+                ],
+                data: vec![TOKEN_ACL_FREEZE],
+            },
+            &[
+                ctx.accounts.asset.to_account_info(),
+                ctx.accounts.mint.to_account_info(),
+                ctx.accounts.token_account.to_account_info(),
+                ctx.accounts.mint_config.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
+            ],
+            &[seeds],
+        )?;
+        emit!(ComplianceFreeze {
+            asset: ctx.accounts.asset.key(),
+            token_account: ctx.accounts.token_account.key(),
+            reason,
+        });
+        Ok(())
     }
 
     /// Token ACL asks this before a permissionless thaw: yes only if the
-    /// account's owner is eligible today.
+    /// account's owner is eligible today and can never be changed.
     #[instruction(discriminator = ThawQuestion::SPL_DISCRIMINATOR_SLICE)]
     pub fn can_thaw_permissionless(ctx: Context<GateCheck>) -> Result<()> {
+        // A thawed account whose owner could still be reassigned would carry
+        // one holder's approval to any wallet it is handed to.
+        require_immutable_owner(&ctx.accounts.token_account.to_account_info(), &ctx.accounts.mint.key())?;
         require!(ctx.accounts.owner_is_eligible()?, AssetFlowError::NotEligible);
         Ok(())
     }
@@ -212,6 +359,92 @@ fn gate_extra_metas() -> Result<Vec<ExtraAccountMeta>> {
     ])
 }
 
+/// A serviced asset's mint must be a Token-2022 mint with nothing issued yet,
+/// every authority held by the asset account, holder accounts frozen by
+/// default, and no extension outside the allow-list.
+fn verify_fresh_mint(mint: &AccountInfo, token_2022: &Pubkey, asset: &Pubkey) -> Result<()> {
+    require_keys_eq!(*mint.owner, *token_2022, AssetFlowError::MintNotToken2022);
+    let data = mint.try_borrow_data()?;
+    let state = StateWithExtensions::<MintState>::unpack(&data)
+        .map_err(|_| error!(AssetFlowError::MintNotToken2022))?;
+    let is_asset = |key: Option<[u8; 32]>| key == Some(asset.to_bytes());
+
+    require!(state.base.supply == 0, AssetFlowError::MintNotFresh);
+    let mint_authority: Option<Pubkey> = state.base.mint_authority.into();
+    require!(is_asset(mint_authority.map(|k| k.to_bytes())), AssetFlowError::MintAuthorityNotAsset);
+    let freeze_authority: Option<Pubkey> = state.base.freeze_authority.into();
+    require!(is_asset(freeze_authority.map(|k| k.to_bytes())), AssetFlowError::FreezeAuthorityNotAsset);
+
+    let extensions = state
+        .get_extension_types()
+        .map_err(|_| error!(AssetFlowError::ForbiddenExtension))?;
+    require!(
+        extensions.iter().all(|e| ALLOWED_MINT_EXTENSIONS.contains(e)),
+        AssetFlowError::ForbiddenExtension
+    );
+
+    let default_state = state
+        .get_extension::<DefaultAccountState>()
+        .map_err(|_| error!(AssetFlowError::DefaultStateNotFrozen))?;
+    require!(
+        default_state.state == AccountState::Frozen as u8,
+        AssetFlowError::DefaultStateNotFrozen
+    );
+    let delegate = state
+        .get_extension::<PermanentDelegate>()
+        .map_err(|_| error!(AssetFlowError::DelegateNotAsset))?;
+    let delegate: Option<Pubkey> = delegate.delegate.into();
+    require!(is_asset(delegate.map(|k| k.to_bytes())), AssetFlowError::DelegateNotAsset);
+    let pause = state
+        .get_extension::<PausableConfig>()
+        .map_err(|_| error!(AssetFlowError::PauseAuthorityNotAsset))?;
+    let pause_authority: Option<Pubkey> = pause.authority.into();
+    require!(is_asset(pause_authority.map(|k| k.to_bytes())), AssetFlowError::PauseAuthorityNotAsset);
+    require!(!bool::from(pause.paused), AssetFlowError::MintPaused);
+    Ok(())
+}
+
+/// A holder account the gate or issuance may rely on: a Token-2022 account of
+/// this mint whose owner can never be reassigned. Associated token accounts
+/// always carry ImmutableOwner; a hand-made account must opt in.
+fn require_immutable_owner(token_account: &AccountInfo, mint: &Pubkey) -> Result<()> {
+    require!(
+        token_account.owner.to_bytes() == anchor_spl::token_2022::ID.to_bytes(),
+        AssetFlowError::OwnerNotImmutable
+    );
+    let data = token_account.try_borrow_data()?;
+    let state = StateWithExtensions::<TokenAccountState>::unpack(&data)
+        .map_err(|_| error!(AssetFlowError::OwnerNotImmutable))?;
+    require!(state.base.mint.to_bytes() == mint.to_bytes(), AssetFlowError::WrongMint);
+    let extensions = state
+        .get_extension_types()
+        .map_err(|_| error!(AssetFlowError::OwnerNotImmutable))?;
+    require!(
+        extensions.contains(&ExtensionType::ImmutableOwner),
+        AssetFlowError::OwnerNotImmutable
+    );
+    Ok(())
+}
+
+/// Whether `owner` may hold the asset today. Accounts the asset itself owns
+/// (payout and redemption vaults) are servicing counterparties, never
+/// investors; payout snapshots must leave them out.
+fn holder_is_eligible(
+    asset: &Pubkey,
+    registry: &Registry,
+    owner: &Pubkey,
+    investor: &AccountInfo,
+) -> Result<bool> {
+    if owner == asset {
+        return Ok(true);
+    }
+    if investor.owner != &crate::ID || investor.data_is_empty() {
+        return Ok(false);
+    }
+    let profile = InvestorProfile::try_deserialize(&mut &investor.try_borrow_data()?[..])?;
+    Ok(registry.admits(&profile, Clock::get()?.unix_timestamp))
+}
+
 #[derive(Accounts)]
 pub struct CreateRegistry<'info> {
     #[account(mut)]
@@ -225,6 +458,13 @@ pub struct CreateRegistry<'info> {
     )]
     pub registry: Account<'info, Registry>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct RegistryAdmin<'info> {
+    pub admin: Signer<'info>,
+    #[account(mut, has_one = admin @ AssetFlowError::Unauthorized)]
+    pub registry: Account<'info, Registry>,
 }
 
 #[derive(Accounts)]
@@ -255,28 +495,21 @@ pub struct SetInvestorProfile<'info> {
 #[derive(Accounts)]
 pub struct RegisterAsset<'info> {
     #[account(mut)]
+    pub issuer: Signer<'info>,
     pub admin: Signer<'info>,
     #[account(has_one = admin @ AssetFlowError::Unauthorized)]
     pub registry: Account<'info, Registry>,
-    pub mint: InterfaceAccount<'info, Mint>,
+    /// The mint's own key signs: only whoever created it can register it.
+    #[account(mut)]
+    pub mint: Signer<'info>,
     #[account(
         init,
-        payer = admin,
+        payer = issuer,
         space = 8 + Asset::INIT_SPACE,
         seeds = [ASSET_SEED, mint.key().as_ref()],
         bump
     )]
     pub asset: Account<'info, Asset>,
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-pub struct InitializeGate<'info> {
-    #[account(mut)]
-    pub issuer: Signer<'info>,
-    #[account(has_one = issuer @ AssetFlowError::Unauthorized, has_one = mint)]
-    pub asset: Account<'info, Asset>,
-    pub mint: InterfaceAccount<'info, Mint>,
     /// CHECK: created here and written as an ExtraAccountMetaList.
     #[account(
         init,
@@ -295,19 +528,64 @@ pub struct InitializeGate<'info> {
         bump
     )]
     pub freeze_metas: UncheckedAccount<'info>,
+    /// CHECK: Token ACL creates it in this instruction.
+    #[account(
+        mut,
+        seeds = [MINT_CONFIG_SEED, mint.key().as_ref()],
+        bump,
+        seeds::program = token_acl_program.key()
+    )]
+    pub mint_config: UncheckedAccount<'info>,
+    /// CHECK: pinned to the Token ACL program id.
+    #[account(address = TOKEN_ACL_ID)]
+    pub token_acl_program: UncheckedAccount<'info>,
+    pub token_program: Program<'info, Token2022>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 pub struct Issue<'info> {
     pub issuer: Signer<'info>,
-    #[account(has_one = issuer @ AssetFlowError::Unauthorized, has_one = mint)]
+    #[account(
+        has_one = issuer @ AssetFlowError::Unauthorized,
+        has_one = mint,
+        has_one = registry
+    )]
     pub asset: Account<'info, Asset>,
+    pub registry: Account<'info, Registry>,
     #[account(mut)]
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(mut, token::mint = mint, token::token_program = token_program)]
     pub destination: InterfaceAccount<'info, TokenAccount>,
-    pub token_program: Interface<'info, TokenInterface>,
+    /// CHECK: may not exist. A wallet with no profile is not eligible.
+    #[account(seeds = [INVESTOR_SEED, registry.key().as_ref(), destination.owner.as_ref()], bump)]
+    pub investor: UncheckedAccount<'info>,
+    pub token_program: Program<'info, Token2022>,
+}
+
+#[derive(Accounts)]
+pub struct ForceFreeze<'info> {
+    pub compliance: Signer<'info>,
+    #[account(has_one = compliance @ AssetFlowError::Unauthorized)]
+    pub registry: Account<'info, Registry>,
+    #[account(has_one = registry, has_one = mint)]
+    pub asset: Account<'info, Asset>,
+    /// CHECK: bound to the asset by has_one.
+    pub mint: UncheckedAccount<'info>,
+    /// CHECK: Token-2022 refuses an account that is not of this mint.
+    #[account(mut)]
+    pub token_account: UncheckedAccount<'info>,
+    /// CHECK: Token ACL's config for this mint.
+    #[account(
+        seeds = [MINT_CONFIG_SEED, mint.key().as_ref()],
+        bump,
+        seeds::program = token_acl_program.key()
+    )]
+    pub mint_config: UncheckedAccount<'info>,
+    /// CHECK: pinned to the Token ACL program id.
+    #[account(address = TOKEN_ACL_ID)]
+    pub token_acl_program: UncheckedAccount<'info>,
+    pub token_program: Program<'info, Token2022>,
 }
 
 /// The account order Token ACL uses when it asks a gate either question.
@@ -336,17 +614,12 @@ pub struct GateCheck<'info> {
 
 impl GateCheck<'_> {
     fn owner_is_eligible(&self) -> Result<bool> {
-        // Accounts the asset itself owns (payout and redemption vaults) are
-        // servicing counterparties, never investors.
-        if self.owner.key() == self.asset.key() {
-            return Ok(true);
-        }
-        let info = self.investor.to_account_info();
-        if info.owner != &crate::ID || info.data_is_empty() {
-            return Ok(false);
-        }
-        let profile = InvestorProfile::try_deserialize(&mut &info.try_borrow_data()?[..])?;
-        Ok(self.registry.admits(&profile, Clock::get()?.unix_timestamp))
+        holder_is_eligible(
+            &self.asset.key(),
+            &self.registry,
+            &self.owner.key(),
+            &self.investor.to_account_info(),
+        )
     }
 }
 
@@ -416,12 +689,50 @@ pub struct JurisdictionUpdated {
 }
 
 #[event]
+pub struct PolicyUpdated {
+    pub registry: Pubkey,
+    pub min_tier: u8,
+    pub require_accredited: bool,
+}
+
+#[event]
+pub struct ComplianceRotated {
+    pub registry: Pubkey,
+    pub compliance: Pubkey,
+}
+
+#[event]
 pub struct InvestorProfileUpdated {
     pub registry: Pubkey,
     pub wallet: Pubkey,
     pub terms: ProfileTerms,
 }
 
+#[event]
+pub struct AssetRegistered {
+    pub asset: Pubkey,
+    pub mint: Pubkey,
+    pub registry: Pubkey,
+    pub issuer: Pubkey,
+}
+
+#[event]
+pub struct Issued {
+    pub asset: Pubkey,
+    pub destination: Pubkey,
+    pub owner: Pubkey,
+    pub amount: u64,
+}
+
+#[event]
+pub struct ComplianceFreeze {
+    pub asset: Pubkey,
+    pub token_account: Pubkey,
+    pub reason: u16,
+}
+
+/// Codes are 6000 + position; the client maps them by number, so new errors
+/// go at the end.
 #[error_code]
 pub enum AssetFlowError {
     #[msg("signer does not hold this role")]
@@ -436,4 +747,24 @@ pub enum AssetFlowError {
     InvalidAmount,
     #[msg("the mint's authority must be the asset account")]
     MintAuthorityNotAsset,
+    #[msg("the mint's freeze authority must be the asset account")]
+    FreezeAuthorityNotAsset,
+    #[msg("the mint must have no supply when it is registered")]
+    MintNotFresh,
+    #[msg("the mint must be a Token-2022 mint")]
+    MintNotToken2022,
+    #[msg("the mint carries an extension a serviced asset may not have")]
+    ForbiddenExtension,
+    #[msg("holder accounts must start frozen")]
+    DefaultStateNotFrozen,
+    #[msg("the permanent delegate must be the asset account")]
+    DelegateNotAsset,
+    #[msg("the pause authority must be the asset account")]
+    PauseAuthorityNotAsset,
+    #[msg("the mint is paused")]
+    MintPaused,
+    #[msg("holder accounts must have an owner that can never change")]
+    OwnerNotImmutable,
+    #[msg("token account belongs to a different mint")]
+    WrongMint,
 }
