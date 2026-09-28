@@ -8,7 +8,8 @@ export function Logo({ className = "" }: { className?: string }) {
         <rect x="5" y="10" width="9" height="2" rx="1" fill="#fff" opacity="0.8" />
         <rect x="5" y="14" width="12" height="2" rx="1" fill="#5eead4" />
       </svg>
-      AssetFlow
+      {/* The mark alone on narrow screens, where the header has to fit the wallet button. */}
+      <span className="hidden sm:inline">AssetFlow</span>
     </span>
   );
 }
