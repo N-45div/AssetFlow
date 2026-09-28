@@ -27,7 +27,7 @@
     "faucet": "領取 devnet SOL（水龍頭）"
   },
   "footer": {
-    "line": "以 MIT 許可開源。基於 Solana 的 Token-2022 和 Token ACL（sRFC-37）構建。",
+    "line": "以 MIT 許可開源。基於 Solana 的 Token-2022 和 Token ACL（sRFC-37）構建；EVM 合約已部署在 HashKey Chain 主網。",
     "source": "源代碼"
   },
   "home": {
@@ -94,7 +94,31 @@
     },
     "source": "來源",
     "openTitle": "開源，且可驗證",
-    "openBody": "程序、控制台和測試均以 MIT 許可開源。本網站的每一項保證都可以在鏈上證明頁面中核實。"
+    "openBody": "程序、控制台和測試均以 MIT 許可開源。本網站的每一項保證都可以在鏈上證明頁面中核實。",
+    "networksTitle": "運行在哪些鏈上",
+    "networksLede": "同一個產品，不止一條鏈。資產服務層原生構建在 Solana 上；AssetFlow 最初的 EVM 合約已部署在 HashKey Chain 主網。",
+    "networks": {
+      "program": "程序",
+      "solana": {
+        "status": "Devnet",
+        "body": "本應用中的資產服務層：開立即凍結的 Token-2022 賬户、Token ACL（sRFC-37），以及作為閘門的 AssetFlow 程序。"
+      },
+      "hashkey": {
+        "status": "主網",
+        "body": "AssetFlow 最初的 EVM 合約，於 {date} 部署在 HashKey Chain 主網（鏈 ID 177）：合規名冊、受限資產代幣、派付和贖回。",
+        "contracts": {
+          "registry": "合規名冊",
+          "token": "資產代幣（AFPU）",
+          "distribution": "派付",
+          "redemption": "贖回"
+        }
+      },
+      "next": {
+        "title": "下一步",
+        "status": "規劃中",
+        "body": "Base、Arbitrum 和 Robinhood Chain：這些鏈上的代幣化股票通過乘數把股息再投資，從不以現金支付。同一份名冊，在每條鏈上發佈同一筆登記日派付。"
+      }
+    }
   },
   "tx": {
     "signing": "{what}：等待錢包確認…",
@@ -382,6 +406,15 @@
     "supplyTitle": "流通份額",
     "supplyHint": "從鑄幣讀取。",
     "extensionsTitle": "鑄幣擴展",
-    "extensionsHint": "登記時會拒絕此集合以外的任何擴展。"
+    "extensionsHint": "登記時會拒絕此集合以外的任何擴展。",
+    "hashkeyTitle": "同樣部署在 HashKey Chain",
+    "hashkeyStatus": "主網",
+    "hashkeyContracts": {
+      "registry": "合規名冊",
+      "token": "資產代幣（AFPU）",
+      "distribution": "派付",
+      "redemption": "贖回"
+    },
+    "hashkeyHint": "AssetFlow 的 EVM 合約，於 {date} 部署在 HashKey Chain 主網（鏈 ID 177）。"
   }
 }

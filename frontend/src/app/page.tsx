@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { PROGRAM_ID } from "@/lib/chain/config";
+import { explorer, shortKey } from "@/lib/chain/explorer";
+import { HASHKEY_MAINNET, hashkeyAddressUrl } from "@/lib/evm/hashkey";
 
 export default async function Home() {
   const t = await getTranslations("home");
@@ -85,6 +88,59 @@ export default async function Home() {
               </li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pt-14 sm:px-6">
+        <h2 className="text-2xl font-semibold tracking-tight">{t("networksTitle")}</h2>
+        <p className="mt-2 max-w-2xl text-ink-2">{t("networksLede")}</p>
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <article className="card flex flex-col p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold">Solana</h3>
+              <span className="pill pill-ok">{t("networks.solana.status")}</span>
+            </div>
+            <p className="mt-2 flex-1 text-sm text-ink-2">{t("networks.solana.body")}</p>
+            <a
+              className="mono mt-4 text-sm text-accent underline underline-offset-2"
+              href={explorer.address(PROGRAM_ID.toBase58())}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("networks.program")} {shortKey(PROGRAM_ID.toBase58())} ↗
+            </a>
+          </article>
+          <article className="card flex flex-col p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold">HashKey Chain</h3>
+              <span className="pill pill-ok">{t("networks.hashkey.status")}</span>
+            </div>
+            <p className="mt-2 flex-1 text-sm text-ink-2">
+              {t("networks.hashkey.body", { date: HASHKEY_MAINNET.deployedAt })}
+            </p>
+            <ul className="mt-4 space-y-1 text-sm">
+              {HASHKEY_MAINNET.contracts.map((c) => (
+                <li key={c.key} className="flex justify-between gap-3">
+                  <span className="text-ink-2">{t(`networks.hashkey.contracts.${c.key}`)}</span>
+                  <a
+                    className="mono text-accent underline underline-offset-2"
+                    href={hashkeyAddressUrl(c.address)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {shortKey(c.address, 5)} ↗
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </article>
+          <article className="card flex flex-col p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold">{t("networks.next.title")}</h3>
+              <span className="pill pill-neutral">{t("networks.next.status")}</span>
+            </div>
+            <p className="mt-2 flex-1 text-sm text-ink-2">{t("networks.next.body")}</p>
+          </article>
         </div>
       </section>
 

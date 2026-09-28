@@ -20,6 +20,7 @@ import { assetFromQuery, PROGRAM_ID } from "@/lib/chain/config";
 import { explorer, shortKey } from "@/lib/chain/explorer";
 import { TokenAcl, TOKEN_ACL_ID } from "@/lib/chain/program";
 import { formatUnits, program } from "@/lib/chain/use-asset";
+import { HASHKEY_MAINNET, hashkeyAddressUrl } from "@/lib/evm/hashkey";
 
 interface Check {
   id: string;
@@ -170,6 +171,28 @@ export function ProofView() {
                 ))}
               </ul>
               <p className="mt-3 text-sm text-ink-2">{t("extensionsHint")}</p>
+            </section>
+            <section className="card p-5">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-semibold">{t("hashkeyTitle")}</h2>
+                <span className="pill pill-ok">{t("hashkeyStatus")}</span>
+              </div>
+              <ul className="mt-3 divide-y divide-line text-sm">
+                {HASHKEY_MAINNET.contracts.map((c) => (
+                  <li key={c.key} className="flex items-center justify-between gap-3 py-2">
+                    <span className="text-ink-2">{t(`hashkeyContracts.${c.key}`)}</span>
+                    <a
+                      className="mono text-accent underline underline-offset-2"
+                      href={hashkeyAddressUrl(c.address)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {shortKey(c.address, 5)} ↗
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-sm text-ink-2">{t("hashkeyHint", { date: HASHKEY_MAINNET.deployedAt })}</p>
             </section>
           </div>
         </div>

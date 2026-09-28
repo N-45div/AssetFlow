@@ -27,7 +27,7 @@
     "faucet": "Get devnet SOL (faucet)"
   },
   "footer": {
-    "line": "Open source under MIT. Built on Solana with Token-2022 and Token ACL (sRFC-37).",
+    "line": "Open source under MIT. Built on Solana with Token-2022 and Token ACL (sRFC-37); EVM contracts live on HashKey Chain mainnet.",
     "source": "Source code"
   },
   "home": {
@@ -94,7 +94,31 @@
     },
     "source": "Source",
     "openTitle": "Open, and checkable",
-    "openBody": "The programs, the console and the tests are MIT-licensed. Every guarantee on this site can be checked against the chain on the proof page."
+    "openBody": "The programs, the console and the tests are MIT-licensed. Every guarantee on this site can be checked against the chain on the proof page.",
+    "networksTitle": "Where it runs",
+    "networksLede": "One product on more than one chain. The servicing layer is built natively on Solana; the EVM contracts AssetFlow started as are live on HashKey Chain mainnet.",
+    "networks": {
+      "program": "Program",
+      "solana": {
+        "status": "Devnet",
+        "body": "The servicing layer in this app: Token-2022 accounts that start frozen, Token ACL (sRFC-37), and the AssetFlow program as its gate."
+      },
+      "hashkey": {
+        "status": "Mainnet",
+        "body": "The EVM contracts AssetFlow started as, deployed on HashKey Chain mainnet (chain 177) on {date}: a compliance registry, a restricted asset token, payouts and redemptions.",
+        "contracts": {
+          "registry": "Compliance registry",
+          "token": "Asset token (AFPU)",
+          "distribution": "Payouts",
+          "redemption": "Redemptions"
+        }
+      },
+      "next": {
+        "title": "Next",
+        "status": "Planned",
+        "body": "Base, Arbitrum and Robinhood Chain, where tokenized stocks reinvest dividends through a multiplier and never pay them in cash. One register; the same record-date payout published on each chain."
+      }
+    }
   },
   "tx": {
     "signing": "{what}: waiting for your wallet…",
@@ -382,6 +406,15 @@
     "supplyTitle": "Units outstanding",
     "supplyHint": "Read from the mint.",
     "extensionsTitle": "Mint extensions",
-    "extensionsHint": "Anything outside this set is refused at registration."
+    "extensionsHint": "Anything outside this set is refused at registration.",
+    "hashkeyTitle": "Also on HashKey Chain",
+    "hashkeyStatus": "Mainnet",
+    "hashkeyContracts": {
+      "registry": "Compliance registry",
+      "token": "Asset token (AFPU)",
+      "distribution": "Payouts",
+      "redemption": "Redemptions"
+    },
+    "hashkeyHint": "AssetFlow's EVM contracts, deployed on HashKey Chain mainnet (chain 177) on {date}."
   }
 }
