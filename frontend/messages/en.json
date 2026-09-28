@@ -87,8 +87,8 @@
       },
       "redemptions": {
         "title": "How they get out",
-        "body": "Holders request redemption, the issuer approves, and settlement burns the units and pays USDC in the same transaction, at a price the program computes, not one the holder names.",
-        "solana": "Escrow held by a program account, and the permanent delegate for maturity."
+        "body": "A holder asks to redeem and the units wait in escrow. The issuer settles, and the units burn while USDC moves in the same transaction, at face plus accrued interest the program computes; or declines, and the units go back. At maturity every unit is redeemed at face.",
+        "solana": "An escrow the asset's program account owns; at maturity the mint authority is dropped for good, and the permanent delegate burns each holding as it is paid."
       }
     },
     "nowTitle": "Why now",
@@ -123,8 +123,7 @@
         "status": "Planned",
         "body": "Base, Arbitrum and Robinhood Chain, where tokenized stocks reinvest dividends through a multiplier and never pay them in cash. One register; the same record-date payout published on each chain."
       }
-    },
-    "inProgress": "In progress"
+    }
   },
   "tx": {
     "signing": "{what}: waiting for your wallet…",
@@ -153,7 +152,24 @@
     "WrongMint": "That token account belongs to a different asset.",
     "AccountFrozen": "Refused by Token-2022: the account is frozen.",
     "Rejected": "You declined the request in your wallet.",
-    "Unknown": "The transaction failed. The program log below has the details."
+    "Unknown": "The transaction failed. The program log below has the details.",
+    "InvalidTerms": "The instrument terms are not valid.",
+    "InvalidPeriod": "There is no such coupon period.",
+    "RecordDateNotReached": "The record date has not been reached yet.",
+    "RegisterWindowOpen": "Another register is being fixed; the asset is paused until it is committed.",
+    "WrongPayoutStatus": "The payment is not at the right step for this.",
+    "TotalMismatch": "The register does not add up to the units outstanding at the record date.",
+    "Underfunded": "Not fully funded yet: nothing is paid until all of it is.",
+    "InvalidProof": "The proof does not match the committed register.",
+    "Overdrawn": "Paying this would exceed what was funded.",
+    "MathOverflow": "The amount is too large to compute.",
+    "WrongDestination": "The payment must go to an account the holder owns.",
+    "AssetMatured": "The asset has matured: no unit can be issued or redeemed early again.",
+    "MaturityNotReached": "The asset has not reached its maturity date.",
+    "CouponsOutstanding": "Every coupon's register must be committed before maturity.",
+    "RequestClosed": "That redemption request has already been answered.",
+    "HoldingFrozen": "The holding account is frozen; it must be activated first.",
+    "NotAHolding": "The asset's own escrow is not a holding."
   },
   "eligibility": {
     "title": "Eligibility",
@@ -234,6 +250,42 @@
       "est": "est.",
       "scheduled": "Scheduled",
       "row": "Coupon {n}"
+    },
+    "redeem": {
+      "title": "Redemptions",
+      "none": "Redemptions are priced from the instrument terms, and this asset has none yet.",
+      "lede": "Ask the issuer to redeem units before maturity. They wait in escrow until the issuer settles or declines, and you can withdraw the request until then.",
+      "units": "Units to redeem",
+      "max": "Max",
+      "quoteFace": "Face",
+      "quoteInterest": "Interest to date",
+      "quoteTotal": "You would receive",
+      "quoteNote": "Priced by the program on the day the issuer settles: face plus the interest accrued to that day.",
+      "tooMany": "You hold {units} units.",
+      "request": "Request redemption",
+      "nothingHeld": "You hold no units of this asset.",
+      "notEligible": "Only an eligible holder can ask to redeem.",
+      "mine": "Your requests",
+      "row": "{units} units · {date}",
+      "paidAmount": "paid {amount}",
+      "withdraw": "Withdraw",
+      "status": {
+        "requested": "Waiting for the issuer",
+        "settled": "Settled",
+        "rejected": "Declined",
+        "cancelled": "Withdrawn"
+      },
+      "matured": "Matured on {date}: each unit redeems at its face, {face}.",
+      "redeemed": "Redeemed {units} units for {amount}.",
+      "awaitingFunds": "Waiting for the issuer to fund the principal: {funded} of {required}.",
+      "redeemAll": "Redeem my {units} units for {amount}",
+      "heldAtMaturity": "You are not eligible right now. Your units stay yours, and the principal waits in the vault until you are.",
+      "what": {
+        "request": "Requesting the redemption",
+        "cancel": "Withdrawing the request",
+        "redeem": "Redeeming at maturity"
+      },
+      "escrowNote": "{units} units wait in escrow. They are still yours on a record date, so their coupon comes to you."
     }
   },
   "issuer": {
@@ -249,7 +301,8 @@
       "investors": "Investors",
       "issuance": "Issuance",
       "policy": "Policy",
-      "coupons": "Coupons"
+      "coupons": "Coupons",
+      "redemptions": "Redemptions"
     },
     "onboarding": {
       "step": "Set-up, step {n} of {of}",
@@ -452,6 +505,60 @@
       "paidPill": "Paid",
       "rebuild": "Rebuild from the chain",
       "rebuildMismatch": "Holdings have changed since the record date, so the chain no longer rebuilds the committed root. Load the register saved at commit."
+    },
+    "redemptions": {
+      "loading": "Reading redemptions…",
+      "noTerms": "Redemptions are priced from the instrument terms. Set them on the Coupons tab first.",
+      "requestsTitle": "Early redemption requests",
+      "requestsLede": "Units wait in escrow until you answer. Settling pays face plus accrued interest, priced by the program, and burns the units in the same transaction. Rejecting returns them.",
+      "noOpen": "No requests waiting. Holders ask from their portal.",
+      "col": {
+        "holder": "Holder",
+        "units": "Units",
+        "requested": "Requested",
+        "price": "Price today"
+      },
+      "notEligible": "Not eligible",
+      "settle": "Settle for {amount}",
+      "reject": "Reject",
+      "balance": "Your wallet holds {balance} of the payment currency.",
+      "priceNote": "The price is face plus 30/360 interest from the start of the current period, rounded down to the cent; none once that period's record date has passed, since the holder on the register takes the whole coupon.",
+      "history": "Answered and withdrawn requests ({n})",
+      "unitsWord": "units",
+      "paidLine": "paid {principal} face + {interest} interest",
+      "status": {
+        "requested": "Waiting",
+        "settled": "Settled",
+        "rejected": "Rejected",
+        "cancelled": "Withdrawn"
+      },
+      "maturityTitle": "Maturity",
+      "maturityLede": "The asset matures after its last payment date, {date}. Every unit outstanding is then redeemed at face: {amount} in all.",
+      "checkDate": "Last payment date passed ({date})",
+      "checkCoupons": "Every coupon's register committed ({done} of {of})",
+      "openAtMaturity": "{n, plural, one {# request is} other {# requests are}} still in escrow. Reject them, or let the holders withdraw; the units are then redeemed with the rest.",
+      "start": "Start maturity",
+      "startedAt": "Matured on {date}. No unit can be issued again, and each redeems at face once the principal is funded.",
+      "required": "Principal due",
+      "funded": "Funded",
+      "paid": "Paid",
+      "outstanding": "Units outstanding",
+      "fund": "Fund {amount}",
+      "lowBalance": "Your wallet holds {balance} of the payment currency.",
+      "redeemAll": "Redeem every holding",
+      "allRedeemed": "Every holding redeemed",
+      "crank": {
+        "sent": "Sending",
+        "done": "Redeemed",
+        "failed": "Failed",
+        "held": "Held: not eligible"
+      },
+      "what": {
+        "settle": "Settling the redemption",
+        "reject": "Rejecting the request",
+        "start": "Starting maturity",
+        "fund": "Funding the principal"
+      }
     }
   },
   "proof": {
@@ -497,6 +604,10 @@
       "pause": {
         "title": "Only the asset account can pause",
         "why": "Pausing fixes the register on the record date; no one else can stop transfers."
+      },
+      "mintAuthorityMatured": {
+        "title": "Matured: nobody can mint",
+        "why": "Maturity removed the mint authority, so no unit can ever be issued again, by AssetFlow or anyone."
       }
     },
     "supplyTitle": "Units outstanding",

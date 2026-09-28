@@ -87,8 +87,8 @@
       },
       "redemptions": {
         "title": "如何退出",
-        "body": "持有人提出赎回申请，发行人批准，结算时在同一笔交易中销毁份额并支付 USDC，价格由程序计算，而不是由持有人自报。",
-        "solana": "由程序账户托管的托管账户，以及用于到期兑付的永久委托。"
+        "body": "持有人申请赎回，单位进入托管账户等待。发行人结算时，单位销毁与 USDC 支付在同一笔交易中完成，价格为程序计算的面值加应计利息；发行人拒绝则退回单位。到期时，每个单位按面值赎回。",
+        "solana": "由资产程序账户持有的托管账户；到期时永久移除铸造权限，并由永久委托人在付款的同时销毁每份持仓。"
       }
     },
     "nowTitle": "为什么是现在",
@@ -123,8 +123,7 @@
         "status": "规划中",
         "body": "Base、Arbitrum 和 Robinhood Chain：这些链上的代币化股票通过乘数把股息再投资，从不以现金支付。同一份名册，在每条链上发布同一笔登记日派付。"
       }
-    },
-    "inProgress": "开发中"
+    }
   },
   "tx": {
     "signing": "{what}：等待钱包确认…",
@@ -153,7 +152,24 @@
     "WrongMint": "该代币账户属于另一种资产。",
     "AccountFrozen": "被 Token-2022 拒绝：账户已冻结。",
     "Rejected": "你在钱包中拒绝了该请求。",
-    "Unknown": "交易失败。详情请见下方程序日志。"
+    "Unknown": "交易失败。详情请见下方程序日志。",
+    "InvalidTerms": "产品条款无效。",
+    "InvalidPeriod": "不存在该付息期。",
+    "RecordDateNotReached": "尚未到登记日。",
+    "RegisterWindowOpen": "另一份名册正在锁定中；提交之前资产处于暂停状态。",
+    "WrongPayoutStatus": "本期付息当前不在可执行此操作的步骤。",
+    "TotalMismatch": "名册合计与登记日的流通单位不符。",
+    "Underfunded": "尚未足额注资：全部到位之前不会支付任何款项。",
+    "InvalidProof": "证明与已提交的名册不符。",
+    "Overdrawn": "此笔支付将超出已注资金额。",
+    "MathOverflow": "金额过大，无法计算。",
+    "WrongDestination": "款项必须支付到持有人本人的账户。",
+    "AssetMatured": "资产已到期：不能再发行，也不能再提前赎回。",
+    "MaturityNotReached": "资产尚未到期。",
+    "CouponsOutstanding": "到期之前，每一期票息的名册都必须已提交。",
+    "RequestClosed": "该赎回申请已处理。",
+    "HoldingFrozen": "持仓账户已冻结，须先激活。",
+    "NotAHolding": "资产自身的托管账户不属于持仓。"
   },
   "eligibility": {
     "title": "资格",
@@ -234,6 +250,42 @@
       "est": "预估",
       "scheduled": "已排期",
       "row": "第 {n} 期"
+    },
+    "redeem": {
+      "title": "赎回",
+      "none": "赎回价格依据产品条款计算，而此资产尚未设定条款。",
+      "lede": "在到期前请发行人赎回单位。单位在托管账户中等待，直到发行人结算或拒绝；在此之前你可以随时撤回申请。",
+      "units": "赎回单位",
+      "max": "全部",
+      "quoteFace": "面值",
+      "quoteInterest": "应计利息",
+      "quoteTotal": "你将收到",
+      "quoteNote": "价格由程序在发行人结算当日计算：面值加截至当日的应计利息。",
+      "tooMany": "你持有 {units} 单位。",
+      "request": "申请赎回",
+      "nothingHeld": "你未持有此资产。",
+      "notEligible": "只有符合资格的持有人才能申请赎回。",
+      "mine": "你的申请",
+      "row": "{units} 单位 · {date}",
+      "paidAmount": "已付 {amount}",
+      "withdraw": "撤回",
+      "status": {
+        "requested": "等待发行人处理",
+        "settled": "已结算",
+        "rejected": "已拒绝",
+        "cancelled": "已撤回"
+      },
+      "matured": "已于 {date} 到期：每个单位按面值 {face} 赎回。",
+      "redeemed": "已赎回 {units} 单位，获得 {amount}。",
+      "awaitingFunds": "等待发行人为本金注资：{funded} / {required}。",
+      "redeemAll": "以 {amount} 赎回我的 {units} 单位",
+      "heldAtMaturity": "你目前不符合资格。你的单位仍归你所有，本金保留在金库中，直到你重新符合资格。",
+      "what": {
+        "request": "申请赎回",
+        "cancel": "撤回申请",
+        "redeem": "到期赎回"
+      },
+      "escrowNote": "{units} 单位正在托管中。登记日时它们仍归你所有，对应的票息照常支付给你。"
     }
   },
   "issuer": {
@@ -249,7 +301,8 @@
       "investors": "投资者",
       "issuance": "发行",
       "policy": "合规政策",
-      "coupons": "票息"
+      "coupons": "票息",
+      "redemptions": "赎回"
     },
     "onboarding": {
       "step": "设置：第 {n} 步，共 {of} 步",
@@ -452,6 +505,60 @@
       "paidPill": "已支付",
       "rebuild": "从链上重建",
       "rebuildMismatch": "登记日之后持仓已有变化，链上数据已无法重建已提交的根。请载入提交时保存的名册。"
+    },
+    "redemptions": {
+      "loading": "正在读取赎回信息…",
+      "noTerms": "赎回价格依据产品条款计算。请先在“票息”页设定条款。",
+      "requestsTitle": "提前赎回申请",
+      "requestsLede": "单位在托管账户中等待你的处理。结算时按程序计算的面值加应计利息付款，并在同一笔交易中销毁这些单位；拒绝则退回单位。",
+      "noOpen": "暂无待处理的申请。持有人可在持有人门户中提出。",
+      "col": {
+        "holder": "持有人",
+        "units": "单位",
+        "requested": "申请时间",
+        "price": "今日价格"
+      },
+      "notEligible": "不符合资格",
+      "settle": "以 {amount} 结算",
+      "reject": "拒绝",
+      "balance": "你的钱包持有 {balance} 支付币种。",
+      "priceNote": "价格为面值加上自本期起始日按 30/360 计算的利息，向下取整到分；本期登记日过后不再计息，因为整期票息归名册上的持有人。",
+      "history": "已处理和已撤回的申请（{n}）",
+      "unitsWord": "单位",
+      "paidLine": "已付面值 {principal} + 利息 {interest}",
+      "status": {
+        "requested": "待处理",
+        "settled": "已结算",
+        "rejected": "已拒绝",
+        "cancelled": "已撤回"
+      },
+      "maturityTitle": "到期",
+      "maturityLede": "资产在最后一个付息日 {date} 之后到期。届时所有流通单位按面值赎回，共计 {amount}。",
+      "checkDate": "最后付息日已过（{date}）",
+      "checkCoupons": "每一期票息的名册均已提交（{done}/{of}）",
+      "openAtMaturity": "仍有 {n} 笔申请在托管中。请拒绝，或由持有人撤回；这些单位随后与其余单位一同赎回。",
+      "start": "启动到期",
+      "startedAt": "已于 {date} 到期。不能再发行新单位；本金注资后，每个单位按面值赎回。",
+      "required": "应付本金",
+      "funded": "已注资",
+      "paid": "已支付",
+      "outstanding": "流通单位",
+      "fund": "注资 {amount}",
+      "lowBalance": "你的钱包持有 {balance} 支付币种。",
+      "redeemAll": "赎回全部持仓",
+      "allRedeemed": "全部持仓已赎回",
+      "crank": {
+        "sent": "发送中",
+        "done": "已赎回",
+        "failed": "失败",
+        "held": "保留：不符合资格"
+      },
+      "what": {
+        "settle": "结算赎回",
+        "reject": "拒绝申请",
+        "start": "启动到期",
+        "fund": "为本金注资"
+      }
     }
   },
   "proof": {
@@ -497,6 +604,10 @@
       "pause": {
         "title": "只有资产账户可以暂停",
         "why": "暂停用于在登记日锁定名册；其他人无法停止转账。"
+      },
+      "mintAuthorityMatured": {
+        "title": "已到期：任何人都无法铸造",
+        "why": "到期时已移除铸造权限，AssetFlow 或任何人都无法再发行新单位。"
       }
     },
     "supplyTitle": "流通份额",

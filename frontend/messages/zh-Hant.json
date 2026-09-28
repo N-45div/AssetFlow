@@ -87,8 +87,8 @@
       },
       "redemptions": {
         "title": "如何退出",
-        "body": "持有人提出贖回申請，發行人批准，結算時在同一筆交易中銷燬份額並支付 USDC，價格由程序計算，而不是由持有人自報。",
-        "solana": "由程序賬户託管的託管賬户，以及用於到期兑付的永久委託。"
+        "body": "持有人申請贖回，單位進入托管賬户等待。發行人結算時，單位銷燬與 USDC 支付在同一筆交易中完成，價格為程序計算的面值加應計利息；發行人拒絕則退回單位。到期時，每個單位按面值贖回。",
+        "solana": "由資產程序賬户持有的託管賬户；到期時永久移除鑄造權限，並由永久委託人在付款的同時銷燬每份持倉。"
       }
     },
     "nowTitle": "為什麼是現在",
@@ -123,8 +123,7 @@
         "status": "規劃中",
         "body": "Base、Arbitrum 和 Robinhood Chain：這些鏈上的代幣化股票通過乘數把股息再投資，從不以現金支付。同一份名冊，在每條鏈上發佈同一筆登記日派付。"
       }
-    },
-    "inProgress": "開發中"
+    }
   },
   "tx": {
     "signing": "{what}：等待錢包確認…",
@@ -153,7 +152,24 @@
     "WrongMint": "該代幣賬户屬於另一種資產。",
     "AccountFrozen": "被 Token-2022 拒絕：賬户已凍結。",
     "Rejected": "你在錢包中拒絕了該請求。",
-    "Unknown": "交易失敗。詳情請見下方程序日誌。"
+    "Unknown": "交易失敗。詳情請見下方程序日誌。",
+    "InvalidTerms": "產品條款無效。",
+    "InvalidPeriod": "不存在該付息期。",
+    "RecordDateNotReached": "尚未到登記日。",
+    "RegisterWindowOpen": "另一份名冊正在鎖定中；提交之前資產處於暫停狀態。",
+    "WrongPayoutStatus": "本期付息當前不在可執行此操作的步驟。",
+    "TotalMismatch": "名冊合計與登記日的流通單位不符。",
+    "Underfunded": "尚未足額注資：全部到位之前不會支付任何款項。",
+    "InvalidProof": "證明與已提交的名冊不符。",
+    "Overdrawn": "此筆支付將超出已注資金額。",
+    "MathOverflow": "金額過大，無法計算。",
+    "WrongDestination": "款項必須支付到持有人本人的賬户。",
+    "AssetMatured": "資產已到期：不能再發行，也不能再提前贖回。",
+    "MaturityNotReached": "資產尚未到期。",
+    "CouponsOutstanding": "到期之前，每一期票息的名冊都必須已提交。",
+    "RequestClosed": "該贖回申請已處理。",
+    "HoldingFrozen": "持倉賬户已凍結，須先激活。",
+    "NotAHolding": "資產自身的託管賬户不屬於持倉。"
   },
   "eligibility": {
     "title": "資格",
@@ -234,6 +250,42 @@
       "est": "預估",
       "scheduled": "已排期",
       "row": "第 {n} 期"
+    },
+    "redeem": {
+      "title": "贖回",
+      "none": "贖回價格依據產品條款計算，而此資產尚未設定條款。",
+      "lede": "在到期前請發行人贖回單位。單位在託管賬户中等待，直到發行人結算或拒絕；在此之前你可以隨時撤回申請。",
+      "units": "贖回單位",
+      "max": "全部",
+      "quoteFace": "面值",
+      "quoteInterest": "應計利息",
+      "quoteTotal": "你將收到",
+      "quoteNote": "價格由程序在發行人結算當日計算：面值加截至當日的應計利息。",
+      "tooMany": "你持有 {units} 單位。",
+      "request": "申請贖回",
+      "nothingHeld": "你未持有此資產。",
+      "notEligible": "只有符合資格的持有人才能申請贖回。",
+      "mine": "你的申請",
+      "row": "{units} 單位 · {date}",
+      "paidAmount": "已付 {amount}",
+      "withdraw": "撤回",
+      "status": {
+        "requested": "等待發行人處理",
+        "settled": "已結算",
+        "rejected": "已拒絕",
+        "cancelled": "已撤回"
+      },
+      "matured": "已於 {date} 到期：每個單位按面值 {face} 贖回。",
+      "redeemed": "已贖回 {units} 單位，獲得 {amount}。",
+      "awaitingFunds": "等待發行人為本金注資：{funded} / {required}。",
+      "redeemAll": "以 {amount} 贖回我的 {units} 單位",
+      "heldAtMaturity": "你目前不符合資格。你的單位仍歸你所有，本金保留在金庫中，直到你重新符合資格。",
+      "what": {
+        "request": "申請贖回",
+        "cancel": "撤回申請",
+        "redeem": "到期贖回"
+      },
+      "escrowNote": "{units} 單位正在託管中。登記日時它們仍歸你所有，對應的票息照常支付給你。"
     }
   },
   "issuer": {
@@ -249,7 +301,8 @@
       "investors": "投資者",
       "issuance": "發行",
       "policy": "合規政策",
-      "coupons": "票息"
+      "coupons": "票息",
+      "redemptions": "贖回"
     },
     "onboarding": {
       "step": "設置：第 {n} 步，共 {of} 步",
@@ -452,6 +505,60 @@
       "paidPill": "已支付",
       "rebuild": "從鏈上重建",
       "rebuildMismatch": "登記日之後持倉已有變化，鏈上數據已無法重建已提交的根。請載入提交時保存的名冊。"
+    },
+    "redemptions": {
+      "loading": "正在讀取贖回信息…",
+      "noTerms": "贖回價格依據產品條款計算。請先在“票息”頁設定條款。",
+      "requestsTitle": "提前贖回申請",
+      "requestsLede": "單位在託管賬户中等待你的處理。結算時按程序計算的面值加應計利息付款，並在同一筆交易中銷燬這些單位；拒絕則退回單位。",
+      "noOpen": "暫無待處理的申請。持有人可在持有人門户中提出。",
+      "col": {
+        "holder": "持有人",
+        "units": "單位",
+        "requested": "申請時間",
+        "price": "今日價格"
+      },
+      "notEligible": "不符合資格",
+      "settle": "以 {amount} 結算",
+      "reject": "拒絕",
+      "balance": "你的錢包持有 {balance} 支付幣種。",
+      "priceNote": "價格為面值加上自本期起始日按 30/360 計算的利息，向下取整到分；本期登記日過後不再計息，因為整期票息歸名冊上的持有人。",
+      "history": "已處理和已撤回的申請（{n}）",
+      "unitsWord": "單位",
+      "paidLine": "已付面值 {principal} + 利息 {interest}",
+      "status": {
+        "requested": "待處理",
+        "settled": "已結算",
+        "rejected": "已拒絕",
+        "cancelled": "已撤回"
+      },
+      "maturityTitle": "到期",
+      "maturityLede": "資產在最後一個付息日 {date} 之後到期。屆時所有流通單位按面值贖回，共計 {amount}。",
+      "checkDate": "最後付息日已過（{date}）",
+      "checkCoupons": "每一期票息的名冊均已提交（{done}/{of}）",
+      "openAtMaturity": "仍有 {n} 筆申請在託管中。請拒絕，或由持有人撤回；這些單位隨後與其餘單位一同贖回。",
+      "start": "啓動到期",
+      "startedAt": "已於 {date} 到期。不能再發行新單位；本金注資後，每個單位按面值贖回。",
+      "required": "應付本金",
+      "funded": "已注資",
+      "paid": "已支付",
+      "outstanding": "流通單位",
+      "fund": "注資 {amount}",
+      "lowBalance": "你的錢包持有 {balance} 支付幣種。",
+      "redeemAll": "贖回全部持倉",
+      "allRedeemed": "全部持倉已贖回",
+      "crank": {
+        "sent": "發送中",
+        "done": "已贖回",
+        "failed": "失敗",
+        "held": "保留：不符合資格"
+      },
+      "what": {
+        "settle": "結算贖回",
+        "reject": "拒絕申請",
+        "start": "啓動到期",
+        "fund": "為本金注資"
+      }
     }
   },
   "proof": {
@@ -497,6 +604,10 @@
       "pause": {
         "title": "只有資產賬户可以暫停",
         "why": "暫停用於在登記日鎖定名冊；其他人無法停止轉賬。"
+      },
+      "mintAuthorityMatured": {
+        "title": "已到期：任何人都無法鑄造",
+        "why": "到期時已移除鑄造權限，AssetFlow 或任何人都無法再發行新單位。"
       }
     },
     "supplyTitle": "流通份額",
