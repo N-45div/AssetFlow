@@ -26,6 +26,8 @@ import {
   createInitializeMintCloseAuthorityInstruction,
   createInitializePausableConfigInstruction,
   createInitializePermanentDelegateInstruction,
+  createAssociatedTokenAccountIdempotentInstruction,
+  getAssociatedTokenAddressSync,
   getMintLen,
 } from "@solana/spl-token";
 
@@ -86,6 +88,24 @@ export class AssetFlow {
   }
   freezeMetas(mint: PublicKey) {
     return pda([Buffer.from("freeze_extra_account_metas"), mint.toBuffer()], this.programId);
+  }
+  redemption(mint: PublicKey, holder: PublicKey, id: number) {
+    const n = Buffer.alloc(4);
+    n.writeUInt32LE(id);
+    return pda([Buffer.from("redemption"), mint.toBuffer(), holder.toBuffer(), n], this.programId);
+  }
+  /** Where requested units wait: the asset's own associated account. */
+  escrow(mint: PublicKey) {
+    return getAssociatedTokenAddressSync(mint, this.asset(mint), true, TOKEN_2022_PROGRAM_ID);
+  }
+  maturity(mint: PublicKey) {
+    return pda([Buffer.from("maturity"), mint.toBuffer()], this.programId);
+  }
+  maturityVault(mint: PublicKey) {
+    return pda([Buffer.from("maturity_vault"), this.maturity(mint).toBuffer()], this.programId);
+  }
+  maturityRecord(mint: PublicKey, holder: PublicKey) {
+    return pda([Buffer.from("redeemed"), this.maturity(mint).toBuffer(), holder.toBuffer()], this.programId);
   }
 
   private ix(name: string, keys: TransactionInstruction["keys"], args: Buffer[] = []) {
@@ -353,6 +373,139 @@ export class AssetFlow {
       ],
       [u8(period), holder.toBuffer(), u64(units), count, ...proof],
     );
+  }
+
+  /** The holder moves units into escrow. Creates the escrow the first time. */
+  requestRedemption(holder: PublicKey, registry: PublicKey, mint: PublicKey, source: PublicKey, id: number, units: bigint) {
+    const n = Buffer.alloc(4);
+    n.writeUInt32LE(id);
+    return [
+      createAssociatedTokenAccountIdempotentInstruction(holder, this.escrow(mint), this.asset(mint), mint, TOKEN_2022_PROGRAM_ID),
+      this.ix(
+        "request_redemption",
+        [
+          { pubkey: holder, isSigner: true, isWritable: true },
+          { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+          { pubkey: registry, isSigner: false, isWritable: false },
+          { pubkey: this.terms(mint), isSigner: false, isWritable: false },
+          { pubkey: mint, isSigner: false, isWritable: false },
+          { pubkey: source, isSigner: false, isWritable: true },
+          { pubkey: this.escrow(mint), isSigner: false, isWritable: true },
+          { pubkey: this.investor(registry, holder), isSigner: false, isWritable: false },
+          { pubkey: this.redemption(mint, holder, id), isSigner: false, isWritable: true },
+          { pubkey: TokenAcl.mintConfig(mint), isSigner: false, isWritable: false },
+          { pubkey: TOKEN_ACL_ID, isSigner: false, isWritable: false },
+          { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        [n, u64(units)],
+      ),
+    ];
+  }
+
+  settleRedemption(
+    issuer: PublicKey,
+    registry: PublicKey,
+    mint: PublicKey,
+    request: PublicKey,
+    holder: PublicKey,
+    currencyMint: PublicKey,
+    currencyProgram: PublicKey,
+    source: PublicKey,
+    destination: PublicKey,
+  ) {
+    return this.ix("settle_redemption", [
+      { pubkey: issuer, isSigner: true, isWritable: false },
+      { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+      { pubkey: registry, isSigner: false, isWritable: false },
+      { pubkey: this.terms(mint), isSigner: false, isWritable: false },
+      { pubkey: mint, isSigner: false, isWritable: true },
+      { pubkey: request, isSigner: false, isWritable: true },
+      { pubkey: this.escrow(mint), isSigner: false, isWritable: true },
+      { pubkey: currencyMint, isSigner: false, isWritable: false },
+      { pubkey: source, isSigner: false, isWritable: true },
+      { pubkey: destination, isSigner: false, isWritable: true },
+      { pubkey: this.investor(registry, holder), isSigner: false, isWritable: false },
+      { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: currencyProgram, isSigner: false, isWritable: false },
+    ]);
+  }
+
+  /** "cancel" by the holder, "reject" by the issuer: the units go back either way. */
+  returnRedemption(how: "cancel" | "reject", authority: PublicKey, mint: PublicKey, request: PublicKey, destination: PublicKey) {
+    return this.ix(`${how}_redemption`, [
+      { pubkey: authority, isSigner: true, isWritable: false },
+      { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: request, isSigner: false, isWritable: true },
+      { pubkey: this.escrow(mint), isSigner: false, isWritable: true },
+      { pubkey: destination, isSigner: false, isWritable: true },
+      { pubkey: TokenAcl.mintConfig(mint), isSigner: false, isWritable: false },
+      { pubkey: TOKEN_ACL_ID, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+    ]);
+  }
+
+  /** Anyone, after the last payment date: hands over every period's payout to prove each was committed. */
+  startMaturity(caller: PublicKey, mint: PublicKey, currencyMint: PublicKey, currencyProgram: PublicKey, periods: number) {
+    return this.ix("start_maturity", [
+      { pubkey: caller, isSigner: true, isWritable: true },
+      { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+      { pubkey: this.terms(mint), isSigner: false, isWritable: false },
+      { pubkey: mint, isSigner: false, isWritable: true },
+      { pubkey: this.maturity(mint), isSigner: false, isWritable: true },
+      { pubkey: currencyMint, isSigner: false, isWritable: false },
+      { pubkey: this.maturityVault(mint), isSigner: false, isWritable: true },
+      { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: currencyProgram, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ...Array.from({ length: periods }, (_, i) => ({ pubkey: this.payout(mint, i), isSigner: false, isWritable: false })),
+    ]);
+  }
+
+  fundMaturity(funder: PublicKey, mint: PublicKey, currencyMint: PublicKey, currencyProgram: PublicKey, source: PublicKey, amount: bigint) {
+    return this.ix(
+      "fund_maturity",
+      [
+        { pubkey: funder, isSigner: true, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: this.maturity(mint), isSigner: false, isWritable: true },
+        { pubkey: currencyMint, isSigner: false, isWritable: false },
+        { pubkey: source, isSigner: false, isWritable: true },
+        { pubkey: this.maturityVault(mint), isSigner: false, isWritable: true },
+        { pubkey: currencyProgram, isSigner: false, isWritable: false },
+      ],
+      [u64(amount)],
+    );
+  }
+
+  /** Anyone: burns one holding and pays its owner the face. */
+  redeemAtMaturity(
+    payer: PublicKey,
+    registry: PublicKey,
+    mint: PublicKey,
+    currencyMint: PublicKey,
+    currencyProgram: PublicKey,
+    holding: PublicKey,
+    holder: PublicKey,
+    destination: PublicKey,
+  ) {
+    return this.ix("redeem_at_maturity", [
+      { pubkey: payer, isSigner: true, isWritable: true },
+      { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+      { pubkey: registry, isSigner: false, isWritable: false },
+      { pubkey: mint, isSigner: false, isWritable: true },
+      { pubkey: this.maturity(mint), isSigner: false, isWritable: true },
+      { pubkey: currencyMint, isSigner: false, isWritable: false },
+      { pubkey: this.maturityVault(mint), isSigner: false, isWritable: true },
+      { pubkey: holding, isSigner: false, isWritable: true },
+      { pubkey: destination, isSigner: false, isWritable: true },
+      { pubkey: this.investor(registry, holder), isSigner: false, isWritable: false },
+      { pubkey: this.maturityRecord(mint, holder), isSigner: false, isWritable: true },
+      { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: currencyProgram, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ]);
   }
 
   /** The accounts Token ACL must be handed so it can resolve the gate's list. */
