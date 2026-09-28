@@ -16,6 +16,7 @@ import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
   createMint,
+  createTransferCheckedInstruction,
   getAccount,
   getAssociatedTokenAddressSync,
   getMint,
@@ -211,8 +212,29 @@ describe("redemptions and maturity", () => {
   it("moves requested units into the asset's escrow", async () => {
     await ask(alice, 0, 1_000n);
     assert.equal(await units(alice.publicKey), 2_000n);
-    assert.equal((await getAccount(connection, af.escrow(mint), "confirmed", TOKEN_2022_PROGRAM_ID)).amount, 1_000n);
+    const escrow = await getAccount(connection, af.escrow(mint), "confirmed", TOKEN_2022_PROGRAM_ID);
+    assert.equal(escrow.amount, 1_000n);
+    assert.ok(escrow.isFrozen, "the escrow is shut again once the units are in");
     assert.equal((await request(alice.publicKey, 0)).status, "requested");
+  });
+
+  it("keeps the escrow shut: no unit gets in but through a request, and the gate will not open it", async () => {
+    await refused(
+      send(
+        connection,
+        [createTransferCheckedInstruction(assetAccount(alice.publicKey), mint, af.escrow(mint), alice.publicKey, 1n, 0, [], TOKEN_2022_PROGRAM_ID)],
+        [alice],
+      ),
+      /0x11|frozen/i,
+    );
+    await refused(
+      send(
+        connection,
+        [TokenAcl.permissionless("thaw", stranger.publicKey, mint, af.escrow(mint), af.asset(mint), programId, af.gateAccounts("thaw", mint, registry, af.asset(mint)))],
+        [stranger],
+      ),
+      /NotAHolding/,
+    );
   });
 
   it("lets only the issuer settle", async () => {

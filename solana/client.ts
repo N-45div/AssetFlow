@@ -426,6 +426,8 @@ export class AssetFlow {
       { pubkey: source, isSigner: false, isWritable: true },
       { pubkey: destination, isSigner: false, isWritable: true },
       { pubkey: this.investor(registry, holder), isSigner: false, isWritable: false },
+      { pubkey: TokenAcl.mintConfig(mint), isSigner: false, isWritable: false },
+      { pubkey: TOKEN_ACL_ID, isSigner: false, isWritable: false },
       { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: currencyProgram, isSigner: false, isWritable: false },
     ]);
