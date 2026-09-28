@@ -26,6 +26,11 @@ export const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_ASSETFLOW_PROGRAM_ID ?? "BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR",
 );
 
+/** The payment currency coupons are set in: test USDC on devnet, from the faucet route. */
+export const CURRENCY_MINT = process.env.NEXT_PUBLIC_CURRENCY_MINT
+  ? new PublicKey(process.env.NEXT_PUBLIC_CURRENCY_MINT)
+  : null;
+
 /** The asset the holder portal and proof page open on when no ?asset= is given. */
 export const FEATURED_MINT = process.env.NEXT_PUBLIC_FEATURED_MINT
   ? new PublicKey(process.env.NEXT_PUBLIC_FEATURED_MINT)
