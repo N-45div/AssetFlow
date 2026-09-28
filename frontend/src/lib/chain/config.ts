@@ -1,0 +1,27 @@
+import { PublicKey } from "@solana/web3.js";
+
+export type Cluster = "localnet" | "devnet" | "mainnet-beta";
+
+export const CLUSTER = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "localnet") as Cluster;
+
+export const RPC_URL =
+  process.env.NEXT_PUBLIC_RPC_URL ??
+  (CLUSTER === "localnet" ? "http://127.0.0.1:8899" : `https://api.${CLUSTER}.solana.com`);
+
+export const PROGRAM_ID = new PublicKey(
+  process.env.NEXT_PUBLIC_ASSETFLOW_PROGRAM_ID ?? "BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR",
+);
+
+/** The asset the holder portal and proof page open on when no ?asset= is given. */
+export const FEATURED_MINT = process.env.NEXT_PUBLIC_FEATURED_MINT
+  ? new PublicKey(process.env.NEXT_PUBLIC_FEATURED_MINT)
+  : null;
+
+export function assetFromQuery(value: string | null): PublicKey | null {
+  if (!value) return FEATURED_MINT;
+  try {
+    return new PublicKey(value);
+  } catch {
+    return null;
+  }
+}
