@@ -7,12 +7,13 @@ import { TxReceipt } from "@/components/tx-receipt";
 import { checkEligibility } from "@/lib/chain/eligibility";
 import { shortKey } from "@/lib/chain/explorer";
 import { servicedTokenAbi } from "@/lib/evm/abi";
-import { baseExplorer } from "@/lib/evm/base";
 import type { BondView } from "@/lib/evm/use-bond";
 import { useEvmTx } from "@/lib/evm/use-evm-tx";
+import { useEvmChain } from "@/lib/evm/use-evm-chain";
 
 /** Issue units to a holder the registry admits today; the token itself refuses anyone else. */
 export function BaseIssuance({ view, onChange }: { view: BondView; onChange: () => void }) {
+  const { links } = useEvmChain();
   const t = useTranslations("issuer.issuance");
   const tb = useTranslations("base.issuer");
   const tx = useEvmTx();
@@ -60,7 +61,7 @@ export function BaseIssuance({ view, onChange }: { view: BondView; onChange: () 
           {t("submit")}
         </button>
         <p className="mt-3 text-xs text-ink-3">{t("outstanding", { units: new Intl.NumberFormat(locale).format(view.bond.totalSupply) })}</p>
-        <TxReceipt state={tx.state} what={t("what")} link={baseExplorer.tx} />
+        <TxReceipt state={tx.state} what={t("what")} link={links.tx} />
       </section>
       <section className="card p-5 text-sm">
         <h2 className="font-semibold">{t("rulesTitle")}</h2>

@@ -17,13 +17,11 @@ import { jurisdictionName } from "@/lib/chain/jurisdictions";
 import { accruedInterest, principal } from "@/lib/chain/redemptions";
 import { registryAbi, servicerAbi } from "@/lib/evm/abi";
 import { balancesOf, readEntitlements, readProfiles, type EvmAttestation, type EvmProfile } from "@/lib/evm/assetflow";
-import { baseExplorer } from "@/lib/evm/base";
 import { findAttestation } from "@/lib/evm/kyc-base";
 import { useBond, type BondView } from "@/lib/evm/use-bond";
 import { useEvmTx } from "@/lib/evm/use-evm-tx";
 import { useEvmWallet } from "@/lib/evm/wallet";
-
-const FEATURED = process.env.NEXT_PUBLIC_BASE_FEATURED_BOND;
+import { useEvmChain } from "@/lib/evm/use-evm-chain";
 
 interface Mine {
   profile: EvmProfile | null;
@@ -35,14 +33,15 @@ interface Mine {
 }
 
 export function BaseHolderPortal() {
+  const { cfg, pub, links } = useEvmChain();
   const t = useTranslations("holder");
   const locale = useLocale();
   const tb = useTranslations("base.holder");
   const params = useSearchParams();
   const servicer = useMemo(() => {
-    const q = params.get("bond") ?? FEATURED ?? "";
+    const q = params.get("bond") ?? cfg.featuredBond ?? "";
     return isAddress(q) ? getAddress(q) : null;
-  }, [params]);
+  }, [params, cfg.featuredBond]);
   const { address } = useEvmWallet();
   const { view, refresh } = useBond(servicer);
   const [mine, setMine] = useState<Mine | null>(null);
@@ -58,10 +57,10 @@ export function BaseHolderPortal() {
     (async () => {
       const now = Math.floor(Date.now() / 1000);
       const [[profile], balances, coupons, attestation] = await Promise.all([
-        readProfiles(view.registry.address, [address]),
-        balancesOf(view.bond, address),
-        Promise.all(view.bond.periods.map((p, i) => (now > p.recordTs ? readEntitlements(view.bond, i, [address]).then((r) => r[0]) : null))),
-        view.registry.kycAttester !== zeroAddress ? findAttestation(address, view.registry.kycSchema, view.registry.kycAttester) : null,
+        readProfiles(pub, view.registry.address, [address]),
+        balancesOf(pub, view.bond, address),
+        Promise.all(view.bond.periods.map((p, i) => (now > p.recordTs ? readEntitlements(pub, view.bond, i, [address]).then((r) => r[0]) : null))),
+        view.registry.kycAttester !== zeroAddress ? findAttestation(pub, cfg, address, view.registry.kycSchema, view.registry.kycAttester) : null,
       ]);
       const listed = profile.expiry > 0 || profile.approved;
       if (live) setMine({ profile: listed ? profile : null, ...balances, coupons, attestation });
@@ -69,15 +68,15 @@ export function BaseHolderPortal() {
     return () => {
       live = false;
     };
-  }, [view, address, tick]);
+  }, [view, address, tick, pub, cfg]);
 
   if (!servicer) {
     return (
-      <PageShell title={tb("title")}>
+      <PageShell title={tb("title", { chain: cfg.brand })}>
         <div className="card p-6">
           <p className="font-medium">{t("noAsset")}</p>
-          <p className="mt-1 text-sm text-ink-2">{tb("noBondHint")}</p>
-          <Link href="/base/issuer" className="btn btn-secondary mt-4">
+          <p className="mt-1 text-sm text-ink-2">{tb("noBondHint", { chain: cfg.brand })}</p>
+          <Link href={`${cfg.prefix}/issuer`} className="btn btn-secondary mt-4">
             {t("toIssuer")}
           </Link>
         </div>
@@ -87,14 +86,14 @@ export function BaseHolderPortal() {
   const subtitle = view && (
     <span>
       {tb("bondLabel")}{" "}
-      <a className="mono text-accent underline underline-offset-2" href={baseExplorer.address(servicer)} target="_blank" rel="noreferrer">
+      <a className="mono text-accent underline underline-offset-2" href={links.address(servicer)} target="_blank" rel="noreferrer">
         {view.bond.name} ({view.bond.symbol})
       </a>
     </span>
   );
   if (!address) {
     return (
-      <PageShell title={tb("title")} subtitle={subtitle}>
+      <PageShell title={tb("title", { chain: cfg.brand })} subtitle={subtitle}>
         <div className="card flex flex-col items-start gap-4 p-6">
           <div>
             <p className="font-medium">{t("connectTitle")}</p>
@@ -107,7 +106,7 @@ export function BaseHolderPortal() {
   }
   if (!view || !mine) {
     return (
-      <PageShell title={tb("title")} subtitle={subtitle}>
+      <PageShell title={tb("title", { chain: cfg.brand })} subtitle={subtitle}>
         <div className="card p-6 text-sm text-ink-2">{t("loading")}</div>
       </PageShell>
     );
@@ -117,7 +116,7 @@ export function BaseHolderPortal() {
   const n = (v: bigint) => new Intl.NumberFormat(locale).format(v);
   const share = view.bond.totalSupply > 0n ? Number((mine.units * 10_000n) / view.bond.totalSupply) / 100 : 0;
   return (
-    <PageShell title={tb("title")} subtitle={subtitle}>
+    <PageShell title={tb("title", { chain: cfg.brand })} subtitle={subtitle}>
       <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <section className="card p-5">
           <EligibilityChecklist registry={view.registry} profile={mine.profile} />
@@ -156,6 +155,7 @@ export function BaseHolderPortal() {
 }
 
 function Kyc({ view, mine, onChange }: { view: BondView; mine: Mine; onChange: () => void }) {
+  const { cfg, links } = useEvmChain();
   const t = useTranslations("holder.kyc");
   const locale = useLocale();
   const tx = useEvmTx();
@@ -183,12 +183,12 @@ function Kyc({ view, mine, onChange }: { view: BondView; mine: Mine; onChange: (
       ) : (
         <>
           <p className="mt-1 text-ink-2">{t(mine.profile?.attestedFrom ? "revoked" : "none", { provider })}</p>
-          <Link className="btn btn-secondary mt-3" href={`/base/kyc?bond=${view.bond.servicer}`}>
+          <Link className="btn btn-secondary mt-3" href={`${cfg.prefix}/kyc?bond=${view.bond.servicer}`}>
             {t("getVerified", { provider })}
           </Link>
         </>
       )}
-      <TxReceipt state={tx.state} what={t("what")} link={baseExplorer.tx} />
+      <TxReceipt state={tx.state} what={t("what")} link={links.tx} />
     </div>
   );
 }
@@ -239,6 +239,7 @@ function Coupons({ view, mine }: { view: BondView; mine: Mine }) {
 }
 
 function Redemptions({ view, wallet, mine, eligible, onChange }: { view: BondView; wallet: Address; mine: Mine; eligible: boolean; onChange: () => void }) {
+  const { links } = useEvmChain();
   const t = useTranslations("holder.redeem");
   const tb = useTranslations("base.holder");
   const locale = useLocale();
@@ -350,7 +351,7 @@ function Redemptions({ view, wallet, mine, eligible, onChange }: { view: BondVie
           </ul>
         </div>
       )}
-      <TxReceipt state={tx.state} what={t(`what.${what}`)} link={baseExplorer.tx} />
+      <TxReceipt state={tx.state} what={t(`what.${what}`)} link={links.tx} />
     </section>
   );
 }

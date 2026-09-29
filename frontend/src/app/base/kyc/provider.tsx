@@ -11,13 +11,16 @@ import { TxReceipt } from "@/components/tx-receipt";
 import { shortKey } from "@/lib/chain/explorer";
 import { JURISDICTIONS, jurisdictionName } from "@/lib/chain/jurisdictions";
 import type { EvmAttestation } from "@/lib/evm/assetflow";
-import { BASE, basePublic, baseExplorer, easAbi } from "@/lib/evm/base";
 import { findAttestation, kycMessage, rememberAttestation } from "@/lib/evm/kyc-base";
 import { useEvmTx } from "@/lib/evm/use-evm-tx";
 import { useEvmWallet } from "@/lib/evm/wallet";
+import { useEvmChain } from "@/lib/evm/use-evm-chain";
+import { easAbi } from "@/lib/evm/eas";
+import { INVESTOR_SCHEMA, KYC_ATTESTER } from "@/lib/evm/chains";
 
-/** A stand-in KYC provider on Base: EAS attestations, signed by the provider and sent by the wallet. */
+/** A stand-in KYC provider on an EVM chain: EAS attestations, signed by the provider and sent by the wallet. */
 export function BaseKycProvider() {
+  const { cfg, pub, links } = useEvmChain();
   const t = useTranslations("kyc");
   const tb = useTranslations("base.kyc");
   const locale = useLocale();
@@ -35,16 +38,16 @@ export function BaseKycProvider() {
   const reload = useCallback(() => setTick((n) => n + 1), []);
 
   useEffect(() => {
-    if (!address || !BASE.kycAttester) return;
+    if (!address || !KYC_ATTESTER) return;
     let live = true;
     setAttestation(undefined);
-    findAttestation(address, BASE.investorSchema, BASE.kycAttester)
+    findAttestation(pub, cfg, address, INVESTOR_SCHEMA, KYC_ATTESTER)
       .then((a) => live && setAttestation(a))
       .catch(() => live && setAttestation(null));
     return () => {
       live = false;
     };
-  }, [address, tick]);
+  }, [address, tick, pub, cfg]);
 
   // The wallet signs a message to show it asks; the provider signs the attestation; the wallet sends it.
   const send = async (action: "attest" | "revoke") => {
@@ -53,7 +56,7 @@ export function BaseKycProvider() {
     setProblem(null);
     try {
       const issuedAt = Math.floor(Date.now() / 1000);
-      const proof = await client.signMessage({ account: client.account ?? address, message: kycMessage(address, action, issuedAt) });
+      const proof = await client.signMessage({ account: client.account ?? address, message: kycMessage(address, action, issuedAt, cfg.brand) });
       // The provider's signatures count up one nonce: one signed for someone else at the same
       // moment, or read from a node a block behind, goes stale and fails its simulation.
       // Ask again with the same proof; the wallet is not prompted twice.
@@ -63,7 +66,7 @@ export function BaseKycProvider() {
         const res = await fetch("/api/kyc-base", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ wallet: address, action, jurisdiction, tier, accredited, uid: attestation?.uid, proof, issuedAt }),
+          body: JSON.stringify({ chain: cfg.key, wallet: address, action, jurisdiction, tier, accredited, uid: attestation?.uid, proof, issuedAt }),
         });
         const body = await res.json();
         if (!res.ok) {
@@ -76,18 +79,18 @@ export function BaseKycProvider() {
             ? { ...r, data: { ...r.data, expirationTime: BigInt(r.data.expirationTime), value: 0n }, deadline: BigInt(r.deadline) }
             : { ...r, data: { uid: r.data.uid, value: 0n }, deadline: BigInt(r.deadline) };
         done = await tx.run([
-          { address: BASE.eas, abi: easAbi as Abi, functionName: action === "attest" ? "attestByDelegation" : "revokeByDelegation", args: [request] },
+          { address: cfg.eas, abi: easAbi as Abi, functionName: action === "attest" ? "attestByDelegation" : "revokeByDelegation", args: [request] },
         ]);
         // only a stale signature is worth another try; a refusal the user made stands
         if (done.status === "failed" && done.refusal.code === "Rejected") return;
       }
       if (done.status !== "confirmed") return;
       if (action === "attest") {
-        const receipt = await basePublic.getTransactionReceipt({ hash: done.signature as Hash });
+        const receipt = await pub.getTransactionReceipt({ hash: done.signature as Hash });
         const uid = parseEventLogs({ abi: easAbi, logs: receipt.logs, eventName: "Attested" })[0]?.args.uid as Hex | undefined;
-        rememberAttestation(address, uid ?? null);
+        rememberAttestation(cfg, address, uid ?? null);
       } else {
-        rememberAttestation(address, null);
+        rememberAttestation(cfg, address, null);
       }
       reload();
     } catch (e) {
@@ -97,11 +100,11 @@ export function BaseKycProvider() {
 
   const date = (ts: number) => (ts === 0 ? t("never") : new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(ts * 1000));
   return (
-    <PageShell title={tb("title")} subtitle={tb("subtitle")}>
+    <PageShell title={tb("title", { chain: cfg.brand })} subtitle={tb("subtitle")}>
       <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <section className="card p-5">
           <p className="rounded-md bg-warn-soft p-3 text-sm text-warn">{t("demoOnly")}</p>
-          {!BASE.kycAttester ? (
+          {!KYC_ATTESTER ? (
             <p className="mt-4 text-sm text-ink-2">{t("unavailable")}</p>
           ) : !address ? (
             <div className="mt-4 flex flex-col items-start gap-3">
@@ -133,13 +136,13 @@ export function BaseKycProvider() {
               </dl>
               <p className="mt-3 text-xs text-ink-3">
                 {tb("onEas")}{" "}
-                <a className="mono text-accent underline" href={`https://base-sepolia.easscan.org/attestation/view/${attestation.uid}`} target="_blank" rel="noreferrer">
+                <a className="mono text-accent underline" href={links.attestation(attestation.uid)} target="_blank" rel="noreferrer">
                   {shortKey(attestation.uid)}
                 </a>
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {bond && (
-                  <Link className="btn btn-primary" href={`/base/holder?bond=${bond}`}>
+                  <Link className="btn btn-primary" href={`${cfg.prefix}/holder?bond=${bond}`}>
                     {t("backToHolder")}
                   </Link>
                 )}
@@ -184,7 +187,7 @@ export function BaseKycProvider() {
             </div>
           )}
           {problem && <p className="mt-3 rounded-md bg-bad-soft p-3 text-sm text-bad">{problem}</p>}
-          <TxReceipt state={tx.state} what={t(`what.${what}`)} link={baseExplorer.tx} />
+          <TxReceipt state={tx.state} what={t(`what.${what}`)} link={links.tx} />
         </section>
 
         <section className="card p-5 text-sm">
@@ -194,11 +197,11 @@ export function BaseKycProvider() {
             <li>{t("how2")}</li>
             <li>{t("how3")}</li>
           </ol>
-          {BASE.kycAttester && (
+          {KYC_ATTESTER && (
             <p className="mt-4 text-xs text-ink-3">
               {tb("attester")}{" "}
-              <a className="mono text-accent underline" href={baseExplorer.address(BASE.kycAttester)} target="_blank" rel="noreferrer">
-                {shortKey(BASE.kycAttester)}
+              <a className="mono text-accent underline" href={links.address(KYC_ATTESTER)} target="_blank" rel="noreferrer">
+                {shortKey(KYC_ATTESTER)}
               </a>
             </p>
           )}

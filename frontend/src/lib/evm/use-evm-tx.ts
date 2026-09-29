@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { BaseError, ContractFunctionRevertedError, UserRejectedRequestError, type Abi, type Address, type Hash } from "viem";
 import type { Refusal, RefusalCode } from "@/lib/chain/errors";
 import type { TxState } from "@/lib/chain/use-transaction";
-import { basePublic } from "./base";
+import { useEvmChain } from "./use-evm-chain";
 import { useEvmWallet } from "./wallet";
 
 /** The contracts' custom errors the app names; anything else is "Unknown". */
@@ -58,13 +58,14 @@ export interface Call {
  */
 export function useEvmTx() {
   const { client, address } = useEvmWallet();
+  const { pub } = useEvmChain();
   const [state, setState] = useState<TxState>({ status: "idle" });
 
   const settle = useCallback(async (hash: Hash) => {
     setState({ status: "sent", signature: hash });
-    const receipt = await basePublic.waitForTransactionReceipt({ hash });
+    const receipt = await pub.waitForTransactionReceipt({ hash });
     // The public RPC is several nodes: wait until the one answering has the block, so what is read next includes it.
-    for (let i = 0; i < 20 && (await basePublic.getBlockNumber({ cacheTime: 0 })) < receipt.blockNumber; i++) {
+    for (let i = 0; i < 20 && (await pub.getBlockNumber({ cacheTime: 0 })) < receipt.blockNumber; i++) {
       await new Promise((r) => setTimeout(r, 500));
     }
     if (receipt.status !== "success") {
@@ -75,7 +76,7 @@ export function useEvmTx() {
     const next: TxState = { status: "confirmed", signature: hash, slot: Number(receipt.blockNumber) };
     setState(next);
     return { state: next, receipt };
-  }, []);
+  }, [pub]);
 
   const run = useCallback(
     async (calls: Call[]): Promise<TxState> => {
@@ -84,10 +85,10 @@ export function useEvmTx() {
       try {
         for (const call of calls) {
           setState({ status: "signing" });
-          const { request } = await basePublic.simulateContract({ ...call, account: address } as Parameters<typeof basePublic.simulateContract>[0]);
+          const { request } = await pub.simulateContract({ ...call, account: address } as Parameters<typeof pub.simulateContract>[0]);
           // Estimates can run with the last block's time, where the token's balance history
           // overwrites that second's entry instead of opening a new one: the real call costs more.
-          const estimate = await basePublic.estimateContractGas({ ...call, account: address } as Parameters<typeof basePublic.estimateContractGas>[0]);
+          const estimate = await pub.estimateContractGas({ ...call, account: address } as Parameters<typeof pub.estimateContractGas>[0]);
           const gas = (estimate * 13n) / 10n + 30_000n;
           const hash = await client.writeContract({
             ...(request as Parameters<typeof client.writeContract>[0]),
@@ -105,7 +106,7 @@ export function useEvmTx() {
         return next;
       }
     },
-    [client, address, settle],
+    [client, address, settle, pub],
   );
 
   const deploy = useCallback(

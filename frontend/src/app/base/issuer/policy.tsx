@@ -7,13 +7,15 @@ import { TxReceipt } from "@/components/tx-receipt";
 import { JURISDICTIONS } from "@/lib/chain/jurisdictions";
 import { shortKey } from "@/lib/chain/explorer";
 import { registryAbi } from "@/lib/evm/abi";
-import { BASE, baseExplorer } from "@/lib/evm/base";
 import type { BondView } from "@/lib/evm/use-bond";
 import { useEvmTx } from "@/lib/evm/use-evm-tx";
 import { useEvmWallet } from "@/lib/evm/wallet";
+import { useEvmChain } from "@/lib/evm/use-evm-chain";
+import { INVESTOR_SCHEMA, KYC_ATTESTER } from "@/lib/evm/chains";
 
 /** The registry's policy, and the KYC provider (an EAS attester) it trusts. */
 export function BasePolicy({ view, onChange }: { view: BondView; onChange: () => void }) {
+  const { links } = useEvmChain();
   const t = useTranslations("issuer.policy");
   const to = useTranslations("issuer.onboarding");
   const tk = useTranslations("base.policy");
@@ -44,7 +46,7 @@ export function BasePolicy({ view, onChange }: { view: BondView; onChange: () =>
   };
   const setSource = async (trust: boolean) => {
     const r = await kycTx.run([
-      { ...reg, functionName: "setKycSource", args: trust ? [BASE.investorSchema, BASE.kycAttester] : [zeroHash, zeroAddress] },
+      { ...reg, functionName: "setKycSource", args: trust ? [INVESTOR_SCHEMA, KYC_ATTESTER] : [zeroHash, zeroAddress] },
     ]);
     if (r.status === "confirmed") onChange();
   };
@@ -88,7 +90,7 @@ export function BasePolicy({ view, onChange }: { view: BondView; onChange: () =>
         <button className="btn btn-primary mt-4" disabled={tx.busy || !dirty || !isCompliance} onClick={save}>
           {t("save")}
         </button>
-        <TxReceipt state={tx.state} what={t("what")} link={baseExplorer.tx} />
+        <TxReceipt state={tx.state} what={t("what")} link={links.tx} />
       </section>
 
       <section className="card p-5 text-sm">
@@ -97,22 +99,22 @@ export function BasePolicy({ view, onChange }: { view: BondView; onChange: () =>
         {trusting ? (
           <p className="mt-3">
             {tk("trusts")}{" "}
-            <a className="mono text-accent underline" href={baseExplorer.address(registry.kycAttester)} target="_blank" rel="noreferrer">
+            <a className="mono text-accent underline" href={links.address(registry.kycAttester)} target="_blank" rel="noreferrer">
               {shortKey(registry.kycAttester)}
             </a>
-            {registry.kycAttester.toLowerCase() === BASE.kycAttester.toLowerCase() && <span className="text-ink-3"> ({tk("demoName")})</span>}
+            {registry.kycAttester.toLowerCase() === KYC_ATTESTER.toLowerCase() && <span className="text-ink-3"> ({tk("demoName")})</span>}
           </p>
         ) : (
           <p className="mt-3 text-ink-2">{tk("none")}</p>
         )}
         <button
           className={`btn mt-3 ${trusting ? "btn-secondary" : "btn-primary"}`}
-          disabled={kycTx.busy || !isCompliance || (!trusting && !BASE.kycAttester)}
+          disabled={kycTx.busy || !isCompliance || (!trusting && !KYC_ATTESTER)}
           onClick={() => setSource(!trusting)}
         >
           {trusting ? tk("stop") : tk("trust")}
         </button>
-        <TxReceipt state={kycTx.state} what={tk("what")} link={baseExplorer.tx} />
+        <TxReceipt state={kycTx.state} what={tk("what")} link={links.tx} />
       </section>
     </div>
   );

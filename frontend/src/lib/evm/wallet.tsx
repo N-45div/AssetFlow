@@ -1,15 +1,27 @@
 "use client";
 
 /**
- * Wallets on Base: a Base Account (Coinbase's smart wallet), whatever wallet
- * the browser injects, or, when DEV_WALLET is on, a burner key kept in this
- * browser for testing. All three become a viem wallet client on Base Sepolia.
+ * Wallets on AssetFlow's EVM chains: a Base Account (Coinbase's smart wallet),
+ * whatever wallet the browser injects, or, when DEV_WALLET is on, a burner key
+ * kept in this browser for testing. Whichever it is becomes a viem wallet
+ * client for the chain the page is on; a browser wallet is asked to switch
+ * networks as you move between chains.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { createWalletClient, custom, http, numberToHex, type Address, type EIP1193Provider, type WalletClient } from "viem";
+import { usePathname } from "next/navigation";
+import {
+  createWalletClient,
+  custom,
+  http,
+  numberToHex,
+  type Address,
+  type EIP1193Provider,
+  type LocalAccount,
+  type WalletClient,
+} from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { DEV_WALLET } from "@/lib/chain/config";
-import { BASE_CHAIN, BASE_RPC_URL } from "./base";
+import { EVM_CHAINS, EVM_CHAIN_KEYS, chainForPath, type EvmChainConfig } from "./chains";
 
 export type EvmWalletKind = "base" | "injected" | "dev";
 
@@ -24,6 +36,9 @@ interface EvmWalletState {
   connect: (kind: EvmWalletKind) => Promise<void>;
   disconnect: () => void;
 }
+
+/** What a connection is made of; the client is rebuilt from it for each chain. */
+type Source = { kind: "dev"; account: LocalAccount } | { kind: "base" | "injected"; address: Address; provider: EIP1193Provider };
 
 const Ctx = createContext<EvmWalletState | null>(null);
 const KIND_KEY = "assetflow-evm-wallet-kind";
@@ -51,59 +66,50 @@ function injected(): EIP1193Provider | null {
   return typeof window !== "undefined" ? ((window as unknown as { ethereum?: EIP1193Provider }).ethereum ?? null) : null;
 }
 
-/** Ask the wallet to use Base Sepolia, adding it first if it does not know it. */
-async function switchToBaseSepolia(provider: EIP1193Provider) {
-  const chainId = numberToHex(BASE_CHAIN.id);
+/** Ask the wallet to use this chain, adding it first if it does not know it. */
+async function switchTo(provider: EIP1193Provider, cfg: EvmChainConfig) {
+  const chainId = numberToHex(cfg.chain.id);
   try {
     await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
   } catch {
     await provider.request({
       method: "wallet_addEthereumChain",
-      params: [
-        {
-          chainId,
-          chainName: BASE_CHAIN.name,
-          nativeCurrency: BASE_CHAIN.nativeCurrency,
-          rpcUrls: [BASE_RPC_URL],
-          blockExplorerUrls: ["https://base-sepolia.blockscout.com"],
-        },
-      ],
+      params: [{ chainId, chainName: cfg.network, nativeCurrency: cfg.chain.nativeCurrency, rpcUrls: [cfg.rpcUrl], blockExplorerUrls: [cfg.explorer] }],
     });
   }
 }
 
 async function baseAccountProvider(): Promise<EIP1193Provider> {
+  // the browser build: the package's node entry pulls in server-only dependencies
   const { createBaseAccountSDK } = await import("@base-org/account/browser");
-  return createBaseAccountSDK({ appName: "AssetFlow", appChainIds: [BASE_CHAIN.id] }).getProvider() as unknown as EIP1193Provider;
+  return createBaseAccountSDK({
+    appName: "AssetFlow",
+    appChainIds: EVM_CHAIN_KEYS.map((k) => EVM_CHAINS[k].chain.id),
+  }).getProvider() as unknown as EIP1193Provider;
 }
 
 export function EvmWalletProvider({ children }: { children: ReactNode }) {
-  const [address, setAddress] = useState<Address | null>(null);
-  const [kind, setKind] = useState<EvmWalletKind | null>(null);
-  const [client, setClient] = useState<WalletClient | null>(null);
+  const pathname = usePathname() ?? "";
+  const cfg = chainForPath(pathname) ?? EVM_CHAINS.base;
+  const [source, setSource] = useState<Source | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canInject, setCanInject] = useState(false);
 
-  const open = useCallback(async (next: EvmWalletKind, silent: boolean) => {
+  const open = useCallback(async (next: EvmWalletKind, silent: boolean): Promise<Source> => {
     if (next === "dev") {
       let key = store.get(DEV_KEY) as `0x${string}` | null;
       if (!key) {
         key = generatePrivateKey();
         store.set(DEV_KEY, key);
       }
-      const account = privateKeyToAccount(key);
-      return { address: account.address, client: createWalletClient({ account, chain: BASE_CHAIN, transport: http(BASE_RPC_URL) }) };
+      return { kind: "dev", account: privateKeyToAccount(key) };
     }
     const provider = next === "base" ? await baseAccountProvider() : injected();
     if (!provider) throw new Error("No wallet found in this browser.");
     const accounts = (await provider.request({ method: silent ? "eth_accounts" : "eth_requestAccounts" })) as Address[];
     if (!accounts[0]) throw new Error("The wallet shared no account.");
-    if (next === "injected") await switchToBaseSepolia(provider);
-    return {
-      address: accounts[0],
-      client: createWalletClient({ account: accounts[0], chain: BASE_CHAIN, transport: custom(provider) }),
-    };
+    return { kind: next, address: accounts[0], provider };
   }, []);
 
   const connect = useCallback(
@@ -111,10 +117,7 @@ export function EvmWalletProvider({ children }: { children: ReactNode }) {
       setConnecting(true);
       setError(null);
       try {
-        const w = await open(next, false);
-        setAddress(w.address);
-        setClient(w.client);
-        setKind(next);
+        setSource(await open(next, false));
         store.set(KIND_KEY, next);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -126,9 +129,7 @@ export function EvmWalletProvider({ children }: { children: ReactNode }) {
   );
 
   const disconnect = useCallback(() => {
-    setAddress(null);
-    setClient(null);
-    setKind(null);
+    setSource(null);
     store.set(KIND_KEY, null);
   }, []);
 
@@ -138,17 +139,26 @@ export function EvmWalletProvider({ children }: { children: ReactNode }) {
     const last = store.get(KIND_KEY) as EvmWalletKind | null;
     if (!last || (last === "dev" && !DEV_WALLET) || last === "base") return;
     open(last, true)
-      .then((w) => {
-        setAddress(w.address);
-        setClient(w.client);
-        setKind(last);
-      })
+      .then(setSource)
       .catch(() => store.set(KIND_KEY, null));
   }, [open]);
 
+  // A browser wallet or Base Account follows the page's chain (where it supports it).
+  useEffect(() => {
+    if (source && source.kind !== "dev") switchTo(source.provider, cfg).catch(() => undefined);
+  }, [source, cfg]);
+
+  const client = useMemo(() => {
+    if (!source) return null;
+    return source.kind === "dev"
+      ? createWalletClient({ account: source.account, chain: cfg.chain, transport: http(cfg.rpcUrl) })
+      : createWalletClient({ account: source.address, chain: cfg.chain, transport: custom(source.provider) });
+  }, [source, cfg]);
+  const address = source ? (source.kind === "dev" ? source.account.address : source.address) : null;
+
   const value = useMemo(
-    () => ({ address, kind, client, connecting, error, canInject, canDev: DEV_WALLET, connect, disconnect }),
-    [address, kind, client, connecting, error, canInject, connect, disconnect],
+    () => ({ address, kind: source?.kind ?? null, client, connecting, error, canInject, canDev: DEV_WALLET, connect, disconnect }),
+    [address, source, client, connecting, error, canInject, connect, disconnect],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

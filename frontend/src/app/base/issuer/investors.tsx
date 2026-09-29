@@ -10,15 +10,16 @@ import { JURISDICTIONS, jurisdictionName } from "@/lib/chain/jurisdictions";
 import { NO_EXPIRY } from "@/lib/chain/kyc";
 import { registryAbi } from "@/lib/evm/abi";
 import type { EvmProfile } from "@/lib/evm/assetflow";
-import { baseExplorer } from "@/lib/evm/base";
 import type { BondView } from "@/lib/evm/use-bond";
 import { useEvmTx } from "@/lib/evm/use-evm-tx";
 import { useEvmWallet } from "@/lib/evm/wallet";
+import { useEvmChain } from "@/lib/evm/use-evm-chain";
 
 const DAY = 86_400;
 
 /** Every profile in the registry and every wallet that has held units, with what the chain says about each. */
 export function BaseInvestors({ view, onChange }: { view: BondView; onChange: () => void }) {
+  const { links } = useEvmChain();
   const t = useTranslations("issuer.investors");
   const te = useTranslations("eligibility");
   const locale = useLocale();
@@ -60,7 +61,7 @@ export function BaseInvestors({ view, onChange }: { view: BondView; onChange: ()
           busy={tx.busy}
         />
       )}
-      <TxReceipt state={tx.state} what={t(what)} link={baseExplorer.tx} />
+      <TxReceipt state={tx.state} what={t(what)} link={links.tx} />
 
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
@@ -93,7 +94,7 @@ export function BaseInvestors({ view, onChange }: { view: BondView; onChange: ()
               return (
                 <tr key={key}>
                   <td className="px-4 py-3">
-                    <a className="mono text-accent" href={baseExplorer.address(p.wallet)} target="_blank" rel="noreferrer">
+                    <a className="mono text-accent" href={links.address(p.wallet)} target="_blank" rel="noreferrer">
                       {shortKey(p.wallet)}
                     </a>
                     {p.attestedFrom && (

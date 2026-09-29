@@ -4,16 +4,15 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { shortKey } from "@/lib/chain/explorer";
 import { testUSDAbi } from "@/lib/evm/abi";
-import { BASE, basePublic } from "@/lib/evm/base";
+import { useEvmChain } from "@/lib/evm/use-evm-chain";
 import { useEvmWallet, type EvmWalletKind } from "@/lib/evm/wallet";
 
-const FAUCET = "https://portal.cdp.coinbase.com/products/faucet";
-
-/** Connect a wallet on Base, and the test-dollar and faucet shortcuts for the testnet demo. */
+/** Connect a wallet on the page's EVM chain, and the test-dollar and faucet shortcuts for the testnet demo. */
 export function EvmWalletButton({ className = "" }: { className?: string }) {
   const t = useTranslations("wallet");
   const tb = useTranslations("base.wallet");
   const { address, kind, client, connecting, error, canInject, canDev, connect, disconnect } = useEvmWallet();
+  const { cfg, pub } = useEvmChain();
   const [menu, setMenu] = useState(false);
   const [dollars, setDollars] = useState<"idle" | "busy" | "done" | "failed">("idle");
   const root = useRef<HTMLDivElement>(null);
@@ -31,7 +30,8 @@ export function EvmWalletButton({ className = "" }: { className?: string }) {
 
   if (!address) {
     const options: { kind: EvmWalletKind; label: string; show: boolean }[] = [
-      { kind: "base", label: tb("baseAccount"), show: true },
+      // Base Account is a Base wallet: it does not sign on the other chains' testnets
+      { kind: "base", label: tb("baseAccount"), show: cfg.key === "base" },
       { kind: "injected", label: tb("browser"), show: canInject },
       { kind: "dev", label: tb("dev"), show: canDev },
     ];
@@ -67,8 +67,8 @@ export function EvmWalletButton({ className = "" }: { className?: string }) {
     if (!client) return;
     setDollars("busy");
     try {
-      const hash = await client.writeContract({ address: BASE.testUsd, abi: testUSDAbi, functionName: "drip", account: client.account ?? address, chain: client.chain });
-      const r = await basePublic.waitForTransactionReceipt({ hash });
+      const hash = await client.writeContract({ address: cfg.testUsd, abi: testUSDAbi, functionName: "drip", account: client.account ?? address, chain: client.chain });
+      const r = await pub.waitForTransactionReceipt({ hash });
       setDollars(r.status === "success" ? "done" : "failed");
     } catch {
       setDollars("failed");
@@ -86,8 +86,8 @@ export function EvmWalletButton({ className = "" }: { className?: string }) {
           <button className={item} onClick={() => void navigator.clipboard.writeText(address)}>
             {t("copy")}
           </button>
-          <a className={`${item} block`} href={FAUCET} target="_blank" rel="noreferrer">
-            {tb("gas")} ↗
+          <a className={`${item} block`} href={cfg.faucet} target="_blank" rel="noreferrer">
+            {tb("gas", { network: cfg.network })} ↗
           </a>
           <button className={item} disabled={dollars === "busy"} onClick={drip}>
             {dollars === "busy" ? t("usdcBusy") : dollars === "done" ? tb("usdDone") : dollars === "failed" ? t("usdcFailed") : tb("usd")}

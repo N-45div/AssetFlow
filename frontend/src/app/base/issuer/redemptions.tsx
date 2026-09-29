@@ -11,15 +11,16 @@ import { shortKey } from "@/lib/chain/explorer";
 import { accruedInterest, maturityDate, principal } from "@/lib/chain/redemptions";
 import { servicedTokenAbi, servicerAbi } from "@/lib/evm/abi";
 import type { EvmRequest } from "@/lib/evm/assetflow";
-import { basePublic, baseExplorer } from "@/lib/evm/base";
 import type { BondView } from "@/lib/evm/use-bond";
 import { useEvmTx } from "@/lib/evm/use-evm-tx";
 import { useEvmWallet } from "@/lib/evm/wallet";
+import { useEvmChain } from "@/lib/evm/use-evm-chain";
 
 const DAY = 86_400;
 
 /** Early redemption requests, and maturity. */
 export function BaseRedemptions({ view, onChange }: { view: BondView; onChange: () => void }) {
+  const { pub, links } = useEvmChain();
   const t = useTranslations("issuer.redemptions");
   const tb = useTranslations("base.redemptions");
   const locale = useLocale();
@@ -42,14 +43,14 @@ export function BaseRedemptions({ view, onChange }: { view: BondView; onChange: 
   useEffect(() => {
     if (!address) return;
     let live = true;
-    basePublic
+    pub
       .readContract({ address: bond.currency, abi: servicedTokenAbi, functionName: "balanceOf", args: [address] })
       .then((b) => live && setBalance(b as bigint))
       .catch(() => live && setBalance(null));
     return () => {
       live = false;
     };
-  }, [address, bond.currency, bond.maturity.funded, requests.length]);
+  }, [address, bond.currency, bond.maturity.funded, requests.length, pub]);
 
   const run = async (key: string, calls: Parameters<typeof tx.run>[0]) => {
     setWhat(key);
@@ -193,7 +194,7 @@ export function BaseRedemptions({ view, onChange }: { view: BondView; onChange: 
           </>
         )}
       </section>
-      <TxReceipt state={tx.state} what={tb(`what.${what}`)} link={baseExplorer.tx} />
+      <TxReceipt state={tx.state} what={tb(`what.${what}`)} link={links.tx} />
     </div>
   );
 }

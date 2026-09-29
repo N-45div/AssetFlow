@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAddress, isAddress, type Abi, type Address } from "viem";
+import { getAddress, isAddress, type Abi, type Address, type PublicClient } from "viem";
 import { useLocale, useTranslations } from "next-intl";
 import { EvmWalletButton } from "@/components/evm-wallet-button";
 import { PageShell } from "@/components/page-shell";
@@ -13,7 +13,6 @@ import { JURISDICTIONS } from "@/lib/chain/jurisdictions";
 import { shortKey } from "@/lib/chain/explorer";
 import { directoryAbi, registryAbi, servicerAbi } from "@/lib/evm/abi";
 import { listOf } from "@/lib/evm/assetflow";
-import { BASE, baseExplorer } from "@/lib/evm/base";
 import { registryBytecode, servicerBytecode } from "@/lib/evm/bytecode";
 import { useBond } from "@/lib/evm/use-bond";
 import { useEvmTx } from "@/lib/evm/use-evm-tx";
@@ -23,13 +22,15 @@ import { BaseInvestors } from "./investors";
 import { BaseIssuance } from "./issuance";
 import { BasePolicy } from "./policy";
 import { BaseRedemptions } from "./redemptions";
+import { useEvmChain } from "@/lib/evm/use-evm-chain";
+import { INVESTOR_SCHEMA, KYC_ATTESTER } from "@/lib/evm/chains";
 
 const TABS = ["investors", "issuance", "coupons", "redemptions", "policy"] as const;
 
 /** Read until the directory shows what was just listed: a lagging RPC node may not have it yet. */
-async function listed(issuer: Address, what: "registries" | "bonds", address: Address) {
+async function listed(pub: PublicClient, directory: Address, issuer: Address, what: "registries" | "bonds", address: Address) {
   for (let i = 0; i < 20; i++) {
-    const l = await listOf(issuer).catch(() => null);
+    const l = await listOf(pub, directory, issuer).catch(() => null);
     if (l?.[what].some((a) => a.toLowerCase() === address.toLowerCase())) return;
     await new Promise((r) => setTimeout(r, 1500));
   }
@@ -38,6 +39,7 @@ type Tab = (typeof TABS)[number];
 const DAY = 86_400;
 
 export function BaseIssuerConsole() {
+  const { cfg, pub, links } = useEvmChain();
   const t = useTranslations("issuer");
   const tb = useTranslations("base.issuer");
   const { address } = useEvmWallet();
@@ -51,13 +53,13 @@ export function BaseIssuerConsole() {
   useEffect(() => {
     if (!address) return;
     let live = true;
-    listOf(address)
+    listOf(pub, cfg.directory, address)
       .then((l) => live && setLists(l))
       .catch(() => live && setLists({ registries: [], bonds: [] }));
     return () => {
       live = false;
     };
-  }, [address, tick]);
+  }, [address, tick, pub, cfg.directory]);
 
   const selected = useMemo(() => {
     const q = params.get("bond");
@@ -75,11 +77,11 @@ export function BaseIssuerConsole() {
 
   if (!address) {
     return (
-      <PageShell title={tb("title")}>
+      <PageShell title={tb("title", { chain: cfg.brand })}>
         <div className="card flex flex-col items-start gap-4 p-6">
           <div>
             <p className="font-medium">{t("connectTitle")}</p>
-            <p className="mt-1 text-sm text-ink-2">{tb("connectBody")}</p>
+            <p className="mt-1 text-sm text-ink-2">{tb("connectBody", { network: cfg.network })}</p>
           </div>
           <EvmWalletButton />
         </div>
@@ -88,21 +90,21 @@ export function BaseIssuerConsole() {
   }
   if (!lists) {
     return (
-      <PageShell title={tb("title")}>
+      <PageShell title={tb("title", { chain: cfg.brand })}>
         <div className="card p-6 text-sm text-ink-2">{t("loading")}</div>
       </PageShell>
     );
   }
   if (lists.registries.length === 0) {
     return (
-      <PageShell title={tb("title")} subtitle={t("onboarding.step", { n: 1, of: 2 })}>
+      <PageShell title={tb("title", { chain: cfg.brand })} subtitle={t("onboarding.step", { n: 1, of: 2 })}>
         <CreateRegistry onDone={reload} />
       </PageShell>
     );
   }
   if (lists.bonds.length === 0) {
     return (
-      <PageShell title={tb("title")} subtitle={t("onboarding.step", { n: 2, of: 2 })}>
+      <PageShell title={tb("title", { chain: cfg.brand })} subtitle={t("onboarding.step", { n: 2, of: 2 })}>
         <CreateBond registry={lists.registries[lists.registries.length - 1]} onDone={reload} />
       </PageShell>
     );
@@ -111,12 +113,12 @@ export function BaseIssuerConsole() {
   const onChange = () => refresh();
   return (
     <PageShell
-      title={tb("title")}
+      title={tb("title", { chain: cfg.brand })}
       subtitle={
         selected && (
           <span>
             {tb("bondLabel")}{" "}
-            <a className="mono text-accent underline underline-offset-2" href={baseExplorer.address(selected)} target="_blank" rel="noreferrer">
+            <a className="mono text-accent underline underline-offset-2" href={links.address(selected)} target="_blank" rel="noreferrer">
               {view ? `${view.bond.name} (${view.bond.symbol})` : shortKey(selected)}
             </a>
           </span>
@@ -124,7 +126,7 @@ export function BaseIssuerConsole() {
       }
       actions={
         selected && (
-          <Link href={`/base/holder?bond=${selected}`} className="btn btn-secondary btn-sm">
+          <Link href={`${cfg.prefix}/holder?bond=${selected}`} className="btn btn-secondary btn-sm">
             {t("holderLink")}
           </Link>
         )
@@ -164,25 +166,26 @@ export function BaseIssuerConsole() {
 
 /** Step 1: deploy a registry, allow its jurisdictions, and list it under the issuer. */
 function CreateRegistry({ onDone }: { onDone: () => void }) {
+  const { cfg, pub, links } = useEvmChain();
   const t = useTranslations("issuer.onboarding");
   const tb = useTranslations("base.issuer");
   const locale = useLocale();
   const { address } = useEvmWallet();
   const tx = useEvmTx();
   const [allowed, setAllowed] = useState<number[]>([344, 702]);
-  const [trustDemo, setTrustDemo] = useState(!!BASE.kycAttester);
+  const [trustDemo, setTrustDemo] = useState(!!KYC_ATTESTER);
 
   const create = async () => {
     if (!address) return;
-    const registry = await tx.deploy(registryAbi as Abi, registryBytecode, [address, BASE.eas, 1, false]);
+    const registry = await tx.deploy(registryAbi as Abi, registryBytecode, [address, cfg.eas, 1, false]);
     if (!registry) return;
     const r = await tx.run([
       ...allowed.map((code) => ({ address: registry, abi: registryAbi as Abi, functionName: "setJurisdiction", args: [code, true] })),
-      ...(trustDemo ? [{ address: registry, abi: registryAbi as Abi, functionName: "setKycSource", args: [BASE.investorSchema, BASE.kycAttester] }] : []),
-      { address: BASE.directory, abi: directoryAbi as Abi, functionName: "listRegistry", args: [registry] },
+      ...(trustDemo ? [{ address: registry, abi: registryAbi as Abi, functionName: "setKycSource", args: [INVESTOR_SCHEMA, KYC_ATTESTER] }] : []),
+      { address: cfg.directory, abi: directoryAbi as Abi, functionName: "listRegistry", args: [registry] },
     ]);
     if (r.status !== "confirmed") return;
-    await listed(address, "registries", registry);
+    await listed(pub, cfg.directory, address, "registries", registry);
     onDone();
   };
 
@@ -204,7 +207,7 @@ function CreateRegistry({ onDone }: { onDone: () => void }) {
           })}
         </div>
       </fieldset>
-      {BASE.kycAttester && (
+      {KYC_ATTESTER && (
         <label className="mt-4 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={trustDemo} onChange={(e) => setTrustDemo(e.target.checked)} />
           {tb("trustDemo")}
@@ -214,7 +217,7 @@ function CreateRegistry({ onDone }: { onDone: () => void }) {
       <button className="btn btn-primary mt-3" disabled={tx.busy || allowed.length === 0} onClick={create}>
         {t("createRegistry")}
       </button>
-      <TxReceipt state={tx.state} what={tb("registryWhat")} link={baseExplorer.tx} />
+      <TxReceipt state={tx.state} what={tb("registryWhat")} link={links.tx} />
     </section>
   );
 }
@@ -226,6 +229,7 @@ function addMonths(ts: number, months: number) {
 
 /** Step 2: deploy a bond (its servicer, which creates the token) on test dollars, and list it. */
 function CreateBond({ registry, onDone }: { registry: Address; onDone: () => void }) {
+  const { cfg, pub, links } = useEvmChain();
   const t = useTranslations("issuer.coupons");
   const tb = useTranslations("base.issuer");
   const locale = useLocale();
@@ -261,15 +265,15 @@ function CreateBond({ registry, onDone }: { registry: Address; onDone: () => voi
       name,
       symbol,
       registry,
-      BASE.testUsd,
+      cfg.testUsd,
       facePerUnit,
       bps,
       periods.map((p) => ({ accrualStart: BigInt(p.accrualStart), accrualEnd: BigInt(p.accrualEnd), recordTs: BigInt(p.recordTs), paymentTs: BigInt(p.paymentTs) })),
     ]);
     if (!servicer) return;
-    const r = await tx.run([{ address: BASE.directory, abi: directoryAbi as Abi, functionName: "listBond", args: [servicer] }]);
+    const r = await tx.run([{ address: cfg.directory, abi: directoryAbi as Abi, functionName: "listBond", args: [servicer] }]);
     if (r.status !== "confirmed" || !address) return;
-    await listed(address, "bonds", servicer);
+    await listed(pub, cfg.directory, address, "bonds", servicer);
     onDone();
   };
 
@@ -311,7 +315,7 @@ function CreateBond({ registry, onDone }: { registry: Address; onDone: () => voi
           </select>
         </label>
       </div>
-      <p className="mt-3 text-xs text-ink-3">{tb("currency")}</p>
+      <p className="mt-3 text-xs text-ink-3">{tb("currency", { network: cfg.network })}</p>
       <label className="mt-3 flex items-center gap-2 text-sm">
         <input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
         {t("demo")}
@@ -339,7 +343,7 @@ function CreateBond({ registry, onDone }: { registry: Address; onDone: () => voi
       <button className="btn btn-primary mt-4" disabled={tx.busy || !valid} onClick={create}>
         {tb("createBond")}
       </button>
-      <TxReceipt state={tx.state} what={tb("bondWhat")} link={baseExplorer.tx} />
+      <TxReceipt state={tx.state} what={tb("bondWhat")} link={links.tx} />
     </section>
   );
 }

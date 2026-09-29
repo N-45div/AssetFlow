@@ -9,15 +9,16 @@ import { couponAmount, days30360 } from "@/lib/chain/coupons";
 import { shortKey } from "@/lib/chain/explorer";
 import { servicedTokenAbi, servicerAbi } from "@/lib/evm/abi";
 import { readEntitlements } from "@/lib/evm/assetflow";
-import { basePublic, baseExplorer } from "@/lib/evm/base";
 import type { BondView } from "@/lib/evm/use-bond";
 import { useEvmTx } from "@/lib/evm/use-evm-tx";
 import { useEvmWallet } from "@/lib/evm/wallet";
+import { useEvmChain } from "@/lib/evm/use-evm-chain";
 
 type Entitlement = Awaited<ReturnType<typeof readEntitlements>>[number];
 
 /** The schedule, and the payment under way: funded, then paid to every holder on the record date. */
 export function BaseCoupons({ view, onChange }: { view: BondView; onChange: () => void }) {
+  const { pub, links } = useEvmChain();
   const t = useTranslations("issuer.coupons");
   const tb = useTranslations("base.coupons");
   const locale = useLocale();
@@ -50,11 +51,11 @@ export function BaseCoupons({ view, onChange }: { view: BondView; onChange: () =
     let live = true;
     setRows(null);
     if (!recorded) return;
-    readEntitlements(bond, current)
+    readEntitlements(pub, bond, current)
       .then((r) => live && setRows(r.filter((e) => e.units > 0n)))
       .catch(() => live && setRows([]));
     if (address) {
-      basePublic
+      pub
         .readContract({ address: bond.currency, abi: servicedTokenAbi, functionName: "balanceOf", args: [address] })
         .then((b) => live && setBalance(b as bigint))
         .catch(() => live && setBalance(null));
@@ -62,7 +63,7 @@ export function BaseCoupons({ view, onChange }: { view: BondView; onChange: () =
     return () => {
       live = false;
     };
-  }, [bond, current, recorded, address, pay.funded, pay.paid, pay.heldBack]);
+  }, [bond, current, recorded, address, pay.funded, pay.paid, pay.heldBack, pub]);
 
   const fund = async () => {
     if (required === null) return;
@@ -203,7 +204,7 @@ export function BaseCoupons({ view, onChange }: { view: BondView; onChange: () =
             )}
           </div>
         )}
-        <TxReceipt state={tx.state} what={tb(`what.${what}`)} link={baseExplorer.tx} />
+        <TxReceipt state={tx.state} what={tb(`what.${what}`)} link={links.tx} />
       </section>
     </div>
   );

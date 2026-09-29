@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { basePublic } from "./base";
 import type { Address } from "viem";
 import { servicedTokenAbi } from "./abi";
+import { useEvmChain } from "./use-evm-chain";
 import {
   attestationVouches,
   readAttestation,
@@ -34,6 +34,7 @@ export interface BondView {
 
 /** One bond on Base, everything the console shows about it, and a way to read it again. */
 export function useBond(servicer: Address | null) {
+  const { cfg, pub } = useEvmChain();
   const [view, setView] = useState<BondView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -43,19 +44,19 @@ export function useBond(servicer: Address | null) {
     if (!servicer) return;
     let live = true;
     (async () => {
-      const bond = await readBond(servicer);
+      const bond = await readBond(pub, servicer);
       const [registry, listed, payments, requests] = await Promise.all([
-        readRegistry(bond.registry),
-        readProfiles(bond.registry),
-        readPayments(bond),
-        readRequests(servicer),
+        readRegistry(pub, bond.registry),
+        readProfiles(pub, bond.registry),
+        readPayments(pub, bond),
+        readRequests(pub, servicer),
       ]);
       const known = new Set(listed.map((p) => p.wallet.toLowerCase()));
       const unlisted = bond.holders.filter((h) => !known.has(h.toLowerCase()));
-      const profiles = [...listed, ...(await readProfiles(bond.registry, unlisted))];
+      const profiles = [...listed, ...(await readProfiles(pub, bond.registry, unlisted))];
       const wallets = profiles.map((p) => p.wallet);
       const balances = wallets.length
-        ? await basePublic.multicall({
+        ? await pub.multicall({
             allowFailure: false,
             contracts: wallets.flatMap((w) => [
               { address: bond.token, abi: servicedTokenAbi, functionName: "balanceOf", args: [w] },
@@ -70,7 +71,7 @@ export function useBond(servicer: Address | null) {
         profiles
           .filter((p) => p.attestedFrom)
           .map(async (p) => {
-            const a = await readAttestation(p.attestedFrom!);
+            const a = await readAttestation(pub, cfg.eas, p.attestedFrom!);
             attested[p.wallet.toLowerCase()] = !!a && a.recipient.toLowerCase() === p.wallet.toLowerCase() && attestationVouches(a, registry);
           }),
       );
@@ -79,7 +80,7 @@ export function useBond(servicer: Address | null) {
     return () => {
       live = false;
     };
-  }, [servicer, tick]);
+  }, [servicer, tick, pub, cfg.eas]);
 
   return { view, error, refresh };
 }

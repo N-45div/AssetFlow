@@ -1,11 +1,11 @@
 /**
- * Reading AssetFlow's EVM contracts on Base: a registry and its investors, a
+ * Reading AssetFlow's EVM contracts on any of its EVM chains: a registry and its investors, a
  * bond (its servicer, token and terms), each coupon payment and each
  * redemption request. Reads are batched through Multicall3.
  */
-import { zeroAddress, type Address, type Hex } from "viem";
+import { zeroAddress, type Address, type Hex, type PublicClient } from "viem";
 import { directoryAbi, registryAbi, servicedTokenAbi, servicerAbi } from "./abi";
-import { BASE, basePublic, easAbi } from "./base";
+import { easAbi } from "./eas";
 
 export interface EvmProfile {
   wallet: Address;
@@ -77,20 +77,20 @@ export interface EvmRequest {
 
 const STATUS: EvmRequestStatus[] = ["requested", "requested", "settled", "rejected", "cancelled"];
 
-export async function listOf(issuer: Address) {
-  const [registries, bonds] = await basePublic.multicall({
+export async function listOf(pub: PublicClient, directory: Address, issuer: Address) {
+  const [registries, bonds] = await pub.multicall({
     allowFailure: false,
     contracts: [
-      { address: BASE.directory, abi: directoryAbi, functionName: "registriesOf", args: [issuer] },
-      { address: BASE.directory, abi: directoryAbi, functionName: "bondsOf", args: [issuer] },
+      { address: directory, abi: directoryAbi, functionName: "registriesOf", args: [issuer] },
+      { address: directory, abi: directoryAbi, functionName: "bondsOf", args: [issuer] },
     ],
   });
   return { registries: registries as Address[], bonds: bonds as Address[] };
 }
 
-export async function readRegistry(address: Address): Promise<EvmRegistry> {
+export async function readRegistry(pub: PublicClient, address: Address): Promise<EvmRegistry> {
   const c = { address, abi: registryAbi } as const;
-  const [admin, compliance, minTier, requireAccredited, jurisdictions, kycSchema, kycAttester] = await basePublic.multicall({
+  const [admin, compliance, minTier, requireAccredited, jurisdictions, kycSchema, kycAttester] = await pub.multicall({
     allowFailure: false,
     contracts: [
       { ...c, functionName: "admin" },
@@ -115,10 +115,10 @@ export async function readRegistry(address: Address): Promise<EvmRegistry> {
 }
 
 /** Profiles for these wallets (every listed investor when none are given). */
-export async function readProfiles(registry: Address, wallets?: Address[]): Promise<EvmProfile[]> {
-  const list = wallets ?? ((await basePublic.readContract({ address: registry, abi: registryAbi, functionName: "investors" })) as Address[]);
+export async function readProfiles(pub: PublicClient, registry: Address, wallets?: Address[]): Promise<EvmProfile[]> {
+  const list = wallets ?? ((await pub.readContract({ address: registry, abi: registryAbi, functionName: "investors" })) as Address[]);
   if (list.length === 0) return [];
-  const rows = await basePublic.multicall({
+  const rows = await pub.multicall({
     allowFailure: false,
     contracts: list.flatMap((w) => [
       { address: registry, abi: registryAbi, functionName: "profileOf", args: [w] },
@@ -141,10 +141,10 @@ export async function readProfiles(registry: Address, wallets?: Address[]): Prom
   });
 }
 
-export async function readBond(servicer: Address): Promise<EvmBond> {
+export async function readBond(pub: PublicClient, servicer: Address): Promise<EvmBond> {
   const s = { address: servicer, abi: servicerAbi } as const;
   const [token, registry, issuer, currency, currencyDecimals, facePerUnit, couponBps, periods, matured, maturity] =
-    await basePublic.multicall({
+    await pub.multicall({
       allowFailure: false,
       contracts: [
         { ...s, functionName: "token" },
@@ -160,7 +160,7 @@ export async function readBond(servicer: Address): Promise<EvmBond> {
       ],
     });
   const t = { address: token as Address, abi: servicedTokenAbi } as const;
-  const [name, symbol, totalSupply, holders] = await basePublic.multicall({
+  const [name, symbol, totalSupply, holders] = await pub.multicall({
     allowFailure: false,
     contracts: [
       { ...t, functionName: "name" },
@@ -202,9 +202,9 @@ export async function readBond(servicer: Address): Promise<EvmBond> {
 }
 
 /** Each payment's state; `required` is known once its record date has passed. */
-export async function readPayments(bond: EvmBond, now = Math.floor(Date.now() / 1000)): Promise<EvmPayment[]> {
+export async function readPayments(pub: PublicClient, bond: EvmBond, now = Math.floor(Date.now() / 1000)): Promise<EvmPayment[]> {
   const s = { address: bond.servicer, abi: servicerAbi } as const;
-  const rows = await basePublic.multicall({
+  const rows = await pub.multicall({
     allowFailure: true,
     contracts: bond.periods.flatMap((_, i) => [
       { ...s, functionName: "payment", args: [BigInt(i)] },
@@ -225,10 +225,10 @@ export async function readPayments(bond: EvmBond, now = Math.floor(Date.now() / 
 }
 
 /** Whether each holder has been paid (or held back) for a period, and their units at its record date. */
-export async function readEntitlements(bond: EvmBond, period: number, holders = bond.holders) {
+export async function readEntitlements(pub: PublicClient, bond: EvmBond, period: number, holders = bond.holders) {
   if (holders.length === 0) return [];
   const rec = bond.periods[period].recordTs;
-  const rows = await basePublic.multicall({
+  const rows = await pub.multicall({
     allowFailure: false,
     contracts: holders.flatMap((h) => [
       { address: bond.token, abi: servicedTokenAbi, functionName: "balanceAt", args: [h, BigInt(rec)] },
@@ -241,10 +241,10 @@ export async function readEntitlements(bond: EvmBond, period: number, holders = 
   });
 }
 
-export async function readRequests(servicer: Address): Promise<EvmRequest[]> {
-  const count = Number(await basePublic.readContract({ address: servicer, abi: servicerAbi, functionName: "requestCount" }));
+export async function readRequests(pub: PublicClient, servicer: Address): Promise<EvmRequest[]> {
+  const count = Number(await pub.readContract({ address: servicer, abi: servicerAbi, functionName: "requestCount" }));
   if (count === 0) return [];
-  const rows = await basePublic.multicall({
+  const rows = await pub.multicall({
     allowFailure: false,
     contracts: Array.from({ length: count }, (_, i) => ({ address: servicer, abi: servicerAbi, functionName: "request", args: [BigInt(i)] })),
   });
@@ -265,8 +265,8 @@ export async function readRequests(servicer: Address): Promise<EvmRequest[]> {
     .reverse();
 }
 
-export async function balancesOf(bond: EvmBond, wallet: Address) {
-  const [units, locked, cash, redeemed] = await basePublic.multicall({
+export async function balancesOf(pub: PublicClient, bond: EvmBond, wallet: Address) {
+  const [units, locked, cash, redeemed] = await pub.multicall({
     allowFailure: false,
     contracts: [
       { address: bond.token, abi: servicedTokenAbi, functionName: "balanceOf", args: [wallet] },
@@ -290,8 +290,8 @@ export interface EvmAttestation {
   accredited: boolean;
 }
 
-export async function readAttestation(uid: Hex): Promise<EvmAttestation | null> {
-  const a = (await basePublic.readContract({ address: BASE.eas, abi: easAbi, functionName: "getAttestation", args: [uid] })) as {
+export async function readAttestation(pub: PublicClient, eas: Address, uid: Hex): Promise<EvmAttestation | null> {
+  const a = (await pub.readContract({ address: eas, abi: easAbi, functionName: "getAttestation", args: [uid] })) as {
     uid: Hex;
     schema: Hex;
     expirationTime: bigint;
