@@ -96,7 +96,7 @@ export default async function Home() {
       <section className="mx-auto max-w-6xl px-4 pt-14 sm:px-6">
         <h2 className="text-2xl font-semibold tracking-tight">{t("networksTitle")}</h2>
         <p className="mt-2 max-w-2xl text-ink-2">{t("networksLede")}</p>
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
+        <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <article className="card flex flex-col p-5">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-semibold">Solana</h3>
@@ -135,6 +135,16 @@ export default async function Home() {
                 </li>
               ))}
             </ul>
+          </article>
+          <article className="card flex flex-col p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold">Base</h3>
+              <span className="pill pill-ok">{t("networks.base.status")}</span>
+            </div>
+            <p className="mt-2 flex-1 text-sm text-ink-2">{t("networks.base.body")}</p>
+            <Link className="mt-4 text-sm text-accent underline underline-offset-2" href="/base">
+              {t("networks.base.open")} →
+            </Link>
           </article>
           <article className="card flex flex-col p-5">
             <div className="flex items-center justify-between gap-3">

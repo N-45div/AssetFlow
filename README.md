@@ -12,7 +12,8 @@ Live app (Solana devnet): **https://assetflow-servicing.vercel.app** (also at as
 |---|---|---|
 | **Solana** | Devnet | The servicing layer, built natively on Token-2022 and Token ACL (sRFC-37). Program `BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR`. |
 | **HashKey Chain** | Mainnet (chain 177), deployed 11 May 2026 | The EVM contracts AssetFlow started as: [ComplianceRegistry](https://hsk.blockscout.com/address/0xd06ea0b9AD8935df0e823555F0433604B880711D), [ServicedAssetToken "AssetFlow Pilot Unit"](https://hsk.blockscout.com/address/0x59E0f69FF6d25b5ceE757c874adAdC42E9857f2A), [DistributionModule](https://hsk.blockscout.com/address/0x93995825CA13fBbf74f6876480bf7565f33a8717), [RedemptionModule](https://hsk.blockscout.com/address/0x7495d785B5edA74E2c3ebc4B4c0909DeF86078bB). Recorded in [`contracts/deployments/hashkey-mainnet.json`](contracts/deployments/hashkey-mainnet.json). |
-| Base, Arbitrum, Robinhood Chain | Planned | Tokenized stocks there reinvest dividends through a multiplier and never pay cash; AssetFlow is the cash-payout rail. One register, the same record-date payout published on each chain. |
+| **Base** | Mainnet and Sepolia, deployed 29 Sep 2026 | The same servicing as Solidity contracts ([`evm/`](evm)). Mainnet: the [directory](https://base.blockscout.com/address/0x1C1867cC4899157B8c6fb2D1d351985f73fe125e), AssetFlow's investor schema on Base's EAS, and a pilot note on native USDC ([servicer](https://base.blockscout.com/address/0xCc673fD915EE01f2F712A880a51E42EDC9A7d320), [token](https://base.blockscout.com/address/0xDABea95f39ef319AE4C775Ca8c8b3c37971Aa977)), sources verified on Sourcify. The console at [`/base`](https://assetflow-servicing.vercel.app/base) runs on Sepolia with test dollars. Recorded in [`evm/deployments`](evm/deployments). |
+| Arbitrum, Robinhood Chain | Planned | Tokenized stocks there reinvest dividends through a multiplier and never pay cash; AssetFlow is the cash-payout rail. |
 
 ## How it works on Solana
 
@@ -34,6 +35,15 @@ The public [proof page](https://assetflow-servicing.vercel.app/proof) reads each
 
 **Redemptions and maturity.** A holder asks to redeem early and the units wait in an escrow the asset account owns. The issuer settles at face plus accrued interest, priced by the program, and the units burn in the same transaction as the USDC moves; or rejects, and the units go back, into a frozen account too. Units in escrow on a record date still count to their holder. Once the last payment date has passed and every coupon's register is committed, anyone can start maturity: the mint authority is dropped for good, and once the principal is fully funded anyone can redeem any holding at face. An ineligible holder keeps their units, and their principal waits in the vault.
 
+## How it works on Base
+
+The Solana program's rules and arithmetic, in Solidity: a `Registry` (the same policy and profiles, and KYC once through the Ethereum Attestation Service, a Base predeploy), and per bond a `Servicer` that holds the terms and creates its `ServicedToken`.
+
+- **The register keeps itself.** The token records every holder's balance over time, so a coupon is owed on the balance at the record date, read from the chain: nobody commits a Merkle root and nothing is paused. Anyone pays any holder once the payment is fully funded, each payment only from its own funds, and an ineligible holder's coupon is held back.
+- **The gate runs on every transfer.** Units move only between wallets the registry admits today, so a lapsed approval stops the next transfer outright.
+- **Redemptions lock in place.** Requested units stay in the holder's wallet, locked, until the issuer settles (face plus accrued interest, burned in the same call) or rejects. Maturity after the last payment date stops issuance, and anyone redeems eligible holdings at face once the principal is funded.
+- **KYC once.** A registry trusts an attester's EAS attestations (`uint16 jurisdiction, uint8 tier, bool accredited`); anyone may present one to write the investor's profile, a compliance hold survives it, and a revocation lets anyone withdraw the approval. The site's demo provider signs delegated attestations the investor's wallet submits.
+
 ## The app
 
 - **Issuer console** (`/issuer`): self-serve set-up (an investor registry, then the asset created and registered in one transaction), an investor register joined with every holder account on-chain, issuance, coupons from terms to paid, the redemption queue and maturity, and compliance policy.
@@ -45,6 +55,7 @@ The public [proof page](https://assetflow-servicing.vercel.app/proof) reads each
 ## Repository
 
 - [`solana/`](solana): the Anchor program, a hand-built client and local-validator tests (54 cases across eligibility, KYC once against the real Solana Attestation Service, coupons, and redemptions and maturity, including the attacks an adversarial review found).
+- [`evm/`](evm): the Solidity contracts for Base (Foundry), with 19 tests against the real EAS contracts, including a fuzzed rounding check.
 - [`frontend/`](frontend): the Next.js app.
 - [`contracts/`](contracts): the Solidity contracts deployed on HashKey Chain.
 - [`backend/`](backend): the Express API the HashKey console used.
@@ -57,6 +68,12 @@ Solana program and tests (in WSL; see `solana/build.sh`):
 wsl bash solana/build.sh
 wsl bash solana/tests/validator.sh      # terminal 1: validator with AssetFlow + Token ACL
 cd solana && npm install && npm test    # terminal 2
+```
+
+EVM contracts and tests (Foundry):
+
+```bash
+cd evm && npm install && npm run setup && forge test
 ```
 
 App against the local validator:
