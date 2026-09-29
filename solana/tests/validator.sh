@@ -4,10 +4,10 @@
 #   wsl bash solana/tests/validator.sh          # run in the foreground
 #   wsl bash solana/tests/validator.sh --stop   # stop a running one
 #
-# Token ACL is the Solana Foundation's deployed program, not a build of ours:
-# it is copied once from devnet (SOLANA_DEVNET_RPC_URL, else the public
-# endpoint) and loaded at its real address, so the tests exercise the same
-# binary the asset will use.
+# Token ACL and the Solana Attestation Service are the Solana Foundation's
+# deployed programs, not builds of ours: each is copied once from devnet
+# (SOLANA_DEVNET_RPC_URL, else the public endpoint) and loaded at its real
+# address, so the tests exercise the same binaries the asset will use.
 #
 # The ledger stays on the Linux filesystem; under /mnt/c the validator writes
 # through the 9p bridge and misses its slot timing.
@@ -20,6 +20,8 @@ SO="$TARGET/sbpf-solana-solana/release/assetflow.so"
 LEDGER="${LEDGER:-$HOME/assetflow-ledger}"
 TOKEN_ACL_ID="TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP"
 TOKEN_ACL_SO="$TARGET/token_acl.so"
+SAS_ID="22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG"
+SAS_SO="$TARGET/sas.so"
 
 if [ "${1:-}" = "--stop" ]; then
   pkill -x solana-test-val && echo "stopped" || echo "not running"
@@ -27,12 +29,14 @@ if [ "${1:-}" = "--stop" ]; then
 fi
 
 [ -f "$SO" ] || { echo "missing $SO — run: wsl bash solana/build.sh"; exit 1; }
-if [ ! -f "$TOKEN_ACL_SO" ]; then
-  solana program dump -u "${SOLANA_DEVNET_RPC_URL:-https://api.devnet.solana.com}" "$TOKEN_ACL_ID" "$TOKEN_ACL_SO"
-fi
+for pair in "$TOKEN_ACL_ID:$TOKEN_ACL_SO" "$SAS_ID:$SAS_SO"; do
+  id="${pair%%:*}" so="${pair#*:}"
+  [ -f "$so" ] || solana program dump -u "${SOLANA_DEVNET_RPC_URL:-https://api.devnet.solana.com}" "$id" "$so"
+done
 
 ID="$(solana-keygen pubkey "$TARGET/deploy/assetflow-keypair.json")"
 echo "assetflow at $ID"
 exec solana-test-validator --reset --quiet --ledger "$LEDGER" \
   --bpf-program "$ID" "$SO" \
-  --bpf-program "$TOKEN_ACL_ID" "$TOKEN_ACL_SO"
+  --bpf-program "$TOKEN_ACL_ID" "$TOKEN_ACL_SO" \
+  --bpf-program "$SAS_ID" "$SAS_SO"

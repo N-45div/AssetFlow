@@ -510,6 +510,54 @@ export class AssetFlow {
     ]);
   }
 
+  kycSource(registry: PublicKey) {
+    return pda([Buffer.from("kyc_source"), registry.toBuffer()], this.programId);
+  }
+  attested(registry: PublicKey, wallet: PublicKey) {
+    return pda([Buffer.from("attested"), registry.toBuffer(), wallet.toBuffer()], this.programId);
+  }
+
+  /** Compliance names the SAS credential and schema the registry trusts, or stops trusting any. */
+  setKycSource(compliance: PublicKey, registry: PublicKey, credential: PublicKey, schema: PublicKey, accept = true) {
+    return this.ix(
+      "set_kyc_source",
+      [
+        { pubkey: compliance, isSigner: true, isWritable: true },
+        { pubkey: registry, isSigner: false, isWritable: false },
+        { pubkey: this.kycSource(registry), isSigner: false, isWritable: true },
+        { pubkey: credential, isSigner: false, isWritable: false },
+        { pubkey: schema, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      [bool(accept)],
+    );
+  }
+
+  /** Anyone: writes the wallet's profile from its attestation. */
+  claimProfile(payer: PublicKey, registry: PublicKey, attestation: PublicKey, wallet: PublicKey) {
+    return this.ix("claim_profile", [
+      { pubkey: payer, isSigner: true, isWritable: true },
+      { pubkey: registry, isSigner: false, isWritable: false },
+      { pubkey: this.kycSource(registry), isSigner: false, isWritable: false },
+      { pubkey: attestation, isSigner: false, isWritable: false },
+      { pubkey: wallet, isSigner: false, isWritable: false },
+      { pubkey: this.investor(registry, wallet), isSigner: false, isWritable: true },
+      { pubkey: this.attested(registry, wallet), isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ]);
+  }
+
+  /** Anyone: withdraws the approval of a profile its attestation no longer backs. */
+  lapseProfile(registry: PublicKey, wallet: PublicKey, attestation: PublicKey) {
+    return this.ix("lapse_profile", [
+      { pubkey: registry, isSigner: false, isWritable: false },
+      { pubkey: this.kycSource(registry), isSigner: false, isWritable: false },
+      { pubkey: this.attested(registry, wallet), isSigner: false, isWritable: false },
+      { pubkey: this.investor(registry, wallet), isSigner: false, isWritable: true },
+      { pubkey: attestation, isSigner: false, isWritable: false },
+    ]);
+  }
+
   /** The accounts Token ACL must be handed so it can resolve the gate's list. */
   gateAccounts(question: "thaw" | "freeze", mint: PublicKey, registry: PublicKey, owner: PublicKey) {
     const list = question === "thaw" ? this.thawMetas(mint) : this.freezeMetas(mint);
@@ -626,6 +674,106 @@ export const TokenAcl = {
     });
   },
 };
+
+/**
+ * The Solana Foundation's Solana Attestation Service: the instructions a KYC
+ * provider uses. Its instructions start with a single discriminator byte, and
+ * strings and lists are prefixed with a u32 length.
+ */
+export const SAS_ID = new PublicKey("22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG");
+const u32 = (n: number) => {
+  const b = Buffer.alloc(4);
+  b.writeUInt32LE(n);
+  return b;
+};
+const lenPrefixed = (bytes: Buffer) => Buffer.concat([u32(bytes.length), bytes]);
+
+export const Sas = {
+  credential(authority: PublicKey, name: string) {
+    return pda([Buffer.from("credential"), authority.toBuffer(), Buffer.from(name)], SAS_ID);
+  },
+  schema(credential: PublicKey, name: string, version = 1) {
+    return pda([Buffer.from("schema"), credential.toBuffer(), Buffer.from(name), Buffer.from([version])], SAS_ID);
+  },
+  attestation(credential: PublicKey, schema: PublicKey, nonce: PublicKey) {
+    return pda([Buffer.from("attestation"), credential.toBuffer(), schema.toBuffer(), nonce.toBuffer()], SAS_ID);
+  },
+  eventAuthority() {
+    return pda([Buffer.from("__event_authority")], SAS_ID);
+  },
+
+  createCredential(payer: PublicKey, authority: PublicKey, name: string, signers: PublicKey[]) {
+    return new TransactionInstruction({
+      programId: SAS_ID,
+      keys: [
+        { pubkey: payer, isSigner: true, isWritable: true },
+        { pubkey: this.credential(authority, name), isSigner: false, isWritable: true },
+        { pubkey: authority, isSigner: true, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.concat([u8(0), lenPrefixed(Buffer.from(name)), u32(signers.length), ...signers.map((s) => s.toBuffer())]),
+    });
+  },
+
+  /** layout: SAS type codes (0 = u8, 1 = u16, 10 = bool, 12 = string, ...). */
+  createSchema(payer: PublicKey, authority: PublicKey, credential: PublicKey, name: string, description: string, layout: number[], fields: string[]) {
+    return new TransactionInstruction({
+      programId: SAS_ID,
+      keys: [
+        { pubkey: payer, isSigner: true, isWritable: true },
+        { pubkey: authority, isSigner: true, isWritable: false },
+        { pubkey: credential, isSigner: false, isWritable: false },
+        { pubkey: this.schema(credential, name), isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.concat([
+        u8(1),
+        lenPrefixed(Buffer.from(name)),
+        lenPrefixed(Buffer.from(description)),
+        lenPrefixed(Buffer.from(layout)),
+        u32(fields.length),
+        ...fields.map((f) => lenPrefixed(Buffer.from(f))),
+      ]),
+    });
+  },
+
+  createAttestation(payer: PublicKey, signer: PublicKey, credential: PublicKey, schema: PublicKey, nonce: PublicKey, data: Buffer, expiry: number) {
+    return new TransactionInstruction({
+      programId: SAS_ID,
+      keys: [
+        { pubkey: payer, isSigner: true, isWritable: true },
+        { pubkey: signer, isSigner: true, isWritable: false },
+        { pubkey: credential, isSigner: false, isWritable: false },
+        { pubkey: schema, isSigner: false, isWritable: false },
+        { pubkey: this.attestation(credential, schema, nonce), isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.concat([u8(6), nonce.toBuffer(), lenPrefixed(data), i64(expiry)]),
+    });
+  },
+
+  /** Revocation: the provider closes the attestation. */
+  closeAttestation(payer: PublicKey, signer: PublicKey, credential: PublicKey, attestation: PublicKey) {
+    return new TransactionInstruction({
+      programId: SAS_ID,
+      keys: [
+        { pubkey: payer, isSigner: true, isWritable: true },
+        { pubkey: signer, isSigner: true, isWritable: false },
+        { pubkey: credential, isSigner: false, isWritable: false },
+        { pubkey: attestation, isSigner: false, isWritable: true },
+        { pubkey: this.eventAuthority(), isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: SAS_ID, isSigner: false, isWritable: false },
+      ],
+      data: u8(7),
+    });
+  },
+};
+
+/** An AssetFlow investor attestation's data: jurisdiction (u16), tier (u8), accredited (bool). */
+export function investorAttestationData(jurisdiction: number, tier: number, accredited: boolean) {
+  return Buffer.concat([u16(jurisdiction), u8(tier), bool(accredited)]);
+}
 
 /**
  * The instructions that create a serviced asset's mint. Every authority the
