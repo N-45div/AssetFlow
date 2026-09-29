@@ -169,7 +169,13 @@
     "CouponsOutstanding": "到期之前，每一期票息的名冊都必須已提交。",
     "RequestClosed": "該贖回申請已處理。",
     "HoldingFrozen": "持倉賬户已凍結，須先激活。",
-    "NotAHolding": "資產自身的託管賬户不屬於持倉。"
+    "NotAHolding": "資產自身的託管賬户不屬於持倉。",
+    "KycSourceNotSet": "此名冊未信任任何 KYC 服務商。",
+    "NotAnAttestation": "該賬户不是 Solana 認證服務（SAS）的認證。",
+    "AttestationMismatch": "該認證並非來自此名冊信任的服務商，或並非針對此錢包。",
+    "AttestationExpired": "該認證已過期。",
+    "WrongSchemaLayout": "該模式不包含 AssetFlow 所需的投資者字段（司法管轄區、等級、合格投資者）。",
+    "StillAttested": "該認證仍然有效，無法撤銷此投資者的批准。"
   },
   "eligibility": {
     "title": "資格",
@@ -192,7 +198,8 @@
     },
     "expiry": {
       "pass": "KYC 有效期至 {date}",
-      "fail": "KYC 已於 {date} 過期"
+      "fail": "KYC 已於 {date} 過期",
+      "never": "KYC 長期有效"
     },
     "tier": {
       "pass": "投資者級別 {tier}，達到最低要求 {min}",
@@ -249,7 +256,8 @@
       "fixed": "名冊已鎖定",
       "est": "預估",
       "scheduled": "已排期",
-      "row": "第 {n} 期"
+      "row": "第 {n} 期",
+      "notOnRegister": "不在登記名冊上"
     },
     "redeem": {
       "title": "贖回",
@@ -286,6 +294,18 @@
         "redeem": "到期贖回"
       },
       "escrowNote": "{units} 單位正在託管中。登記日時它們仍歸你所有，對應的票息照常支付給你。"
+    },
+    "kyc": {
+      "title": "一次 KYC",
+      "aProvider": "KYC 服務商",
+      "none": "此發行人接受經 {provider} 驗證的投資者。在那裏驗證一次，所有信任 {provider} 的名冊都會接納你，無需再填資料。",
+      "revoked": "你來自 {provider} 的認證已不存在或已失效，因此任何人都可以撤回此檔案。請重新驗證以保留。",
+      "ready": "{provider} 已認證你：{jurisdiction}，等級 {tier}。用它完成入駐：檔案依據認證寫入，賬户同時激活，只需一筆交易。",
+      "policyWarning": "此名冊的政策不接納認證中的條件，你可以入駐，但門控不會放行。",
+      "claimed": "已憑 {provider} 的認證入駐：{jurisdiction}，等級 {tier}。",
+      "onboard": "用我的認證入駐",
+      "getVerified": "前往 {provider} 驗證",
+      "what": "憑認證入駐"
     }
   },
   "issuer": {
@@ -402,7 +422,12 @@
         "note": "保存只會更改檔案。已激活的賬户會保持激活，直到有人將其凍結；從現在起，閘門會對每次解凍和凍結應用新檔案。",
         "save": "保存檔案",
         "what": "保存檔案"
-      }
+      },
+      "attested": "已認證",
+      "attestationGone": "認證已失效",
+      "lapse": "撤回批准",
+      "lapseWhat": "撤回批准",
+      "noExpiry": "長期有效"
     },
     "issuance": {
       "title": "發行份額",
@@ -427,7 +452,21 @@
       "notCompliance": "當前連接的錢包不是此名冊的合規負責人，因此無法更改政策。",
       "effect": "收緊政策本身不會凍結任何人。不再合資格的持有人會出現在“需要處理”中，任何人都可以凍結他們。",
       "save": "保存政策",
-      "what": "保存政策"
+      "what": "保存政策",
+      "kyc": {
+        "title": "KYC 服務商",
+        "lede": "信任 Solana 認證服務上的某個服務商後，經其驗證的投資者可以自助入駐：程序依據認證寫入其檔案。你的政策依然適用，合規凍結不會因認證而解除。",
+        "none": "未信任任何服務商：每位投資者都需手動入駐。",
+        "credential": "服務商憑證（SAS）",
+        "schema": "投資者模式（SAS）",
+        "demoNote": "已預填 AssetFlow 的演示服務商，它會認證訪客選擇的任何內容。",
+        "demoLink": "打開演示服務商",
+        "trust": "信任此服務商",
+        "trusts": "當前信任",
+        "trustsNote": "若停止信任或更換服務商，任何人都可以撤回來自其認證的檔案批准。",
+        "stop": "停止信任此服務商",
+        "what": "設置 KYC 服務商"
+      }
     },
     "coupons": {
       "loading": "正在讀取條款…",
@@ -625,5 +664,36 @@
       "redemption": "贖回"
     },
     "hashkeyHint": "AssetFlow 的 EVM 合約，於 {date} 部署在 HashKey Chain 主網（鏈 ID 177）。"
+  },
+  "kyc": {
+    "title": "演示 KYC 服務商",
+    "subtitle": "在 Solana 認證服務上一次驗證",
+    "demoOnly": "僅供測試。此服務商不做任何核驗：你選擇什麼就認證什麼，用於演示一次驗證的投資者如何被所有信任該服務商的名冊接納。",
+    "unavailable": "此部署未配置演示 KYC 服務商。",
+    "connect": "連接需要認證的錢包。",
+    "loading": "正在查找你的認證…",
+    "yours": "你的認證",
+    "jurisdiction": "司法管轄區",
+    "tier": "投資者等級",
+    "accredited": "合格投資者",
+    "accreditedCheck": "合格投資者",
+    "yes": "是",
+    "no": "否",
+    "expires": "到期",
+    "never": "長期有效",
+    "onChain": "鏈上地址",
+    "attest": "認證我的錢包",
+    "revoke": "撤銷我的認證",
+    "revokeNote": "撤銷可以演示另一面：憑此認證接納你的名冊，隨後任何人都可以撤回你的批准。",
+    "backToHolder": "返回持有人門户",
+    "howTitle": "一次 KYC 如何運作",
+    "how1": "KYC 服務商核驗投資者後，在 Solana 認證服務上為其錢包寫入一份認證：司法管轄區、投資者等級、合格投資者身份。",
+    "how2": "名冊指定它信任的服務商。投資者出示認證，AssetFlow 程序據此寫入其檔案：無需表格，也無需發行人後台處理。",
+    "how3": "所有信任同一服務商的名冊都接受同一份認證。服務商一旦撤銷，任何人都可以撤回該批准，並通過門控凍結該持有人。",
+    "credential": "服務商憑證：",
+    "what": {
+      "attest": "創建認證",
+      "revoke": "撤銷認證"
+    }
   }
 }

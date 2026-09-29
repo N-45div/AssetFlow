@@ -169,7 +169,13 @@
     "CouponsOutstanding": "Every coupon's register must be committed before maturity.",
     "RequestClosed": "That redemption request has already been answered.",
     "HoldingFrozen": "The holding account is frozen; it must be activated first.",
-    "NotAHolding": "The asset's own escrow is not a holding."
+    "NotAHolding": "The asset's own escrow is not a holding.",
+    "KycSourceNotSet": "This registry trusts no KYC provider.",
+    "NotAnAttestation": "That is not an attestation from the Solana Attestation Service.",
+    "AttestationMismatch": "The attestation is not from the provider this registry trusts, or not about this wallet.",
+    "AttestationExpired": "The attestation has expired.",
+    "WrongSchemaLayout": "That schema does not carry AssetFlow's investor fields (jurisdiction, tier, accredited).",
+    "StillAttested": "The attestation still vouches for this investor."
   },
   "eligibility": {
     "title": "Eligibility",
@@ -192,7 +198,8 @@
     },
     "expiry": {
       "pass": "KYC valid until {date}",
-      "fail": "KYC expired on {date}"
+      "fail": "KYC expired on {date}",
+      "never": "KYC does not expire"
     },
     "tier": {
       "pass": "Investor tier {tier} meets the minimum of {min}",
@@ -249,7 +256,8 @@
       "fixed": "Register fixed",
       "est": "est.",
       "scheduled": "Scheduled",
-      "row": "Coupon {n}"
+      "row": "Coupon {n}",
+      "notOnRegister": "Not on the register"
     },
     "redeem": {
       "title": "Redemptions",
@@ -286,6 +294,18 @@
         "redeem": "Redeeming at maturity"
       },
       "escrowNote": "{units} units wait in escrow. They are still yours on a record date, so their coupon comes to you."
+    },
+    "kyc": {
+      "title": "KYC once",
+      "aProvider": "a KYC provider",
+      "none": "This issuer accepts investors verified by {provider}. Get verified there once, and every registry that trusts {provider} admits you without paperwork.",
+      "revoked": "Your attestation from {provider} is gone or no longer valid, so this profile can be withdrawn by anyone. Get verified again to keep it.",
+      "ready": "{provider} attests you: {jurisdiction}, tier {tier}. Onboard with it: your profile is written from the attestation and your account activated, in one transaction.",
+      "policyWarning": "This registry's policy does not admit what the attestation says, so you can onboard but the gate will not let you in.",
+      "claimed": "Onboarded from your {provider} attestation: {jurisdiction}, tier {tier}.",
+      "onboard": "Onboard with my attestation",
+      "getVerified": "Get verified by {provider}",
+      "what": "Onboarding with your attestation"
     }
   },
   "issuer": {
@@ -402,7 +422,12 @@
         "note": "Saving changes the profile only. An account already active stays active until someone freezes it; the gate applies the new profile to every thaw and freeze from now on.",
         "save": "Save profile",
         "what": "Saving the profile"
-      }
+      },
+      "attested": "Attested",
+      "attestationGone": "Attestation gone",
+      "lapse": "Withdraw approval",
+      "lapseWhat": "Withdrawing the approval",
+      "noExpiry": "No expiry"
     },
     "issuance": {
       "title": "Issue units",
@@ -427,7 +452,21 @@
       "notCompliance": "The connected wallet is not this registry's compliance officer, so it cannot change the policy.",
       "effect": "A tighter policy does not freeze anyone by itself. Holders who no longer pass show up under Needs attention, and anyone can freeze them.",
       "save": "Save policy",
-      "what": "Saving the policy"
+      "what": "Saving the policy",
+      "kyc": {
+        "title": "KYC provider",
+        "lede": "Trust a provider on the Solana Attestation Service, and investors it has verified onboard themselves: the program writes their profile from the attestation. Your policy still applies, and a compliance hold is never lifted by an attestation.",
+        "none": "No provider trusted: every investor is onboarded by hand.",
+        "credential": "Provider credential (SAS)",
+        "schema": "Investor schema (SAS)",
+        "demoNote": "Prefilled with AssetFlow's demo provider, which attests whatever a visitor picks.",
+        "demoLink": "Open the demo provider",
+        "trust": "Trust this provider",
+        "trusts": "Trusting",
+        "trustsNote": "If you stop trusting it, or switch providers, anyone can withdraw the approval of profiles that came from its attestations.",
+        "stop": "Stop trusting this provider",
+        "what": "Setting the KYC provider"
+      }
     },
     "coupons": {
       "loading": "Reading the terms…",
@@ -625,5 +664,36 @@
       "redemption": "Redemptions"
     },
     "hashkeyHint": "AssetFlow's EVM contracts, deployed on HashKey Chain mainnet (chain 177) on {date}."
+  },
+  "kyc": {
+    "title": "Demo KYC provider",
+    "subtitle": "Get verified once, on the Solana Attestation Service",
+    "demoOnly": "For testing only. This provider verifies nobody: it attests whatever you pick, so you can see how an investor verified once is admitted by every registry that trusts the provider.",
+    "unavailable": "The demo KYC provider is not set up on this deployment.",
+    "connect": "Connect the wallet you want attested.",
+    "loading": "Looking for your attestation…",
+    "yours": "Your attestation",
+    "jurisdiction": "Jurisdiction",
+    "tier": "Investor tier",
+    "accredited": "Accredited",
+    "accreditedCheck": "Accredited investor",
+    "yes": "Yes",
+    "no": "No",
+    "expires": "Expires",
+    "never": "Never",
+    "onChain": "On-chain at",
+    "attest": "Attest my wallet",
+    "revoke": "Revoke my attestation",
+    "revokeNote": "Revoking shows the other side: any registry that admitted you from it can then have your approval withdrawn, by anyone.",
+    "backToHolder": "Back to the holder portal",
+    "howTitle": "How KYC once works",
+    "how1": "A KYC provider checks an investor and writes an attestation about their wallet on the Solana Attestation Service: jurisdiction, investor tier, accredited status.",
+    "how2": "A registry names the providers it trusts. The investor presents the attestation and the AssetFlow program writes their profile from it: no forms, no issuer back office.",
+    "how3": "Every registry that trusts the same provider accepts the same attestation. If the provider revokes it, anyone can withdraw the approval, and then freeze the holder through the gate.",
+    "credential": "Provider credential:",
+    "what": {
+      "attest": "Creating the attestation",
+      "revoke": "Revoking the attestation"
+    }
   }
 }
