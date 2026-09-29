@@ -80,7 +80,10 @@ export function HolderCoupons({ view, wallet, units }: { view: AssetView; wallet
                 tone = record.heldBack ? "pill-warn" : "pill-ok";
               } else if (payout) {
                 amount = "—";
-                status = payout.status === "committed" ? t("paying") : t("fixed");
+                // every entitlement settled and none of them this wallet's: it held nothing on the record date
+                const settled = payout.status === "committed" && payout.paid + payout.heldBack >= payout.required;
+                if (settled) status = t("notOnRegister");
+                else status = payout.status === "committed" ? t("paying") : t("fixed");
               } else {
                 amount = `${cur(couponAmount(terms, p, units + escrowed))} ${t("est")}`;
                 status = t("scheduled");
