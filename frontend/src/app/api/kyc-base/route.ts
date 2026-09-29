@@ -44,7 +44,12 @@ export async function POST(request: Request) {
 
   if (action === "revoke") {
     const uid = body.uid as Hex | undefined;
-    const a = uid ? await readAttestation(uid) : null;
+    // A freshly made attestation may not be on the node that answers yet: ask a few times.
+    let a = uid ? await readAttestation(uid) : null;
+    for (let i = 0; uid && !a && i < 8; i++) {
+      await new Promise((r) => setTimeout(r, 750));
+      a = await readAttestation(uid);
+    }
     if (!a || a.revoked || a.recipient !== wallet || a.attester !== provider.address) {
       return Response.json({ error: "This wallet has no attestation from the demo provider to revoke." }, { status: 404 });
     }

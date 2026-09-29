@@ -38,8 +38,13 @@ export async function findAttestation(wallet: Address, schema: Hex, attester: Ad
     remembered = null;
   }
   if (remembered) {
-    const a = await readAttestation(remembered as Hex).catch(() => null);
-    if (fits(a)) return a;
+    // Just made, it may not be on the node that answers yet: ask a few times.
+    for (let i = 0; i < 5; i++) {
+      const a = await readAttestation(remembered as Hex).catch(() => null);
+      if (fits(a)) return a;
+      if (a) break;
+      await new Promise((r) => setTimeout(r, 800));
+    }
   }
   const res = await fetch(GRAPHQL, {
     method: "POST",
