@@ -41,6 +41,8 @@ pub mod coupons;
 pub use coupons::*;
 pub mod redemptions;
 pub use redemptions::*;
+pub mod kyc;
+pub use kyc::*;
 
 declare_id!("BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR");
 
@@ -531,6 +533,24 @@ pub mod assetflow {
     /// its owner the face. A holder who is not eligible keeps their units.
     pub fn redeem_at_maturity(ctx: Context<RedeemAtMaturity>) -> Result<()> {
         redemptions::redeem_holding(ctx)
+    }
+
+    /// Name the SAS credential and schema this registry trusts for investor
+    /// profiles, or (accept = false) stop trusting any.
+    pub fn set_kyc_source(ctx: Context<SetKycSource>, accept: bool) -> Result<()> {
+        kyc::set_source(ctx, accept)
+    }
+
+    /// Anyone: write an investor's profile from their attestation by the
+    /// trusted provider. A compliance hold on the profile stays.
+    pub fn claim_profile(ctx: Context<ClaimProfile>) -> Result<()> {
+        kyc::claim(ctx)
+    }
+
+    /// Anyone: withdraw the approval of a profile whose attestation was
+    /// revoked, has expired, or comes from a provider no longer trusted.
+    pub fn lapse_profile(ctx: Context<LapseProfile>) -> Result<()> {
+        kyc::lapse(ctx)
     }
 
     /// Token ACL asks this before a permissionless thaw: yes only if the
@@ -1066,4 +1086,16 @@ pub enum AssetFlowError {
     HoldingFrozen,
     #[msg("accounts the asset owns are not holdings")]
     NotAHolding,
+    #[msg("this registry trusts no attestation source")]
+    KycSourceNotSet,
+    #[msg("the account is not a Solana Attestation Service account of the expected kind")]
+    NotAnAttestation,
+    #[msg("the attestation is not the trusted provider's, or not about this wallet")]
+    AttestationMismatch,
+    #[msg("the attestation has expired")]
+    AttestationExpired,
+    #[msg("the schema does not carry AssetFlow's investor fields")]
+    WrongSchemaLayout,
+    #[msg("the attestation still vouches for this investor")]
+    StillAttested,
 }
