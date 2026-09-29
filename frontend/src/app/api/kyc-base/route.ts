@@ -39,8 +39,10 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Send JSON." }, { status: 400 });
   }
-  const cfg = EVM_CHAINS[(body.chain ?? "base") as EvmChainKey];
-  if (!cfg) return Response.json({ error: "Unknown chain." }, { status: 400 });
+  const chain = body.chain ?? "base";
+  // own keys only: "toString" or "constructor" would otherwise find something on the prototype
+  if (typeof chain !== "string" || !Object.hasOwn(EVM_CHAINS, chain)) return Response.json({ error: "Unknown chain." }, { status: 400 });
+  const cfg = EVM_CHAINS[chain as EvmChainKey];
   if (!body.wallet || !isAddress(body.wallet) || !body.proof || !body.issuedAt) {
     return Response.json({ error: "Send { chain, wallet, action, proof, issuedAt, ... }." }, { status: 400 });
   }
