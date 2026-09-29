@@ -10,7 +10,9 @@
     "proof": "鏈上證明",
     "clusterHint": "本應用讀寫的 Solana 網絡",
     "language": "語言",
-    "research": "研究"
+    "research": "研究",
+    "kyc": "KYC 服務商",
+    "chain": "區塊鏈"
   },
   "wallet": {
     "choose": "連接錢包",
@@ -32,7 +34,7 @@
     "usdcFailed": "領取失敗，請重試"
   },
   "footer": {
-    "line": "以 MIT 許可開源。基於 Solana 的 Token-2022 和 Token ACL（sRFC-37）構建；EVM 合約已部署在 HashKey Chain 主網。",
+    "line": "以 MIT 許可開源。基於 Solana（Token-2022 與 Token ACL，sRFC-37）和 Base（EAS）構建；EVM 合約已上線 Base 與 HashKey Chain 主網。",
     "source": "源代碼"
   },
   "home": {
@@ -101,7 +103,7 @@
     "openTitle": "開源，且可驗證",
     "openBody": "程序、控制台和測試均以 MIT 許可開源。本網站的每一項保證都可以在鏈上證明頁面中核實。",
     "networksTitle": "運行在哪些鏈上",
-    "networksLede": "同一個產品，不止一條鏈。資產服務層原生構建在 Solana 上；AssetFlow 最初的 EVM 合約已部署在 HashKey Chain 主網。",
+    "networksLede": "一個產品，多條鏈。服務層原生構建於 Solana 與 Base；AssetFlow 最初的 EVM 合約已上線 HashKey Chain 主網。",
     "networks": {
       "program": "程序",
       "solana": {
@@ -121,7 +123,12 @@
       "next": {
         "title": "下一步",
         "status": "規劃中",
-        "body": "Base、Arbitrum 和 Robinhood Chain：這些鏈上的代幣化股票通過乘數把股息再投資，從不以現金支付。同一份名冊，在每條鏈上發佈同一筆登記日派付。"
+        "body": "Arbitrum 與 Robinhood Chain：那裏的代幣化股票通過乘數再投資股息、從不支付現金。同一套合約，作為現金派息通道。"
+      },
+      "base": {
+        "status": "主網 · Sepolia",
+        "body": "同一套服務，以 Solidity 合約實現：每個登記日的名冊從代幣自身的歷史中讀取，每筆轉賬都經過門控檢查，並通過 Base 的以太坊認證服務實現一次 KYC。試點票據運行於主網，控制台運行於 Sepolia。",
+        "open": "AssetFlow on Base"
       }
     }
   },
@@ -175,7 +182,12 @@
     "AttestationMismatch": "該認證並非來自此名冊信任的服務商，或並非針對此錢包。",
     "AttestationExpired": "該認證已過期。",
     "WrongSchemaLayout": "該模式不包含 AssetFlow 所需的投資者字段（司法管轄區、等級、合格投資者）。",
-    "StillAttested": "該認證仍然有效，無法撤銷此投資者的批准。"
+    "StillAttested": "該認證仍然有效，無法撤銷此投資者的批准。",
+    "AlreadyPaid": "該持有人本期票息已支付。",
+    "NothingHeld": "該錢包當時未持有任何單位。",
+    "MaturityNotStarted": "尚未啓動到期。",
+    "OpenRequest": "該持有人仍有未處理的贖回申請，須先撤回。",
+    "UnitsLocked": "這些單位正在等待贖回申請，無法轉移。"
   },
   "eligibility": {
     "title": "資格",
@@ -427,7 +439,10 @@
       "attestationGone": "認證已失效",
       "lapse": "撤回批准",
       "lapseWhat": "撤回批准",
-      "noExpiry": "長期有效"
+      "noExpiry": "長期有效",
+      "hold": "凍結",
+      "liftHold": "解除凍結",
+      "holdWhat": "設置合規凍結"
     },
     "issuance": {
       "title": "發行份額",
@@ -694,6 +709,136 @@
     "what": {
       "attest": "創建認證",
       "revoke": "撤銷認證"
+    }
+  },
+  "base": {
+    "wallet": {
+      "baseAccount": "Base Account（智能錢包）",
+      "browser": "瀏覽器錢包",
+      "dev": "開發錢包（測試用）",
+      "via": {
+        "base": "Base Account",
+        "injected": "瀏覽器錢包",
+        "dev": "開發錢包"
+      },
+      "gas": "領取 Base Sepolia ETH",
+      "usd": "領取 1,000 測試 USD",
+      "usdDone": "已收到 1,000 測試 USD"
+    },
+    "home": {
+      "eyebrow": "AssetFlow on Base",
+      "title": "同一套服務層，部署在 Base 上。",
+      "lede": "誰可以持有代幣化債券、每位持有人在登記日應得多少、如何贖回：與 Solana 程序相同的規則與計算，以 Solidity 合約部署在 Base Sepolia，並通過 Base 自帶的以太坊認證服務（EAS）實現一次 KYC。",
+      "issuer": "發行人控制台",
+      "holder": "持有人門户",
+      "kyc": "演示 KYC 服務商",
+      "points": {
+        "register": {
+          "title": "名冊自動留存",
+          "body": "代幣記錄每位持有人隨時間變化的餘額，因此票息按登記日的餘額計算，直接從鏈上讀取。無需任何人提交名冊，也無需暫停轉賬。"
+        },
+        "gate": {
+          "title": "每筆轉賬都會檢查",
+          "body": "單位只能在名冊當前接納的錢包之間轉移。批准一旦失效，下一筆轉賬就會被拒絕，無需事先凍結。"
+        },
+        "kyc": {
+          "title": "藉助 EAS 一次 KYC",
+          "body": "名冊信任某個 KYC 服務商在以太坊認證服務（Base 預部署合約）上的認證。一次驗證的投資者可入駐所有信任該服務商的名冊；認證被撤銷後，任何人都可以撤回其批准。"
+        }
+      },
+      "contractsTitle": "部署於 Base Sepolia",
+      "contractsLede": "所有發行人共用。名冊與債券由發行人在控制台中部署；源代碼已在 Blockscout 上驗證。",
+      "contracts": {
+        "directory": "名冊與債券目錄",
+        "testUsd": "測試 USD（測試網上替代 USDC）",
+        "eas": "以太坊認證服務（預部署）",
+        "schema": "EAS 上的 AssetFlow 投資者模式"
+      },
+      "mainnetTitle": "已上線 Base 主網",
+      "mainnetPill": "主網",
+      "mainnetLede": "同一套合約，均已驗證：目錄、Base EAS 上的 AssetFlow 投資者模式，以及以原生 USDC 計價的試點票據（每單位面值 1 美元、年利率 10%、四期半年付息），已發行一個單位。不涉及任何投資者資金。",
+      "mainnet": {
+        "directory": "目錄",
+        "registry": "試點名冊",
+        "servicer": "AssetFlow 試點票據（服務合約）",
+        "token": "AFPN 單位（代幣）"
+      }
+    },
+    "issuer": {
+      "title": "發行人控制台 · Base",
+      "connectBody": "連接將在 Base Sepolia 上發行和服務債券的錢包。它需要少量 Base Sepolia ETH 支付 gas。",
+      "bondLabel": "債券",
+      "registryLede": "部署你的投資者名冊：你的債券所依據的政策與檔案。勾選你服務的司法管轄區，每項需確認一次。",
+      "trustDemo": "信任 AssetFlow 的演示 KYC 服務商，讓已認證的投資者自助入駐",
+      "steps": "共 {n} 次確認：名冊、其設置，以及在目錄中登記。",
+      "registryWhat": "設置名冊",
+      "bondTitle": "創建債券",
+      "bondLede": "一次部署：服務合約保存條款並創建代幣。每期票息、贖回價格和到期兑付都依據這些條款計算。",
+      "name": "名稱",
+      "symbol": "代碼",
+      "currency": "以 Base Sepolia 上的測試 USD 支付（可在錢包菜單中領取 1,000）。",
+      "createBond": "部署債券",
+      "bondWhat": "部署債券",
+      "issueLede": "只能發行給名冊當前接納的錢包；代幣會拒絕其他任何人。",
+      "matured": "債券已到期：不能再發行新單位。",
+      "rules": {
+        "eligible": "代幣在鑄造和每一筆轉賬時都會檢查名冊，而不只是在開户時檢查一次。",
+        "everyTransfer": "批准失效或合規凍結會直接阻止該持有人的下一筆轉賬。",
+        "history": "每一次餘額變化都附帶時間記錄，任何登記日的名冊都可以回溯讀取。"
+      }
+    },
+    "policy": {
+      "title": "KYC 服務商",
+      "lede": "信任某個服務商在以太坊認證服務（Base 預部署合約）上的認證後，經其驗證的投資者可以自助入駐：名冊依據認證寫入其檔案。你的政策依然適用，合規凍結不會因認證而解除。",
+      "trusts": "當前信任的認證方",
+      "demoName": "AssetFlow 演示服務商",
+      "none": "未信任任何服務商：每位投資者都需手動入駐。",
+      "trust": "信任演示 KYC 服務商",
+      "stop": "停止信任此服務商",
+      "what": "設置 KYC 服務商"
+    },
+    "coupons": {
+      "termsLine": "每單位面值 {face} · 年利率 {rate}% · 30/360 · 以測試 USD 支付",
+      "stage": {
+        "scheduled": "已排期",
+        "funding": "待注資",
+        "paying": "付息中",
+        "paid": "已支付"
+      },
+      "registerNote": "每個登記日的名冊，就是代幣記錄的當時每位持有人的餘額：無需任何人提交，也無需暫停。",
+      "waiting": "等待登記日 {when}。登記日過後，從代幣的歷史記錄中讀取名冊。",
+      "lowBalance": "你的錢包持有 {balance} 測試 USD。",
+      "what": {
+        "fund": "為本期付息注資",
+        "pay": "向持有人付息"
+      }
+    },
+    "redemptions": {
+      "requestsLede": "申請贖回的單位留在持有人錢包中並被鎖定，直到你處理。結算時按合約計算的面值加應計利息付款，並在同一次調用中銷燬單位；拒絕則解除鎖定。",
+      "maturityNote": "到期後票息仍可支付：每期名冊都已記錄在鏈上。",
+      "what": {
+        "settle": "結算贖回",
+        "reject": "拒絕申請",
+        "start": "啓動到期",
+        "fund": "為本金注資",
+        "redeem": "贖回持倉"
+      }
+    },
+    "kyc": {
+      "title": "演示 KYC 服務商 · Base",
+      "subtitle": "在以太坊認證服務上一次驗證",
+      "onEas": "EAS 上的地址",
+      "twoSteps": "你的錢包先簽名一條消息提出申請，再發送服務商簽署的認證：共兩次確認。",
+      "how1": "KYC 服務商核驗投資者後，在以太坊認證服務上為其錢包簽署一份認證：司法管轄區、投資者等級、合格投資者身份。",
+      "attester": "服務商認證方："
+    },
+    "holder": {
+      "title": "持有人門户 · Base",
+      "noBondHint": "請通過發行人分享的鏈接打開此頁面，或在 Base 發行人控制台中選擇一隻債券。",
+      "bondLabel": "債券",
+      "onboardBody": "把此地址發給發行人，或者在其信任的 KYC 服務商處完成驗證後自助入駐。",
+      "locked": "{units} 單位因贖回申請而被鎖定。",
+      "redeemLede": "在到期前請發行人贖回單位。單位留在你的錢包中並被鎖定，直到發行人結算或拒絕；在此之前你可以隨時撤回申請。"
     }
   }
 }

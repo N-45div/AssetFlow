@@ -10,7 +10,9 @@
     "proof": "On-chain proof",
     "clusterHint": "The Solana cluster this app reads and writes",
     "language": "Language",
-    "research": "Research"
+    "research": "Research",
+    "kyc": "KYC provider",
+    "chain": "Chain"
   },
   "wallet": {
     "choose": "Connect a wallet",
@@ -32,7 +34,7 @@
     "usdcFailed": "Faucet failed; try again"
   },
   "footer": {
-    "line": "Open source under MIT. Built on Solana with Token-2022 and Token ACL (sRFC-37); EVM contracts live on HashKey Chain mainnet.",
+    "line": "Open source under MIT. Built on Solana with Token-2022 and Token ACL (sRFC-37), and on Base with EAS; EVM contracts live on Base and HashKey Chain mainnet.",
     "source": "Source code"
   },
   "home": {
@@ -101,7 +103,7 @@
     "openTitle": "Open, and checkable",
     "openBody": "The programs, the console and the tests are MIT-licensed. Every guarantee on this site can be checked against the chain on the proof page.",
     "networksTitle": "Where it runs",
-    "networksLede": "One product on more than one chain. The servicing layer is built natively on Solana; the EVM contracts AssetFlow started as are live on HashKey Chain mainnet.",
+    "networksLede": "One product on more than one chain. The servicing layer is built natively on Solana and on Base; the EVM contracts AssetFlow started as are live on HashKey Chain mainnet.",
     "networks": {
       "program": "Program",
       "solana": {
@@ -121,7 +123,12 @@
       "next": {
         "title": "Next",
         "status": "Planned",
-        "body": "Base, Arbitrum and Robinhood Chain, where tokenized stocks reinvest dividends through a multiplier and never pay them in cash. One register; the same record-date payout published on each chain."
+        "body": "Arbitrum and Robinhood Chain, where tokenized stocks reinvest dividends through a multiplier and never pay them in cash: the same contracts, as the cash-payout rail."
+      },
+      "base": {
+        "status": "Mainnet · Sepolia",
+        "body": "The same servicing as Solidity contracts: the register at every record date read from the token's own history, the gate checked on every transfer, and KYC once through Base's Ethereum Attestation Service. A pilot note runs on mainnet; the console runs on Sepolia.",
+        "open": "AssetFlow on Base"
       }
     }
   },
@@ -175,7 +182,12 @@
     "AttestationMismatch": "The attestation is not from the provider this registry trusts, or not about this wallet.",
     "AttestationExpired": "The attestation has expired.",
     "WrongSchemaLayout": "That schema does not carry AssetFlow's investor fields (jurisdiction, tier, accredited).",
-    "StillAttested": "The attestation still vouches for this investor."
+    "StillAttested": "The attestation still vouches for this investor.",
+    "AlreadyPaid": "This holder has already been paid for this coupon.",
+    "NothingHeld": "This wallet held no units then.",
+    "MaturityNotStarted": "Maturity has not started yet.",
+    "OpenRequest": "This holder has a redemption request open; it must be withdrawn first.",
+    "UnitsLocked": "Those units are waiting on a redemption request and cannot move."
   },
   "eligibility": {
     "title": "Eligibility",
@@ -427,7 +439,10 @@
       "attestationGone": "Attestation gone",
       "lapse": "Withdraw approval",
       "lapseWhat": "Withdrawing the approval",
-      "noExpiry": "No expiry"
+      "noExpiry": "No expiry",
+      "hold": "Hold",
+      "liftHold": "Lift hold",
+      "holdWhat": "Setting the compliance hold"
     },
     "issuance": {
       "title": "Issue units",
@@ -694,6 +709,136 @@
     "what": {
       "attest": "Creating the attestation",
       "revoke": "Revoking the attestation"
+    }
+  },
+  "base": {
+    "wallet": {
+      "baseAccount": "Base Account (smart wallet)",
+      "browser": "Browser wallet",
+      "dev": "Dev wallet (testing)",
+      "via": {
+        "base": "Base Account",
+        "injected": "Browser wallet",
+        "dev": "Dev wallet"
+      },
+      "gas": "Get Base Sepolia ETH",
+      "usd": "Get 1,000 test USD",
+      "usdDone": "1,000 test USD received"
+    },
+    "home": {
+      "eyebrow": "AssetFlow on Base",
+      "title": "The same servicing layer, on Base.",
+      "lede": "Who may hold a tokenized bond, what each holder is owed on the record date, and how they redeem: the Solana program's rules and arithmetic, as Solidity contracts on Base Sepolia, with KYC once through the Ethereum Attestation Service Base ships with.",
+      "issuer": "Issuer console",
+      "holder": "Holder portal",
+      "kyc": "Demo KYC provider",
+      "points": {
+        "register": {
+          "title": "The register keeps itself",
+          "body": "The token keeps every holder's balance over time, so a coupon is owed on the balance at the record date, read straight from the chain. Nobody commits a register, and nothing is paused to take it."
+        },
+        "gate": {
+          "title": "Checked on every transfer",
+          "body": "Units move only between wallets the registry admits today. When an approval lapses, the very next transfer is refused: nobody has to freeze anything first."
+        },
+        "kyc": {
+          "title": "KYC once, with EAS",
+          "body": "A registry trusts a KYC provider's attestations on the Ethereum Attestation Service, a Base predeploy. An investor verified once onboards into every registry that trusts the provider; a revocation lets anyone withdraw the approval."
+        }
+      },
+      "contractsTitle": "On Base Sepolia",
+      "contractsLede": "Shared by every issuer. Registries and bonds are deployed by issuers from the console; the source is verified on Blockscout.",
+      "contracts": {
+        "directory": "Directory of registries and bonds",
+        "testUsd": "Test USD (testnet stand-in for USDC)",
+        "eas": "Ethereum Attestation Service (predeploy)",
+        "schema": "AssetFlow investor schema on EAS"
+      },
+      "mainnetTitle": "Live on Base mainnet",
+      "mainnetPill": "Mainnet",
+      "mainnetLede": "The same contracts, verified: the directory, AssetFlow's investor schema on Base's EAS, and a pilot note on native USDC (US$1 face, 10%, four semi-annual coupons) with one unit issued. No investor money is involved.",
+      "mainnet": {
+        "directory": "Directory",
+        "registry": "Pilot registry",
+        "servicer": "AssetFlow Pilot Note (servicer)",
+        "token": "AFPN units (token)"
+      }
+    },
+    "issuer": {
+      "title": "Issuer console · Base",
+      "connectBody": "Connect the wallet that will issue and service the bond on Base Sepolia. It needs a little Base Sepolia ETH for gas.",
+      "bondLabel": "Bond",
+      "registryLede": "Deploy your investor registry: the policy and profiles your bonds are gated by. Allow the jurisdictions you serve; each is one confirmation.",
+      "trustDemo": "Trust AssetFlow's demo KYC provider, so attested investors can onboard themselves",
+      "steps": "{n} confirmations: the registry, its settings, and listing it in the directory.",
+      "registryWhat": "Setting up the registry",
+      "bondTitle": "Create the bond",
+      "bondLede": "One deployment: the servicer holds the terms and creates the token. Every coupon, redemption price and maturity payment is computed from these terms.",
+      "name": "Name",
+      "symbol": "Symbol",
+      "currency": "Paid in test USD on Base Sepolia (get 1,000 from the wallet menu).",
+      "createBond": "Deploy the bond",
+      "bondWhat": "Deploying the bond",
+      "issueLede": "Only to a wallet the registry admits today; the token refuses anyone else.",
+      "matured": "The bond has matured: no unit can be issued again.",
+      "rules": {
+        "eligible": "The token checks the registry at mint and at every transfer, not once when an account was opened.",
+        "everyTransfer": "A lapsed approval or a compliance hold stops the holder's next transfer outright.",
+        "history": "Every balance change is recorded with its time, so any record date's register can be read back."
+      }
+    },
+    "policy": {
+      "title": "KYC provider",
+      "lede": "Trust a provider's attestations on the Ethereum Attestation Service (a Base predeploy), and investors it has verified onboard themselves: the registry writes their profile from the attestation. Your policy still applies, and a compliance hold is never lifted by an attestation.",
+      "trusts": "Trusting attester",
+      "demoName": "AssetFlow's demo provider",
+      "none": "No provider trusted: every investor is onboarded by hand.",
+      "trust": "Trust the demo KYC provider",
+      "stop": "Stop trusting this provider",
+      "what": "Setting the KYC provider"
+    },
+    "coupons": {
+      "termsLine": "{face} face per unit · {rate}% a year · 30/360 · paid in test USD",
+      "stage": {
+        "scheduled": "Scheduled",
+        "funding": "Needs funding",
+        "paying": "Paying",
+        "paid": "Paid"
+      },
+      "registerNote": "The register on each record date is every holder's balance at that time, as the token recorded it: nobody commits it, and nothing is paused.",
+      "waiting": "Waiting for the record date, {when}. The register is read from the token's history once it has passed.",
+      "lowBalance": "Your wallet holds {balance} of test USD.",
+      "what": {
+        "fund": "Funding the payment",
+        "pay": "Paying the holders"
+      }
+    },
+    "redemptions": {
+      "requestsLede": "Requested units stay in the holder's wallet, locked, until you answer. Settling pays face plus accrued interest, priced by the contract, and burns the units in the same call; rejecting unlocks them.",
+      "maturityNote": "Coupons stay payable after maturity: each register is already on the chain.",
+      "what": {
+        "settle": "Settling the redemption",
+        "reject": "Rejecting the request",
+        "start": "Starting maturity",
+        "fund": "Funding the principal",
+        "redeem": "Redeeming the holdings"
+      }
+    },
+    "kyc": {
+      "title": "Demo KYC provider · Base",
+      "subtitle": "Get verified once, on the Ethereum Attestation Service",
+      "onEas": "On EAS at",
+      "twoSteps": "Your wallet signs a message to ask for it, then sends the attestation the provider signed: two prompts.",
+      "how1": "A KYC provider checks an investor and signs an attestation about their wallet on the Ethereum Attestation Service: jurisdiction, investor tier, accredited status.",
+      "attester": "Provider's attester:"
+    },
+    "holder": {
+      "title": "Holder portal · Base",
+      "noBondHint": "Open this page from a link your issuer shares, or pick a bond in the Base issuer console.",
+      "bondLabel": "Bond",
+      "onboardBody": "Send this address to the issuer, or get verified by a KYC provider it trusts and onboard yourself.",
+      "locked": "{units} units are locked on a redemption request.",
+      "redeemLede": "Ask the issuer to redeem units before maturity. They stay in your wallet, locked, until the issuer settles or declines, and you can withdraw the request until then."
     }
   }
 }
