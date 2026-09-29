@@ -50,11 +50,11 @@ export function SiteHeader() {
   const NAV = evm ? evmNav(evm.prefix) : SOLANA_NAV;
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:gap-6 sm:px-6">
         <Link href="/" aria-label="AssetFlow">
           <Logo />
         </Link>
-        <nav className="hidden items-center gap-1 md:flex" aria-label={t("label")}>
+        <nav className="hidden items-center gap-1 lg:flex" aria-label={t("label")}>
           {NAV.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
@@ -62,7 +62,7 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ${
                   active ? "bg-surface-2 text-ink" : "text-ink-2 hover:text-ink"
                 }`}
               >
@@ -71,19 +71,19 @@ export function SiteHeader() {
             );
           })}
         </nav>
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
           <ChainSwitch evm={evm} pathname={pathname} />
           <ClusterBadge evm={evm} />
           <LocaleSwitch />
           {evm ? <EvmWalletButton /> : <WalletButton />}
         </div>
       </div>
-      <nav className="flex gap-1 overflow-x-auto border-t border-line px-4 py-2 md:hidden" aria-label={t("label")}>
+      <nav className="flex gap-1 overflow-x-auto border-t border-line px-4 py-2 lg:hidden" aria-label={t("label")}>
         {NAV.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className={`rounded-md px-3 py-1 text-sm font-medium ${
+            className={`whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ${
               pathname.startsWith(item.href) ? "bg-surface-2 text-ink" : "text-ink-2"
             }`}
           >
@@ -106,12 +106,13 @@ function ChainSwitch({ evm, pathname }: { evm: EvmChainConfig | null; pathname: 
         className="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-md border border-line-strong px-2 text-xs font-semibold [&::-webkit-details-marker]:hidden"
       >
         <span className="h-2 w-2 rounded-full" style={{ background: current.dot }} aria-hidden="true" />
-        <span className="max-w-24 truncate">{current.label}</span>
+        {/* the first word is enough in the button: "Robinhood Chain" crowds the header */}
+        <span>{current.label.split(" ")[0]}</span>
         <span aria-hidden="true" className="text-ink-3">
           ▾
         </span>
       </summary>
-      <ul className="absolute right-0 z-30 mt-1 w-44 rounded-md border border-line bg-surface p-1 shadow-lg">
+      <ul className="absolute left-0 z-30 mt-1 w-44 rounded-md border border-line bg-surface p-1 shadow-lg sm:left-auto sm:right-0">
         {CHAINS.map((c) => (
           <li key={c.key}>
             <Link
@@ -136,8 +137,11 @@ function ClusterBadge({ evm }: { evm: EvmChainConfig | null }) {
   const t = useTranslations("nav");
   const solana = { "mainnet-beta": "Mainnet", devnet: "Devnet" }[CLUSTER as string] ?? "Localnet";
   return (
-    <span className="pill pill-neutral hidden lg:inline-flex" title={evm ? undefined : t("clusterHint")}>
-      {evm ? evm.network : solana}
+    // .pill sets display outside Tailwind's layers, so the breakpoint lives on a wrapper
+    <span className="hidden xl:inline-flex">
+      <span className="pill pill-neutral" title={evm ? undefined : t("clusterHint")}>
+        {evm ? evm.network : solana}
+      </span>
     </span>
   );
 }
