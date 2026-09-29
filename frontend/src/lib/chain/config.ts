@@ -31,6 +31,15 @@ export const CURRENCY_MINT = process.env.NEXT_PUBLIC_CURRENCY_MINT
   ? new PublicKey(process.env.NEXT_PUBLIC_CURRENCY_MINT)
   : null;
 
+/**
+ * The demo KYC provider: a Solana Attestation Service credential and its
+ * investor schema (solana/scripts/demo-kyc.ts). /api/kyc attests with it.
+ */
+export const KYC_CREDENTIAL = process.env.NEXT_PUBLIC_KYC_CREDENTIAL
+  ? new PublicKey(process.env.NEXT_PUBLIC_KYC_CREDENTIAL)
+  : null;
+export const KYC_SCHEMA = process.env.NEXT_PUBLIC_KYC_SCHEMA ? new PublicKey(process.env.NEXT_PUBLIC_KYC_SCHEMA) : null;
+
 /** The asset the holder portal and proof page open on when no ?asset= is given. */
 export const FEATURED_MINT = process.env.NEXT_PUBLIC_FEATURED_MINT
   ? new PublicKey(process.env.NEXT_PUBLIC_FEATURED_MINT)

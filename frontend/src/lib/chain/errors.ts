@@ -37,6 +37,12 @@ const ASSETFLOW_ERRORS = [
   "RequestClosed",
   "HoldingFrozen",
   "NotAHolding",
+  "KycSourceNotSet",
+  "NotAnAttestation",
+  "AttestationMismatch",
+  "AttestationExpired",
+  "WrongSchemaLayout",
+  "StillAttested",
 ] as const;
 
 export type RefusalCode = (typeof ASSETFLOW_ERRORS)[number] | "AccountFrozen" | "Rejected" | "Unknown";
