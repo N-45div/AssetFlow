@@ -1,0 +1,15 @@
+{
+  "chain": "Robinhood Chain testnet",
+  "chainId": 46630,
+  "deployedAt": "2026-09-29",
+  "deployer": "0xcAc252550042F4125ABa175E953b1F649d4c944A",
+  "directory": "0x1C1867cC4899157B8c6fb2D1d351985f73fe125e",
+  "testUsd": "0x9E0bDFa145cdF651A4Fee85E83E26E3e94aB5e2d",
+  "eas": "0xdD5Fc46c9f5C87e887614DB3b124e51A4A5540A1",
+  "schemaRegistry": "0xbbE819AB63f68b6C39576F0356EB9087fFF5444f",
+  "easVersion": "1.4.0",
+  "easDeployedBy": "AssetFlow: the chain has no EAS of its own yet. SchemaRegistry and EAS are the EAS Foundation's contracts (npm @ethereum-attestation-service/eas-contracts 1.9.0), unmodified.",
+  "investorSchema": "0xc4f99bbaebea35d982f583b35f80da7ea6871d64fadb9dd220f45f578db20384",
+  "investorSchemaDefinition": "uint16 jurisdiction,uint8 tier,bool accredited",
+  "note": "Registries and bonds are deployed by issuers from the console and listed in the directory."
+}
