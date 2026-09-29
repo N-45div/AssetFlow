@@ -8,5 +8,14 @@
   "schemaRegistry": "0xA310da9c5B885E7fb3fbA9D66E9Ba6Df512b78eB",
   "investorSchema": "0xc4f99bbaebea35d982f583b35f80da7ea6871d64fadb9dd220f45f578db20384",
   "verification": "Sourcify exact match",
-  "note": "The shared pieces. The pilot registry and note follow once the deployer holds enough ETH for them."
+  "note": "No investor money: a pilot so the gate and the servicer run on Arbitrum One. Same addresses as on Base mainnet (same deployer, same order).",
+  "pilot": {
+    "registry": "0xbbE819AB63f68b6C39576F0356EB9087fFF5444f",
+    "servicer": "0xCc673fD915EE01f2F712A880a51E42EDC9A7d320",
+    "token": "0xDABea95f39ef319AE4C775Ca8c8b3c37971Aa977",
+    "name": "AssetFlow Pilot Note (AFPN)",
+    "currency": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    "terms": "US$1 face per unit, 10% a year, 30/360, four semi-annual coupons from 1 Oct 2026",
+    "issued": 1
+  }
 }
