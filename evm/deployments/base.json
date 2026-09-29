@@ -1,0 +1,20 @@
+{
+  "chain": "Base",
+  "chainId": 8453,
+  "deployedAt": "2026-09-29",
+  "deployer": "0xcAc252550042F4125ABa175E953b1F649d4c944A",
+  "directory": "0x1C1867cC4899157B8c6fb2D1d351985f73fe125e",
+  "eas": "0x4200000000000000000000000000000000000021",
+  "investorSchema": "0xc4f99bbaebea35d982f583b35f80da7ea6871d64fadb9dd220f45f578db20384",
+  "pilot": {
+    "registry": "0xbbE819AB63f68b6C39576F0356EB9087fFF5444f",
+    "servicer": "0xCc673fD915EE01f2F712A880a51E42EDC9A7d320",
+    "token": "0xDABea95f39ef319AE4C775Ca8c8b3c37971Aa977",
+    "name": "AssetFlow Pilot Note (AFPN)",
+    "currency": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "terms": "US$1 face per unit, 10% a year, 30/360, four semi-annual coupons from 1 Oct 2026",
+    "issued": 1
+  },
+  "verification": "Sourcify exact match (shown on Blockscout)",
+  "note": "No investor money: a pilot so the gate and the servicer run on Base mainnet. The console runs on Base Sepolia with test dollars."
+}
