@@ -99,7 +99,11 @@ export function BaseRedemptions({ view, onChange }: { view: BondView; onChange: 
                   <td className="py-2">
                     <span className="flex justify-end gap-2">
                       {!bond.matured && (
-                        <button className="btn btn-primary btn-sm" disabled={tx.busy || !isIssuer || !eligible(r.holder)} onClick={() => settle(r)}>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          disabled={tx.busy || !isIssuer || !eligible(r.holder) || (balance !== null && balance < quote(r))}
+                          onClick={() => settle(r)}
+                        >
                           {t("settle", { amount: cur(quote(r)) })}
                         </button>
                       )}
@@ -114,6 +118,9 @@ export function BaseRedemptions({ view, onChange }: { view: BondView; onChange: 
           </table>
         )}
         {balance !== null && <p className="mt-3 text-xs text-ink-3">{t("balance", { balance: cur(balance) })}</p>}
+        {isIssuer && balance !== null && !bond.matured && open.some((r) => balance < quote(r)) && (
+          <p className="mt-2 rounded-md bg-warn-soft p-3 text-sm text-warn">{tb("short")}</p>
+        )}
         <p className="mt-2 text-xs text-ink-3">{t("priceNote")}</p>
         {closed.length > 0 && (
           <details className="mt-4">

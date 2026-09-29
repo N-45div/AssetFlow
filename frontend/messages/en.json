@@ -188,7 +188,8 @@
     "NothingHeld": "This wallet held no units then.",
     "MaturityNotStarted": "Maturity has not started yet.",
     "OpenRequest": "This holder has a redemption request open; it must be withdrawn first.",
-    "UnitsLocked": "Those units are waiting on a redemption request and cannot move."
+    "UnitsLocked": "Those units are waiting on a redemption request and cannot move.",
+    "InsufficientBalance": "This wallet does not hold enough of the payment currency for this."
   },
   "eligibility": {
     "title": "Eligibility",
@@ -824,7 +825,8 @@
         "start": "Starting maturity",
         "fund": "Funding the principal",
         "redeem": "Redeeming the holdings"
-      }
+      },
+      "short": "This wallet holds less than settling a request pays. Get test USD from the wallet menu, then settle."
     },
     "kyc": {
       "title": "Demo KYC provider · {chain}",

@@ -188,7 +188,8 @@
     "NothingHeld": "該錢包當時未持有任何單位。",
     "MaturityNotStarted": "尚未啓動到期。",
     "OpenRequest": "該持有人仍有未處理的贖回申請，須先撤回。",
-    "UnitsLocked": "這些單位正在等待贖回申請，無法轉移。"
+    "UnitsLocked": "這些單位正在等待贖回申請，無法轉移。",
+    "InsufficientBalance": "此錢包持有的支付貨幣不足以完成此操作。"
   },
   "eligibility": {
     "title": "資格",
@@ -824,7 +825,8 @@
         "start": "啓動到期",
         "fund": "為本金注資",
         "redeem": "贖回持倉"
-      }
+      },
+      "short": "此錢包的餘額少於結算一筆申請所需的金額。請先在錢包菜單中領取測試 USD，再進行結算。"
     },
     "kyc": {
       "title": "演示 KYC 服務商 · {chain}",

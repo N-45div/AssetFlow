@@ -31,12 +31,19 @@ const KNOWN = new Set<string>([
   "UnitsLocked",
 ]);
 
+/**
+ * OpenZeppelin's ERC-20 shortfall, by name or, when the reverting currency sits
+ * behind a contract whose ABI does not list it, by selector.
+ */
+const SHORT_OF_FUNDS = new Set<string>(["ERC20InsufficientBalance", "0xe450d38c"]);
+
 export function explainEvmFailure(error: unknown): Refusal {
   if (error instanceof BaseError) {
     if (error.walk((e) => e instanceof UserRejectedRequestError)) return { code: "Rejected", logs: [] };
     const reverted = error.walk((e) => e instanceof ContractFunctionRevertedError) as ContractFunctionRevertedError | null;
     const name = reverted?.data?.errorName;
     if (name && KNOWN.has(name)) return { code: name as RefusalCode, logs: [error.shortMessage] };
+    if (SHORT_OF_FUNDS.has(name ?? reverted?.signature ?? "")) return { code: "InsufficientBalance", logs: [error.shortMessage] };
     return { code: "Unknown", logs: [error.shortMessage] };
   }
   const text = error instanceof Error ? error.message : String(error);

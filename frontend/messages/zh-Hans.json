@@ -188,7 +188,8 @@
     "NothingHeld": "该钱包当时未持有任何单位。",
     "MaturityNotStarted": "尚未启动到期。",
     "OpenRequest": "该持有人仍有未处理的赎回申请，须先撤回。",
-    "UnitsLocked": "这些单位正在等待赎回申请，无法转移。"
+    "UnitsLocked": "这些单位正在等待赎回申请，无法转移。",
+    "InsufficientBalance": "此钱包持有的支付货币不足以完成此操作。"
   },
   "eligibility": {
     "title": "资格",
@@ -824,7 +825,8 @@
         "start": "启动到期",
         "fund": "为本金注资",
         "redeem": "赎回持仓"
-      }
+      },
+      "short": "此钱包的余额少于结算一笔申请所需的金额。请先在钱包菜单中领取测试 USD，再进行结算。"
     },
     "kyc": {
       "title": "演示 KYC 服务商 · {chain}",
