@@ -1,5 +1,9 @@
 import type { InvestorProfile, Registry } from "./program";
 
+/** What the rules read: a registry's policy and a profile, on any chain. */
+export type Policy = Pick<Registry, "minTier" | "requireAccredited" | "jurisdictions">;
+export type ProfileFields = Pick<InvestorProfile, "approved" | "accredited" | "frozen" | "tier" | "jurisdiction" | "expiry">;
+
 export type RuleId = "profile" | "approved" | "hold" | "expiry" | "tier" | "jurisdiction" | "accredited";
 
 export interface RuleResult {
@@ -14,8 +18,8 @@ export interface RuleResult {
  * portal can say which one a wallet fails instead of a bare "not eligible".
  */
 export function checkEligibility(
-  registry: Registry,
-  profile: InvestorProfile | null,
+  registry: Policy,
+  profile: ProfileFields | null,
   nowSeconds = Math.floor(Date.now() / 1000),
 ): { eligible: boolean; rules: RuleResult[] } {
   if (!profile) {

@@ -45,7 +45,15 @@ const ASSETFLOW_ERRORS = [
   "StillAttested",
 ] as const;
 
-export type RefusalCode = (typeof ASSETFLOW_ERRORS)[number] | "AccountFrozen" | "Rejected" | "Unknown";
+/** Refusals only the EVM contracts give (evm/src). */
+export const EVM_ERRORS = ["AlreadyPaid", "NothingHeld", "MaturityNotStarted", "OpenRequest", "UnitsLocked"] as const;
+
+export type RefusalCode =
+  | (typeof ASSETFLOW_ERRORS)[number]
+  | (typeof EVM_ERRORS)[number]
+  | "AccountFrozen"
+  | "Rejected"
+  | "Unknown";
 
 export interface Refusal {
   code: RefusalCode;

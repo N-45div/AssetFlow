@@ -4,15 +4,15 @@ import { useLocale, useTranslations } from "next-intl";
 import { checkEligibility } from "@/lib/chain/eligibility";
 import { jurisdictionName } from "@/lib/chain/jurisdictions";
 import { NO_EXPIRY } from "@/lib/chain/kyc";
-import type { InvestorProfile, Registry } from "@/lib/chain/program";
+import type { Policy, ProfileFields } from "@/lib/chain/eligibility";
 
 /** The rules the gate applies, one row each, so a refusal names its reason. */
 export function EligibilityChecklist({
   registry,
   profile,
 }: {
-  registry: Registry;
-  profile: InvestorProfile | null;
+  registry: Policy;
+  profile: ProfileFields | null;
 }) {
   const t = useTranslations("eligibility");
   const locale = useLocale();

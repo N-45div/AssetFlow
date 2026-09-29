@@ -5,7 +5,16 @@ import { explorer, shortKey } from "@/lib/chain/explorer";
 import type { TxState } from "@/lib/chain/use-transaction";
 
 /** One receipt for every transaction: what happened, and where to check it. */
-export function TxReceipt({ state, what }: { state: TxState; what: string }) {
+export function TxReceipt({
+  state,
+  what,
+  link = explorer.tx,
+}: {
+  state: TxState;
+  what: string;
+  /** Where a transaction is opened: Solana's explorer unless told otherwise. */
+  link?: (signature: string) => string;
+}) {
   const t = useTranslations("tx");
   const tr = useTranslations("refusal");
   if (state.status === "idle") return null;
@@ -29,7 +38,7 @@ export function TxReceipt({ state, what }: { state: TxState; what: string }) {
         {"signature" in state && state.signature && (
           <a
             className="mono text-accent underline underline-offset-2"
-            href={explorer.tx(state.signature)}
+            href={link(state.signature)}
             target="_blank"
             rel="noreferrer"
           >

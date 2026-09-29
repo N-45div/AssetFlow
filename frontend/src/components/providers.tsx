@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from "react";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { DEV_WALLET, rpcEndpoint } from "@/lib/chain/config";
 import { DevWalletAdapter } from "@/lib/chain/dev-wallet";
+import { EvmWalletProvider } from "@/lib/evm/wallet";
 import { WalletDialogProvider } from "./wallet-dialog";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -15,7 +16,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ConnectionProvider endpoint={endpoint} config={{ commitment: "confirmed" }}>
       <WalletProvider wallets={wallets} autoConnect>
-        <WalletDialogProvider>{children}</WalletDialogProvider>
+        <WalletDialogProvider>
+          <EvmWalletProvider>{children}</EvmWalletProvider>
+        </WalletDialogProvider>
       </WalletProvider>
     </ConnectionProvider>
   );
