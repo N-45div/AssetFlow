@@ -1,19 +1,48 @@
 "use client";
 
-import { useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useEffect, useState } from "react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { useLocale, useTranslations } from "next-intl";
 import { TxReceipt } from "@/components/tx-receipt";
 import { PROGRAM_ID } from "@/lib/chain/config";
 import { shortKey } from "@/lib/chain/explorer";
 import { JURISDICTIONS, jurisdictionName } from "@/lib/chain/jurisdictions";
+import { Kyc, NO_EXPIRY, attestationValid, fetchAttestation, type AttestedProfile } from "@/lib/chain/kyc";
 import { TokenAcl, type InvestorProfile } from "@/lib/chain/program";
 import { formatUnits, program, type AssetView } from "@/lib/chain/use-asset";
 import type { RegisterRow } from "@/lib/chain/use-register";
 import { useTransaction } from "@/lib/chain/use-transaction";
 
 const DAY = 86_400;
+const kyc = new Kyc(PROGRAM_ID);
+
+/** Profiles written from an attestation, and whether that attestation still backs them. */
+function useAttested(view: AssetView, rows: RegisterRow[] | null) {
+  const { connection } = useConnection();
+  const [attested, setAttested] = useState<Map<string, { marker: AttestedProfile; vouches: boolean }>>(new Map());
+  const registry = view.registry.address;
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const [source, markers] = await Promise.all([kyc.fetchSource(connection, registry), kyc.fetchAttested(connection, registry)]);
+      const out = new Map<string, { marker: AttestedProfile; vouches: boolean }>();
+      await Promise.all(
+        [...markers].map(async ([wallet, marker]) => {
+          const a = await fetchAttestation(connection, marker.attestation);
+          const vouches =
+            !!a && !!source && attestationValid(a) && a.credential.equals(source.credential) && a.schema.equals(source.schema) && a.wallet.toBase58() === wallet;
+          out.set(wallet, { marker, vouches });
+        }),
+      );
+      if (live) setAttested(out);
+    })().catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [connection, registry, rows]);
+  return attested;
+}
 
 export function Investors({
   view,
@@ -32,12 +61,24 @@ export function Investors({
   // Owned here, not by the editor, so the receipt outlives the closed editor.
   const saveTx = useTransaction();
   const [editing, setEditing] = useState<InvestorProfile | "new" | null>(null);
-  const date = (s: number) => new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(s * 1000);
+  const date = (s: number) =>
+    s >= NO_EXPIRY ? t("noExpiry") : new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(s * 1000);
+  const attested = useAttested(view, rows);
+  const [what, setWhat] = useState<"enforceWhat" | "lapseWhat">("enforceWhat");
+
+  // Anyone may withdraw an approval its attestation no longer backs.
+  const lapse = async (row: RegisterRow, marker: AttestedProfile) => {
+    if (!publicKey) return;
+    setWhat("lapseWhat");
+    const result = await tx.run([kyc.lapseProfile(view.registry.address, row.wallet, marker.attestation)]);
+    if (result.status === "confirmed") onChange();
+  };
 
   // Anyone may freeze a holder the gate would no longer admit; the issuer is
   // just the one who noticed.
   const enforce = async (row: RegisterRow) => {
     if (!publicKey) return;
+    setWhat("enforceWhat");
     const result = await tx.run(
       row.accounts
         .filter((a) => !a.isFrozen)
@@ -117,9 +158,17 @@ export function Investors({
             {rows?.map((r) => {
               const p = r.profile;
               const lapsedButActive = !r.eligible && r.anyActive;
+              const att = attested.get(r.wallet.toBase58());
               return (
                 <tr key={r.wallet.toBase58()}>
-                  <td className="mono px-4 py-3">{shortKey(r.wallet.toBase58())}</td>
+                  <td className="px-4 py-3">
+                    <span className="mono">{shortKey(r.wallet.toBase58())}</span>
+                    {att && (
+                      <span className={`pill ml-2 ${att.vouches ? "pill-neutral" : "pill-warn"}`}>
+                        {att.vouches ? t("attested") : t("attestationGone")}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">{p ? jurisdictionName(p.jurisdiction, locale) : "—"}</td>
                   <td className="tabular px-4 py-3">{p ? p.tier : "—"}</td>
                   <td className="tabular px-4 py-3">{p ? date(p.expiry) : "—"}</td>
@@ -141,6 +190,11 @@ export function Investors({
                   </td>
                   <td className="tabular px-4 py-3 text-right">{formatUnits(r.units, view.decimals, locale)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">
+                    {att && !att.vouches && p?.approved && (
+                      <button className="btn btn-danger btn-sm mr-2" disabled={tx.busy} onClick={() => lapse(r, att.marker)}>
+                        {t("lapse")}
+                      </button>
+                    )}
                     {lapsedButActive && (
                       <button className="btn btn-danger btn-sm mr-2" disabled={tx.busy} onClick={() => enforce(r)}>
                         {t("enforce")}
@@ -162,7 +216,7 @@ export function Investors({
           </tbody>
         </table>
       </div>
-      <TxReceipt state={tx.state} what={t("enforceWhat")} />
+      <TxReceipt state={tx.state} what={t(what)} />
     </div>
   );
 }
