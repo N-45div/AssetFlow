@@ -34,7 +34,7 @@
     "usdcFailed": "领取失败，请重试"
   },
   "footer": {
-    "line": "以 MIT 许可开源。基于 Solana（Token-2022 与 Token ACL，sRFC-37）和 Base（EAS）构建；EVM 合约已上线 Base 与 HashKey Chain 主网。",
+    "line": "以 MIT 许可开源。基于 Solana（Token-2022 与 Token ACL，sRFC-37）和 EVM 链（EAS）构建；EVM 合约已上线 Base、Arbitrum One 与 HashKey Chain 主网，以及 Robinhood Chain 测试网。",
     "source": "源代码"
   },
   "home": {

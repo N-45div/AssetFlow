@@ -34,7 +34,7 @@
     "usdcFailed": "Faucet failed; try again"
   },
   "footer": {
-    "line": "Open source under MIT. Built on Solana with Token-2022 and Token ACL (sRFC-37), and on Base with EAS; EVM contracts live on Base and HashKey Chain mainnet.",
+    "line": "Open source under MIT. Built on Solana with Token-2022 and Token ACL (sRFC-37), and on EVM chains with EAS; the EVM contracts live on Base, Arbitrum One and HashKey Chain mainnet, and on Robinhood Chain testnet.",
     "source": "Source code"
   },
   "home": {
