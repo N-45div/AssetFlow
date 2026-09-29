@@ -123,12 +123,13 @@
       "next": {
         "title": "下一步",
         "status": "規劃中",
-        "body": "Arbitrum 與 Robinhood Chain：那裏的代幣化股票通過乘數再投資股息、從不支付現金。同一套合約，作為現金派息通道。"
+        "body": "Robinhood Chain：那裏的代幣化股票通過乘數再投資股息、從不支付現金。同一套合約，作為現金派息通道。"
       },
       "base": {
         "status": "主網 · Sepolia",
-        "body": "同一套服務，以 Solidity 合約實現：每個登記日的名冊從代幣自身的歷史中讀取，每筆轉賬都經過門控檢查，並通過 Base 的以太坊認證服務實現一次 KYC。試點票據運行於主網，控制台運行於 Sepolia。",
-        "open": "AssetFlow on Base"
+        "body": "同一套服務，以 Solidity 合約實現：每個登記日的名冊從代幣自身的歷史中讀取，每筆轉賬都經過門控檢查，並通過以太坊認證服務實現一次 KYC。試點票據運行於 Base 與 Arbitrum One 主網，控制台運行於 Base Sepolia。",
+        "open": "AssetFlow on Base",
+        "title": "Base · Arbitrum"
       }
     }
   },
@@ -754,9 +755,9 @@
         "eas": "以太坊認證服務（預部署）",
         "schema": "EAS 上的 AssetFlow 投資者模式"
       },
-      "mainnetTitle": "已上線 Base 主網",
+      "mainnetTitle": "已上線 Base 與 Arbitrum One",
       "mainnetPill": "主網",
-      "mainnetLede": "同一套合約，均已驗證：目錄、Base EAS 上的 AssetFlow 投資者模式，以及以原生 USDC 計價的試點票據（每單位面值 1 美元、年利率 10%、四期半年付息），已發行一個單位。不涉及任何投資者資金。",
+      "mainnetLede": "同一套已驗證的合約，在兩個主網上地址相同：目錄、各鏈 EAS 上的 AssetFlow 投資者模式，以及以原生 USDC 計價的試點票據（每單位面值 1 美元、年利率 10%、四期半年付息），已發行一個單位。不涉及任何投資者資金。",
       "mainnet": {
         "directory": "目錄",
         "registry": "試點名冊",

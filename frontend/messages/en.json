@@ -123,12 +123,13 @@
       "next": {
         "title": "Next",
         "status": "Planned",
-        "body": "Arbitrum and Robinhood Chain, where tokenized stocks reinvest dividends through a multiplier and never pay them in cash: the same contracts, as the cash-payout rail."
+        "body": "Robinhood Chain, where tokenized stocks reinvest dividends through a multiplier and never pay them in cash: the same contracts, as the cash-payout rail."
       },
       "base": {
         "status": "Mainnet · Sepolia",
-        "body": "The same servicing as Solidity contracts: the register at every record date read from the token's own history, the gate checked on every transfer, and KYC once through Base's Ethereum Attestation Service. A pilot note runs on mainnet; the console runs on Sepolia.",
-        "open": "AssetFlow on Base"
+        "body": "The same servicing as Solidity contracts: the register at every record date read from the token's own history, the gate checked on every transfer, and KYC once through the Ethereum Attestation Service. A pilot note runs on Base and Arbitrum One mainnet; the console runs on Base Sepolia.",
+        "open": "AssetFlow on Base",
+        "title": "Base · Arbitrum"
       }
     }
   },
@@ -754,9 +755,9 @@
         "eas": "Ethereum Attestation Service (predeploy)",
         "schema": "AssetFlow investor schema on EAS"
       },
-      "mainnetTitle": "Live on Base mainnet",
+      "mainnetTitle": "Live on Base and Arbitrum One",
       "mainnetPill": "Mainnet",
-      "mainnetLede": "The same contracts, verified: the directory, AssetFlow's investor schema on Base's EAS, and a pilot note on native USDC (US$1 face, 10%, four semi-annual coupons) with one unit issued. No investor money is involved.",
+      "mainnetLede": "The same verified contracts, at the same addresses on both mainnets: the directory, AssetFlow's investor schema on each chain's EAS, and a pilot note on native USDC (US$1 face, 10%, four semi-annual coupons) with one unit issued. No investor money is involved.",
       "mainnet": {
         "directory": "Directory",
         "registry": "Pilot registry",

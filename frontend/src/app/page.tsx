@@ -138,7 +138,7 @@ export default async function Home() {
           </article>
           <article className="card flex flex-col p-5">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-semibold">Base</h3>
+              <h3 className="font-semibold">{t("networks.base.title")}</h3>
               <span className="pill pill-ok">{t("networks.base.status")}</span>
             </div>
             <p className="mt-2 flex-1 text-sm text-ink-2">{t("networks.base.body")}</p>

@@ -70,9 +70,14 @@ export default async function BaseHome() {
           {mainnet.map((c) => (
             <li key={c.key} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span>{t(`mainnet.${c.key}`)}</span>
-              <a className="mono text-accent underline underline-offset-2" href={`https://base.blockscout.com/address/${c.address}`} target="_blank" rel="noreferrer">
-                {short(c.address)} ↗
-              </a>
+              <span className="flex gap-3">
+                <a className="mono text-accent underline underline-offset-2" href={`https://base.blockscout.com/address/${c.address}`} target="_blank" rel="noreferrer">
+                  Base {short(c.address)} ↗
+                </a>
+                <a className="mono text-accent underline underline-offset-2" href={`https://arbitrum.blockscout.com/address/${c.address}`} target="_blank" rel="noreferrer">
+                  Arbitrum ↗
+                </a>
+              </span>
             </li>
           ))}
         </ul>
