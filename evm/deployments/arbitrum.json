@@ -1,0 +1,12 @@
+{
+  "chain": "Arbitrum One",
+  "chainId": 42161,
+  "deployedAt": "2026-09-29",
+  "deployer": "0xcAc252550042F4125ABa175E953b1F649d4c944A",
+  "directory": "0x1C1867cC4899157B8c6fb2D1d351985f73fe125e",
+  "eas": "0xbD75f629A22Dc1ceD33dDA0b68c546A1c035c458",
+  "schemaRegistry": "0xA310da9c5B885E7fb3fbA9D66E9Ba6Df512b78eB",
+  "investorSchema": "0xc4f99bbaebea35d982f583b35f80da7ea6871d64fadb9dd220f45f578db20384",
+  "verification": "Sourcify exact match",
+  "note": "The shared pieces. The pilot registry and note follow once the deployer holds enough ETH for them."
+}

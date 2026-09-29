@@ -14,19 +14,25 @@ import {TestUSD} from "../src/TestUSD.sol";
 ///
 ///   forge script script/Deploy.s.sol --rpc-url base_sepolia --private-key $KEY --broadcast
 contract Deploy is Script {
-    /// OP Stack predeploys, the same address on Base and Base Sepolia.
-    ISchemaRegistry constant SCHEMAS = ISchemaRegistry(0x4200000000000000000000000000000000000020);
     string constant INVESTOR_SCHEMA = "uint16 jurisdiction,uint8 tier,bool accredited";
 
+    /// Where the chain's EAS schema registry lives.
+    function schemaRegistry() internal view returns (ISchemaRegistry) {
+        if (block.chainid == 42161) return ISchemaRegistry(0xA310da9c5B885E7fb3fbA9D66E9Ba6Df512b78eB); // Arbitrum One
+        return ISchemaRegistry(0x4200000000000000000000000000000000000020); // OP Stack predeploy: Base, Base Sepolia
+    }
+
     function run() external {
-        bool testnet = block.chainid != 8453;
+        // Test dollars only where a chain is known to be a testnet.
+        bool testnet = block.chainid == 84532 || block.chainid == 421614 || block.chainid == 31337;
         bytes32 uid = keccak256(abi.encodePacked(INVESTOR_SCHEMA, address(0), true));
+        ISchemaRegistry schemas = schemaRegistry();
 
         vm.startBroadcast();
         Directory directory = new Directory();
         address usd = testnet ? address(new TestUSD()) : address(0);
-        SchemaRecord memory existing = SCHEMAS.getSchema(uid);
-        if (existing.uid == bytes32(0)) SCHEMAS.register(INVESTOR_SCHEMA, ISchemaResolver(address(0)), true);
+        SchemaRecord memory existing = schemas.getSchema(uid);
+        if (existing.uid == bytes32(0)) schemas.register(INVESTOR_SCHEMA, ISchemaResolver(address(0)), true);
         vm.stopBroadcast();
 
         console.log("chain", block.chainid);

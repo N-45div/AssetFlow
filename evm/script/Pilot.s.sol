@@ -15,7 +15,11 @@ import {Servicer} from "../src/Servicer.sol";
 ///
 ///   DIRECTORY=0x... CURRENCY=0x... forge script script/Pilot.s.sol --rpc-url base --private-key $KEY --broadcast
 contract Pilot is Script {
-    IEAS constant EAS = IEAS(0x4200000000000000000000000000000000000021);
+    /// Where the chain's EAS lives.
+    function eas() internal view returns (IEAS) {
+        if (block.chainid == 42161) return IEAS(0xbD75f629A22Dc1ceD33dDA0b68c546A1c035c458); // Arbitrum One
+        return IEAS(0x4200000000000000000000000000000000000021); // OP Stack predeploy: Base, Base Sepolia
+    }
 
     function run() external {
         Directory directory = Directory(vm.envAddress("DIRECTORY"));
@@ -30,7 +34,7 @@ contract Pilot is Script {
         }
 
         vm.startBroadcast();
-        Registry registry = new Registry(me, EAS, 1, false);
+        Registry registry = new Registry(me, eas(), 1, false);
         registry.setJurisdiction(344, true);
         registry.setJurisdiction(702, true);
         registry.setProfile(
