@@ -121,15 +121,17 @@
         }
       },
       "next": {
-        "title": "下一步",
-        "status": "規劃中",
-        "body": "Robinhood Chain：那裏的代幣化股票通過乘數再投資股息、從不支付現金。同一套合約，作為現金派息通道。"
+        "title": "Robinhood Chain",
+        "status": "測試網",
+        "body": "那裏的代幣化股票通過乘數再投資股息、從不支付現金；AssetFlow 是現金派息通道。同一套合約已運行於 Robinhood Chain 測試網，並使用 AssetFlow 在該鏈部署的以太坊認證服務。",
+        "open": "AssetFlow on Robinhood Chain"
       },
       "base": {
         "status": "主網 · Sepolia",
-        "body": "同一套服務，以 Solidity 合約實現：每個登記日的名冊從代幣自身的歷史中讀取，每筆轉賬都經過門控檢查，並通過以太坊認證服務實現一次 KYC。試點票據運行於 Base 與 Arbitrum One 主網，控制台運行於 Base Sepolia。",
+        "body": "同一套服務，以 Solidity 合約實現：每個登記日的名冊從代幣自身的歷史中讀取，每筆轉賬都經過門控檢查，並通過以太坊認證服務實現一次 KYC。試點票據運行於 Base 與 Arbitrum One 主網，控制台運行於 Base Sepolia 與 Arbitrum Sepolia。",
         "open": "AssetFlow on Base",
-        "title": "Base · Arbitrum"
+        "title": "Base · Arbitrum",
+        "openArbitrum": "on Arbitrum"
       }
     }
   },

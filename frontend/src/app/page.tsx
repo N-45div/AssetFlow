@@ -142,16 +142,24 @@ export default async function Home() {
               <span className="pill pill-ok">{t("networks.base.status")}</span>
             </div>
             <p className="mt-2 flex-1 text-sm text-ink-2">{t("networks.base.body")}</p>
-            <Link className="mt-4 text-sm text-accent underline underline-offset-2" href="/base">
-              {t("networks.base.open")} →
-            </Link>
+            <span className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              <Link className="text-accent underline underline-offset-2" href="/base">
+                {t("networks.base.open")} →
+              </Link>
+              <Link className="text-accent underline underline-offset-2" href="/arbitrum">
+                {t("networks.base.openArbitrum")} →
+              </Link>
+            </span>
           </article>
           <article className="card flex flex-col p-5">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-semibold">{t("networks.next.title")}</h3>
-              <span className="pill pill-neutral">{t("networks.next.status")}</span>
+              <span className="pill pill-ok">{t("networks.next.status")}</span>
             </div>
             <p className="mt-2 flex-1 text-sm text-ink-2">{t("networks.next.body")}</p>
+            <Link className="mt-4 text-sm text-accent underline underline-offset-2" href="/robinhood">
+              {t("networks.next.open")} →
+            </Link>
           </article>
         </div>
       </section>
