@@ -722,14 +722,14 @@
         "injected": "Browser wallet",
         "dev": "Dev wallet"
       },
-      "gas": "Get Base Sepolia ETH",
+      "gas": "Get {network} ETH",
       "usd": "Get 1,000 test USD",
       "usdDone": "1,000 test USD received"
     },
     "home": {
-      "eyebrow": "AssetFlow on Base",
-      "title": "The same servicing layer, on Base.",
-      "lede": "Who may hold a tokenized bond, what each holder is owed on the record date, and how they redeem: the Solana program's rules and arithmetic, as Solidity contracts on Base Sepolia, with KYC once through the Ethereum Attestation Service Base ships with.",
+      "eyebrow": "AssetFlow on {chain}",
+      "title": "The same servicing layer, on {chain}.",
+      "lede": "Who may hold a tokenized bond, what each holder is owed on the record date, and how they redeem: the Solana program's rules and arithmetic, as Solidity contracts on {network}, with KYC once through the Ethereum Attestation Service.",
       "issuer": "Issuer console",
       "holder": "Holder portal",
       "kyc": "Demo KYC provider",
@@ -744,30 +744,31 @@
         },
         "kyc": {
           "title": "KYC once, with EAS",
-          "body": "A registry trusts a KYC provider's attestations on the Ethereum Attestation Service, a Base predeploy. An investor verified once onboards into every registry that trusts the provider; a revocation lets anyone withdraw the approval."
+          "body": "A registry trusts a KYC provider's attestations on the Ethereum Attestation Service. An investor verified once onboards into every registry that trusts the provider; a revocation lets anyone withdraw the approval."
         }
       },
-      "contractsTitle": "On Base Sepolia",
+      "contractsTitle": "On {network}",
       "contractsLede": "Shared by every issuer. Registries and bonds are deployed by issuers from the console; the source is verified on Blockscout.",
       "contracts": {
         "directory": "Directory of registries and bonds",
         "testUsd": "Test USD (testnet stand-in for USDC)",
-        "eas": "Ethereum Attestation Service (predeploy)",
+        "eas": "Ethereum Attestation Service",
         "schema": "AssetFlow investor schema on EAS"
       },
-      "mainnetTitle": "Live on Base and Arbitrum One",
+      "mainnetTitle": "Live on {name}",
       "mainnetPill": "Mainnet",
-      "mainnetLede": "The same verified contracts, at the same addresses on both mainnets: the directory, AssetFlow's investor schema on each chain's EAS, and a pilot note on native USDC (US$1 face, 10%, four semi-annual coupons) with one unit issued. No investor money is involved.",
+      "mainnetLede": "The same verified contracts, at the same addresses on Base and Arbitrum One: the directory, AssetFlow's investor schema on the chain's EAS, and a pilot note on native USDC (US$1 face, 10%, four semi-annual coupons) with one unit issued. No investor money is involved.",
       "mainnet": {
         "directory": "Directory",
         "registry": "Pilot registry",
         "servicer": "AssetFlow Pilot Note (servicer)",
         "token": "AFPN units (token)"
-      }
+      },
+      "ownEas": "Robinhood Chain has no Ethereum Attestation Service of its own yet, so AssetFlow deployed the EAS Foundation's contracts there. Registries read KYC from them exactly as they do on Base and Arbitrum."
     },
     "issuer": {
-      "title": "Issuer console · Base",
-      "connectBody": "Connect the wallet that will issue and service the bond on Base Sepolia. It needs a little Base Sepolia ETH for gas.",
+      "title": "Issuer console · {chain}",
+      "connectBody": "Connect the wallet that will issue and service the bond on {network}. It needs a little {network} ETH for gas.",
       "bondLabel": "Bond",
       "registryLede": "Deploy your investor registry: the policy and profiles your bonds are gated by. Allow the jurisdictions you serve; each is one confirmation.",
       "trustDemo": "Trust AssetFlow's demo KYC provider, so attested investors can onboard themselves",
@@ -777,7 +778,7 @@
       "bondLede": "One deployment: the servicer holds the terms and creates the token. Every coupon, redemption price and maturity payment is computed from these terms.",
       "name": "Name",
       "symbol": "Symbol",
-      "currency": "Paid in test USD on Base Sepolia (get 1,000 from the wallet menu).",
+      "currency": "Paid in test USD on {network} (get 1,000 from the wallet menu).",
       "createBond": "Deploy the bond",
       "bondWhat": "Deploying the bond",
       "issueLede": "Only to a wallet the registry admits today; the token refuses anyone else.",
@@ -790,7 +791,7 @@
     },
     "policy": {
       "title": "KYC provider",
-      "lede": "Trust a provider's attestations on the Ethereum Attestation Service (a Base predeploy), and investors it has verified onboard themselves: the registry writes their profile from the attestation. Your policy still applies, and a compliance hold is never lifted by an attestation.",
+      "lede": "Trust a provider's attestations on the Ethereum Attestation Service, and investors it has verified onboard themselves: the registry writes their profile from the attestation. Your policy still applies, and a compliance hold is never lifted by an attestation.",
       "trusts": "Trusting attester",
       "demoName": "AssetFlow's demo provider",
       "none": "No provider trusted: every investor is onboarded by hand.",
@@ -826,7 +827,7 @@
       }
     },
     "kyc": {
-      "title": "Demo KYC provider · Base",
+      "title": "Demo KYC provider · {chain}",
       "subtitle": "Get verified once, on the Ethereum Attestation Service",
       "onEas": "On EAS at",
       "twoSteps": "Your wallet signs a message to ask for it, then sends the attestation the provider signed: two prompts.",
@@ -834,8 +835,8 @@
       "attester": "Provider's attester:"
     },
     "holder": {
-      "title": "Holder portal · Base",
-      "noBondHint": "Open this page from a link your issuer shares, or pick a bond in the Base issuer console.",
+      "title": "Holder portal · {chain}",
+      "noBondHint": "Open this page from a link your issuer shares, or pick a bond in the {chain} issuer console.",
       "bondLabel": "Bond",
       "onboardBody": "Send this address to the issuer, or get verified by a KYC provider it trusts and onboard yourself.",
       "locked": "{units} units are locked on a redemption request.",

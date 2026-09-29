@@ -722,14 +722,14 @@
         "injected": "浏览器钱包",
         "dev": "开发钱包"
       },
-      "gas": "领取 Base Sepolia ETH",
+      "gas": "领取 {network} ETH",
       "usd": "领取 1,000 测试 USD",
       "usdDone": "已收到 1,000 测试 USD"
     },
     "home": {
-      "eyebrow": "AssetFlow on Base",
-      "title": "同一套服务层，部署在 Base 上。",
-      "lede": "谁可以持有代币化债券、每位持有人在登记日应得多少、如何赎回：与 Solana 程序相同的规则与计算，以 Solidity 合约部署在 Base Sepolia，并通过 Base 自带的以太坊认证服务（EAS）实现一次 KYC。",
+      "eyebrow": "AssetFlow on {chain}",
+      "title": "同一套服务层，部署在 {chain} 上。",
+      "lede": "谁可以持有代币化债券、每位持有人在登记日应得多少、如何赎回：与 Solana 程序相同的规则与计算，以 Solidity 合约部署在 {network}，并通过以太坊认证服务（EAS）实现一次 KYC。",
       "issuer": "发行人控制台",
       "holder": "持有人门户",
       "kyc": "演示 KYC 服务商",
@@ -744,30 +744,31 @@
         },
         "kyc": {
           "title": "借助 EAS 一次 KYC",
-          "body": "名册信任某个 KYC 服务商在以太坊认证服务（Base 预部署合约）上的认证。一次验证的投资者可入驻所有信任该服务商的名册；认证被撤销后，任何人都可以撤回其批准。"
+          "body": "名册信任某个 KYC 服务商在以太坊认证服务上的认证。一次验证的投资者可入驻所有信任该服务商的名册；认证被撤销后，任何人都可以撤回其批准。"
         }
       },
-      "contractsTitle": "部署于 Base Sepolia",
+      "contractsTitle": "部署于 {network}",
       "contractsLede": "所有发行人共用。名册与债券由发行人在控制台中部署；源代码已在 Blockscout 上验证。",
       "contracts": {
         "directory": "名册与债券目录",
         "testUsd": "测试 USD（测试网上替代 USDC）",
-        "eas": "以太坊认证服务（预部署）",
+        "eas": "以太坊认证服务",
         "schema": "EAS 上的 AssetFlow 投资者模式"
       },
-      "mainnetTitle": "已上线 Base 与 Arbitrum One",
+      "mainnetTitle": "已上线 {name}",
       "mainnetPill": "主网",
-      "mainnetLede": "同一套已验证的合约，在两个主网上地址相同：目录、各链 EAS 上的 AssetFlow 投资者模式，以及以原生 USDC 计价的试点票据（每单位面值 1 美元、年利率 10%、四期半年付息），已发行一个单位。不涉及任何投资者资金。",
+      "mainnetLede": "同一套已验证的合约，在 Base 与 Arbitrum One 上地址相同：目录、该链 EAS 上的 AssetFlow 投资者模式，以及以原生 USDC 计价的试点票据（每单位面值 1 美元、年利率 10%、四期半年付息），已发行一个单位。不涉及任何投资者资金。",
       "mainnet": {
         "directory": "目录",
         "registry": "试点名册",
         "servicer": "AssetFlow 试点票据（服务合约）",
         "token": "AFPN 单位（代币）"
-      }
+      },
+      "ownEas": "Robinhood Chain 目前还没有自己的以太坊认证服务，因此 AssetFlow 在该链上部署了 EAS 基金会的合约。名册读取 KYC 的方式与在 Base 和 Arbitrum 上完全相同。"
     },
     "issuer": {
-      "title": "发行人控制台 · Base",
-      "connectBody": "连接将在 Base Sepolia 上发行和服务债券的钱包。它需要少量 Base Sepolia ETH 支付 gas。",
+      "title": "发行人控制台 · {chain}",
+      "connectBody": "连接将在 {network} 上发行和服务债券的钱包。它需要少量 {network} ETH 支付 gas。",
       "bondLabel": "债券",
       "registryLede": "部署你的投资者名册：你的债券所依据的政策与档案。勾选你服务的司法管辖区，每项需确认一次。",
       "trustDemo": "信任 AssetFlow 的演示 KYC 服务商，让已认证的投资者自助入驻",
@@ -777,7 +778,7 @@
       "bondLede": "一次部署：服务合约保存条款并创建代币。每期票息、赎回价格和到期兑付都依据这些条款计算。",
       "name": "名称",
       "symbol": "代码",
-      "currency": "以 Base Sepolia 上的测试 USD 支付（可在钱包菜单中领取 1,000）。",
+      "currency": "以 {network} 上的测试 USD 支付（可在钱包菜单中领取 1,000）。",
       "createBond": "部署债券",
       "bondWhat": "部署债券",
       "issueLede": "只能发行给名册当前接纳的钱包；代币会拒绝其他任何人。",
@@ -790,7 +791,7 @@
     },
     "policy": {
       "title": "KYC 服务商",
-      "lede": "信任某个服务商在以太坊认证服务（Base 预部署合约）上的认证后，经其验证的投资者可以自助入驻：名册依据认证写入其档案。你的政策依然适用，合规冻结不会因认证而解除。",
+      "lede": "信任某个服务商在以太坊认证服务上的认证后，经其验证的投资者可以自助入驻：名册依据认证写入其档案。你的政策依然适用，合规冻结不会因认证而解除。",
       "trusts": "当前信任的认证方",
       "demoName": "AssetFlow 演示服务商",
       "none": "未信任任何服务商：每位投资者都需手动入驻。",
@@ -826,7 +827,7 @@
       }
     },
     "kyc": {
-      "title": "演示 KYC 服务商 · Base",
+      "title": "演示 KYC 服务商 · {chain}",
       "subtitle": "在以太坊认证服务上一次验证",
       "onEas": "EAS 上的地址",
       "twoSteps": "你的钱包先签名一条消息提出申请，再发送服务商签署的认证：共两次确认。",
@@ -834,8 +835,8 @@
       "attester": "服务商认证方："
     },
     "holder": {
-      "title": "持有人门户 · Base",
-      "noBondHint": "请通过发行人分享的链接打开此页面，或在 Base 发行人控制台中选择一只债券。",
+      "title": "持有人门户 · {chain}",
+      "noBondHint": "请通过发行人分享的链接打开此页面，或在 {chain} 发行人控制台中选择一只债券。",
       "bondLabel": "债券",
       "onboardBody": "把此地址发给发行人，或者在其信任的 KYC 服务商处完成验证后自助入驻。",
       "locked": "{units} 单位因赎回申请而被锁定。",
