@@ -54,24 +54,33 @@ export function BaseKycProvider() {
     try {
       const issuedAt = Math.floor(Date.now() / 1000);
       const proof = await client.signMessage({ account: client.account ?? address, message: kycMessage(address, action, issuedAt) });
-      const res = await fetch("/api/kyc-base", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ wallet: address, action, jurisdiction, tier, accredited, uid: attestation?.uid, proof, issuedAt }),
-      });
-      const body = await res.json();
-      if (!res.ok) {
-        setProblem(body.error ?? t("unavailable"));
-        return;
+      // The provider's signatures count up one nonce: one signed for someone else at the same
+      // moment, or read from a node a block behind, goes stale and fails its simulation.
+      // Ask again with the same proof; the wallet is not prompted twice.
+      let done: Awaited<ReturnType<typeof tx.run>> = { status: "idle" };
+      for (let attempt = 0; attempt < 3 && done.status !== "confirmed"; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 2_000));
+        const res = await fetch("/api/kyc-base", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ wallet: address, action, jurisdiction, tier, accredited, uid: attestation?.uid, proof, issuedAt }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          setProblem(body.error ?? t("unavailable"));
+          return;
+        }
+        const r = body.request;
+        const request =
+          action === "attest"
+            ? { ...r, data: { ...r.data, expirationTime: BigInt(r.data.expirationTime), value: 0n }, deadline: BigInt(r.deadline) }
+            : { ...r, data: { uid: r.data.uid, value: 0n }, deadline: BigInt(r.deadline) };
+        done = await tx.run([
+          { address: BASE.eas, abi: easAbi as Abi, functionName: action === "attest" ? "attestByDelegation" : "revokeByDelegation", args: [request] },
+        ]);
+        // only a stale signature is worth another try; a refusal the user made stands
+        if (done.status === "failed" && done.refusal.code === "Rejected") return;
       }
-      const r = body.request;
-      const request =
-        action === "attest"
-          ? { ...r, data: { ...r.data, expirationTime: BigInt(r.data.expirationTime), value: 0n }, deadline: BigInt(r.deadline) }
-          : { ...r, data: { uid: r.data.uid, value: 0n }, deadline: BigInt(r.deadline) };
-      const done = await tx.run([
-        { address: BASE.eas, abi: easAbi as Abi, functionName: action === "attest" ? "attestByDelegation" : "revokeByDelegation", args: [request] },
-      ]);
       if (done.status !== "confirmed") return;
       if (action === "attest") {
         const receipt = await basePublic.getTransactionReceipt({ hash: done.signature as Hash });
