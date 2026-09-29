@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { TOKEN_2022_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 import { EligibilityChecklist } from "@/components/eligibility-checklist";
 import { HolderCoupons } from "@/components/holder-coupons";
+import { HolderKyc } from "@/components/holder-kyc";
 import { HolderRedemptions } from "@/components/holder-redemptions";
 import { PageShell } from "@/components/page-shell";
 import { TxReceipt } from "@/components/tx-receipt";
@@ -119,6 +120,14 @@ export function HolderPortal() {
       <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <section className="card p-5">
           <EligibilityChecklist registry={view.registry} profile={profile} />
+          <HolderKyc
+            view={view}
+            wallet={publicKey}
+            profile={profile}
+            account={account}
+            tokenAccount={tokenAccount}
+            onChange={() => holder.refresh()}
+          />
           {!profile && (
             <div className="mt-4 rounded-md bg-surface-2 p-4 text-sm">
               <p className="font-medium">{t("onboardTitle")}</p>

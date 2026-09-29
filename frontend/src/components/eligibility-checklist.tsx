@@ -3,6 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { checkEligibility } from "@/lib/chain/eligibility";
 import { jurisdictionName } from "@/lib/chain/jurisdictions";
+import { NO_EXPIRY } from "@/lib/chain/kyc";
 import type { InvestorProfile, Registry } from "@/lib/chain/program";
 
 /** The rules the gate applies, one row each, so a refusal names its reason. */
@@ -28,6 +29,7 @@ export function EligibilityChecklist({
       case "hold":
         return pass ? t("hold.pass") : t("hold.fail");
       case "expiry":
+        if (profile.expiry >= NO_EXPIRY) return t("expiry.never");
         return t(pass ? "expiry.pass" : "expiry.fail", { date: date(profile.expiry) });
       case "tier":
         return t(pass ? "tier.pass" : "tier.fail", { tier: profile.tier, min: registry.minTier });
