@@ -77,8 +77,8 @@
     "jobs": {
       "eligibility": {
         "title": "Who may hold it",
-        "body": "Every holder account starts frozen. A wallet is let in only when its investor profile passes the registry: approved, KYC in date, allowed jurisdiction, sufficient tier. When an approval lapses, anyone can freeze that wallet.",
-        "solana": "Token-2022 default-frozen accounts, with Token ACL asking AssetFlow's gate before any thaw or freeze."
+        "body": "Every holder account starts frozen. A wallet is let in only when its investor profile passes the registry: approved, KYC in date, allowed jurisdiction, sufficient tier. The profile can come from a KYC provider's attestation, so an investor verified once is admitted everywhere that provider is trusted. When an approval lapses, anyone can freeze that wallet.",
+        "solana": "Token-2022 default-frozen accounts, Token ACL asking AssetFlow's gate before any thaw or freeze, and profiles from Solana Attestation Service attestations."
       },
       "payments": {
         "title": "What each holder is owed",

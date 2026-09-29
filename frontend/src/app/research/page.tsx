@@ -76,6 +76,10 @@ const DIFFERENCE = [
     body: "Eligibility runs through Token ACL (sRFC-37), the Solana Foundation's program, with AssetFlow as its gate. That is the token-level permissioning the SEC order accepts, not a new token standard.",
   },
   {
+    title: "KYC once, through the Solana Attestation Service",
+    body: "A registry trusts a KYC provider's attestations, and the program turns them into investor profiles: an investor verified once is admitted by every registry that trusts the provider, and a revocation lets anyone withdraw the approval.",
+  },
+  {
     title: "The program computes what holders are owed",
     body: "Instrument terms live on-chain, the register is fixed on the record date, and each entitlement is computed by the program and paid in USDC. The operator never types an amount.",
   },
@@ -132,8 +136,8 @@ export default function ResearchPage() {
       <p className="mt-4 text-lg text-ink-2">
         Issuing a tokenized bond or fund on Solana is solved many times over. Running it afterwards is not: who may hold
         it, what each holder is owed on the record date, and how they redeem. AssetFlow is the open, Solana-native
-        paying agent and register for that work, for licensed transfer agents and mid-market issuers. Eligibility,
-        coupons, redemptions and maturity all run on devnet today.
+        paying agent and register for that work, for licensed transfer agents and mid-market issuers. Eligibility, KYC
+        once, coupons, redemptions and maturity all run on devnet today.
       </p>
 
       <Section title="Why now">
