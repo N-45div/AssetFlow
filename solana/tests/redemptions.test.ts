@@ -28,9 +28,9 @@ import {
   Period,
   ProfileTerms,
   TokenAcl,
+  countInstructions,
   createServicedMint,
-  entitlementLeaf,
-  entitlementTree,
+  registerSources,
   send,
 } from "../client";
 
@@ -138,13 +138,20 @@ const settle = (holder: PublicKey, id: number, signer = issuer) =>
 const giveBack = (how: "cancel" | "reject", signer: Keypair, holder: PublicKey, id: number) =>
   send(connection, [af.returnRedemption(how, signer.publicKey, mint, af.redemption(mint, holder, id), assetAccount(holder))], [signer]);
 
-const fixAndCommit = async (period: number, entitlements: [PublicKey, bigint][]) => {
-  await send(connection, [af.fixRegister(stranger.publicKey, mint, period)], [stranger]);
-  const payout = af.payout(mint, period);
-  const tree = entitlementTree(entitlements.map(([h, u]) => entitlementLeaf(payout, h, u)));
-  const total = entitlements.reduce((s, [, u]) => s + u, 0n);
-  await send(connection, [af.commitEntitlements(issuer.publicKey, mint, period, usdc, TOKEN_PROGRAM_ID, tree.root, total)], [issuer]);
+/** Count the fixed register from the chain, and close it: anyone can, here a stranger. */
+const countAndClose = async (period: number) => {
+  const sources = await registerSources(connection, af, mint);
+  const ixs = await countInstructions(connection, af, stranger.publicKey, mint, period, sources);
+  for (let i = 0; i < ixs.length; i += 4) await send(connection, ixs.slice(i, i + 4), [stranger]);
+  await send(connection, [af.closeRegister(mint, period)], [stranger]);
 };
+
+const fix = (period: number) =>
+  send(connection, [af.fixRegister(stranger.publicKey, mint, period, usdc, TOKEN_PROGRAM_ID)], [stranger]);
+
+// Entitlement: discriminator, payout, holder, then units.
+const entitled = async (period: number, holder: PublicKey) =>
+  (await connection.getAccountInfo(af.entitlement(af.payout(mint, period), holder), "confirmed"))!.data.readBigUInt64LE(8 + 32 + 32);
 
 const redeem = (holder: PublicKey, holding = assetAccount(holder)) =>
   send(
@@ -298,26 +305,21 @@ describe("redemptions and maturity", () => {
 
   it("takes no request while the register is fixed; escrowed units count to their holder", async () => {
     await sleepUntil(periods[0].recordTs);
-    await send(connection, [af.fixRegister(stranger.publicKey, mint, 0)], [stranger]);
+    await fix(0);
     await refused(ask(alice, 1, 1n), /MintPaused/);
-    const payout = af.payout(mint, 0);
+    await countAndClose(0);
     // Bob's 200 in escrow are still his: 800 in his account plus 200 waiting.
-    const tree = entitlementTree([
-      entitlementLeaf(payout, alice.publicKey, 2_000n),
-      entitlementLeaf(payout, bob.publicKey, 1_000n),
-      entitlementLeaf(payout, carol.publicKey, 1_500n),
-    ]);
-    await send(connection, [af.commitEntitlements(issuer.publicKey, mint, 0, usdc, TOKEN_PROGRAM_ID, tree.root, 4_500n)], [issuer]);
+    assert.equal(await entitled(0, alice.publicKey), 2_000n);
+    assert.equal(await entitled(0, bob.publicKey), 1_000n);
+    assert.equal(await entitled(0, carol.publicKey), 1_500n);
   });
 
   it("will not mature while a coupon's register is still open", async () => {
     await sleepUntil(periods[1].paymentTs);
     await refused(send(connection, [af.startMaturity(stranger.publicKey, mint, usdc, TOKEN_PROGRAM_ID, 2)], [stranger]), /CouponsOutstanding/);
-    await fixAndCommit(1, [
-      [alice.publicKey, 2_000n],
-      [bob.publicKey, 1_000n],
-      [carol.publicKey, 1_500n],
-    ]);
+    await fix(1);
+    await countAndClose(1);
+    assert.equal(await entitled(1, bob.publicKey), 1_000n);
   });
 
   it("matures: no unit can be issued or put up for early redemption again", async () => {

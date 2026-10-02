@@ -1,24 +1,31 @@
 /**
  * Coupons, end to end on a local validator: the register is fixed on the
- * record date, entitlements are committed as units, and every amount paid is
- * computed by the program from the instrument's terms.
+ * record date, counted into the program by anyone, one account at a time,
+ * and every amount paid is computed by the program from the instrument's
+ * terms. No step after the terms needs the issuer's key.
  *
  * The note: US$1 of face per unit, 10% a year, 30/360. Three holders own
- * 3,000, 1,000 and 1,500 units, so a regular half-year costs US$275.00:
- * US$150.00, US$50.00 and US$75.00.
+ * 3,000 (Alice, across two accounts), 1,000 and 1,500 units, so a regular
+ * half-year costs US$275.00: US$150.00, US$50.00 and US$75.00.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
 import {
+  ExtensionType,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
+  createInitializeAccount3Instruction,
+  createInitializeImmutableOwnerInstruction,
+  createInitializeMint2Instruction,
   createMint,
   createTransferCheckedInstruction,
   getAccount,
+  getAccountLen,
   getAssociatedTokenAddressSync,
+  getMintLen,
   getOrCreateAssociatedTokenAccount,
   mintTo,
 } from "@solana/spl-token";
@@ -27,9 +34,9 @@ import {
   Period,
   ProfileTerms,
   TokenAcl,
+  countInstructions,
   createServicedMint,
-  entitlementLeaf,
-  entitlementTree,
+  registerSources,
   send,
 } from "../client";
 
@@ -70,7 +77,7 @@ const unitsOf = new Map([
   [bob, 1_000n],
   [carol, 1_500n],
 ]);
-const holders = [...unitsOf.keys()];
+let aliceSecond: PublicKey; // Alice keeps 500 of her units in a second, hand-made account
 const assetAccount = (owner: PublicKey) => getAssociatedTokenAddressSync(mint, owner, false, TOKEN_2022_PROGRAM_ID);
 const usdcAccount = (owner: PublicKey) => getAssociatedTokenAddressSync(usdc, owner, false, TOKEN_PROGRAM_ID);
 const usdcBalance = async (owner: PublicKey) =>
@@ -88,9 +95,24 @@ async function refused(attempt: Promise<unknown>, reason: RegExp) {
 }
 
 let periods: Period[];
-let tree: ReturnType<typeof entitlementTree>;
 
-function pay(holder: Keypair, units: bigint, proof: Buffer[]) {
+// Payout: discriminator, asset, period, status, fixed_ts, fixed_slot, supply_at_fix, then:
+const COUNTED_AT = 8 + 32 + 1 + 1 + 8 + 8 + 8;
+const REQUIRED_AT = COUNTED_AT + 8;
+// Entitlement: discriminator, payout, holder, then units and payer.
+const UNITS_AT = 8 + 32 + 32;
+const PAYER_AT = UNITS_AT + 8;
+
+const payoutData = async (period: number) => (await connection.getAccountInfo(af.payout(mint, period), "confirmed"))!.data;
+const counted = async (period: number) => (await payoutData(period)).readBigUInt64LE(COUNTED_AT);
+function count(caller: Keypair, period: number, holding: PublicKey, owner: PublicKey) {
+  return send(connection, [af.countHolding(caller.publicKey, mint, period, holding, owner)], [caller]);
+}
+
+async function pay(holder: Keypair, period = 0) {
+  const payout = af.payout(mint, period);
+  const entitlement = await connection.getAccountInfo(af.entitlement(payout, holder.publicKey), "confirmed");
+  const rentReceiver = entitlement ? new PublicKey(entitlement.data.subarray(PAYER_AT, PAYER_AT + 32)) : stranger.publicKey;
   return send(
     connection,
     [
@@ -105,33 +127,55 @@ function pay(holder: Keypair, units: bigint, proof: Buffer[]) {
         stranger.publicKey,
         registry,
         mint,
-        0,
+        period,
         usdc,
         TOKEN_PROGRAM_ID,
         usdcAccount(holder.publicKey),
         holder.publicKey,
-        units,
-        proof,
+        rentReceiver,
       ),
     ],
     [stranger],
   );
 }
 
-function fund(amount: bigint) {
+function fund(amount: bigint, period = 0) {
   return send(
     connection,
-    [af.fundPayout(issuer.publicKey, mint, 0, usdc, TOKEN_PROGRAM_ID, usdcAccount(issuer.publicKey), amount)],
+    [af.fundPayout(issuer.publicKey, mint, period, usdc, TOKEN_PROGRAM_ID, usdcAccount(issuer.publicKey), amount)],
     [issuer],
   );
 }
 
-function transferUnits(from: Keypair, to: PublicKey, amount: bigint) {
+function transferUnits(from: Keypair, to: PublicKey, amount: bigint, source = assetAccount(from.publicKey)) {
   return send(
     connection,
-    [createTransferCheckedInstruction(assetAccount(from.publicKey), mint, assetAccount(to), from.publicKey, amount, 0, [], TOKEN_2022_PROGRAM_ID)],
+    [createTransferCheckedInstruction(source, mint, to, from.publicKey, amount, 0, [], TOKEN_2022_PROGRAM_ID)],
     [from],
   );
+}
+
+/** A hand-made holder account with an immutable owner, thawed through the gate. */
+async function openSecondAccount(owner: Keypair) {
+  const account = Keypair.generate();
+  const space = getAccountLen([ExtensionType.PausableAccount, ExtensionType.ImmutableOwner]);
+  await send(
+    connection,
+    [
+      SystemProgram.createAccount({
+        fromPubkey: owner.publicKey,
+        newAccountPubkey: account.publicKey,
+        space,
+        lamports: await connection.getMinimumBalanceForRentExemption(space),
+        programId: TOKEN_2022_PROGRAM_ID,
+      }),
+      createInitializeImmutableOwnerInstruction(account.publicKey, TOKEN_2022_PROGRAM_ID),
+      createInitializeAccount3Instruction(account.publicKey, mint, owner.publicKey, TOKEN_2022_PROGRAM_ID),
+      TokenAcl.permissionless("thaw", owner.publicKey, mint, account.publicKey, owner.publicKey, programId, af.gateAccounts("thaw", mint, registry, owner.publicKey)),
+    ],
+    [owner, account],
+  );
+  return account.publicKey;
 }
 
 describe("coupons", () => {
@@ -176,12 +220,14 @@ describe("coupons", () => {
         [issuer],
       );
     }
+    aliceSecond = await openSecondAccount(alice);
+    await transferUnits(alice, aliceSecond, 500n);
 
-    // Period 0: accrual Oct 2026 - Apr 2027, record date already passed.
-    // Period 1: its record date is an hour away.
+    // Period 0 and period 1 have passed their record dates; period 2's is an hour away.
     periods = [
-      { accrualStart: utc(2026, 10, 1), accrualEnd: utc(2027, 4, 1), recordTs: now() - 60, paymentTs: now() - 30 },
-      { accrualStart: utc(2027, 4, 1), accrualEnd: utc(2027, 10, 1), recordTs: now() + 3_600, paymentTs: now() + 7_200 },
+      { accrualStart: utc(2026, 10, 1), accrualEnd: utc(2027, 4, 1), recordTs: now() - 120, paymentTs: now() - 90 },
+      { accrualStart: utc(2027, 4, 1), accrualEnd: utc(2027, 10, 1), recordTs: now() - 60, paymentTs: now() + 3_600 },
+      { accrualStart: utc(2027, 10, 1), accrualEnd: utc(2028, 4, 1), recordTs: now() + 3_600, paymentTs: now() + 7_200 },
     ];
   });
 
@@ -193,50 +239,107 @@ describe("coupons", () => {
     );
   });
 
-  it("will not fix the register before the record date", async () => {
-    await refused(send(connection, [af.fixRegister(stranger.publicKey, mint, 1)], [stranger]), /RecordDateNotReached/);
+  it("lets anyone fix the register after the record date, prices it, and nothing moves while it is fixed", async () => {
+    await send(connection, [af.fixRegister(stranger.publicKey, mint, 0, usdc, TOKEN_PROGRAM_ID)], [stranger]);
+    await refused(transferUnits(alice, assetAccount(bob.publicKey), 1n), /0x43|paused/i);
+    assert.equal((await payoutData(0)).readBigUInt64LE(REQUIRED_AT), 275n * USD);
   });
 
-  it("lets anyone fix the register after the record date, and nothing moves while it is fixed", async () => {
-    await send(connection, [af.fixRegister(stranger.publicKey, mint, 0)], [stranger]);
-    await refused(transferUnits(alice, bob.publicKey, 1n), /0x43|paused/i);
-  });
-
-  it("refuses entitlements that do not add up to the supply", async () => {
-    const payout = af.payout(mint, 0);
-    const bad = entitlementTree(holders.map((h) => entitlementLeaf(payout, h.publicKey, unitsOf.get(h)!)));
+  it("will not open a later register while an earlier one is being counted", async () => {
     await refused(
-      send(connection, [af.commitEntitlements(issuer.publicKey, mint, 0, usdc, TOKEN_PROGRAM_ID, bad.root, 5_499n)], [issuer]),
-      /TotalMismatch/,
+      send(connection, [af.fixRegister(stranger.publicKey, mint, 1, usdc, TOKEN_PROGRAM_ID)], [stranger]),
+      /PreviousPeriodOpen/,
     );
   });
 
-  it("commits the entitlements, prices the payment from the terms and resumes the mint", async () => {
-    const payout = af.payout(mint, 0);
-    tree = entitlementTree(holders.map((h) => entitlementLeaf(payout, h.publicKey, unitsOf.get(h)!)));
+  it("counts only holder accounts of this mint that hold units", async () => {
+    // the asset's own account (where requested units wait) is never a holding
+    const escrow = af.escrow(mint);
     await send(
       connection,
-      [af.commitEntitlements(issuer.publicKey, mint, 0, usdc, TOKEN_PROGRAM_ID, tree.root, 5_500n)],
-      [issuer],
+      [createAssociatedTokenAccountIdempotentInstruction(stranger.publicKey, escrow, af.asset(mint), mint, TOKEN_2022_PROGRAM_ID)],
+      [stranger],
     );
-    const data = (await connection.getAccountInfo(payout))!.data;
-    // required sits after status, fixed_ts, fixed_slot, supply_at_fix, root, total_units
-    const required = data.readBigUInt64LE(8 + 32 + 1 + 1 + 8 + 8 + 8 + 32 + 8);
-    assert.equal(required, 275n * USD);
+    await refused(count(stranger, 0, escrow, af.asset(mint)), /NotAHolding/);
+    // an empty account adds nothing, so it is not counted
+    const empty = Keypair.generate();
+    await send(
+      connection,
+      [createAssociatedTokenAccountIdempotentInstruction(stranger.publicKey, assetAccount(empty.publicKey), empty.publicKey, mint, TOKEN_2022_PROGRAM_ID)],
+      [stranger],
+    );
+    await refused(count(stranger, 0, assetAccount(empty.publicKey), empty.publicKey), /InvalidAmount/);
+    // an account of another mint
+    const other = Keypair.generate();
+    const space = getMintLen([]);
+    await send(
+      connection,
+      [
+        SystemProgram.createAccount({
+          fromPubkey: stranger.publicKey,
+          newAccountPubkey: other.publicKey,
+          space,
+          lamports: await connection.getMinimumBalanceForRentExemption(space),
+          programId: TOKEN_2022_PROGRAM_ID,
+        }),
+        createInitializeMint2Instruction(other.publicKey, 0, stranger.publicKey, null, TOKEN_2022_PROGRAM_ID),
+      ],
+      [stranger, other],
+    );
+    const foreign = getAssociatedTokenAddressSync(other.publicKey, stranger.publicKey, false, TOKEN_2022_PROGRAM_ID);
+    await send(
+      connection,
+      [createAssociatedTokenAccountIdempotentInstruction(stranger.publicKey, foreign, stranger.publicKey, other.publicKey, TOKEN_2022_PROGRAM_ID)],
+      [stranger],
+    );
+    await refused(count(stranger, 0, foreign, stranger.publicKey), /ConstraintTokenMint|token mint|2014/);
+  });
+
+  it("keeps the mint paused until the count reaches the supply", async () => {
+    await count(issuer, 0, assetAccount(alice.publicKey), alice.publicKey);
+    await count(issuer, 0, assetAccount(bob.publicKey), bob.publicKey);
+    assert.equal(await counted(0), 3_500n);
+    await refused(send(connection, [af.closeRegister(mint, 0)], [stranger]), /CountIncomplete/);
+    await refused(transferUnits(bob, assetAccount(alice.publicKey), 1n), /0x43|paused/i);
+  });
+
+  it("counts an account once, however often it is sent", async () => {
+    await count(stranger, 0, assetAccount(alice.publicKey), alice.publicKey);
+    assert.equal(await counted(0), 3_500n);
+  });
+
+  it("can be funded while the register is still being counted", async () => {
+    await fund(200n * USD);
+  });
+
+  it("lets anyone finish the count and resume the mint, with no key of the issuer's", async () => {
+    await refused(
+      send(connection, [af.releaseCounted(mint, 0, assetAccount(alice.publicKey), issuer.publicKey)], [stranger]),
+      /WrongPayoutStatus/,
+    );
+    await count(stranger, 0, aliceSecond, alice.publicKey);
+    await count(stranger, 0, assetAccount(carol.publicKey), carol.publicKey);
+    await send(connection, [af.closeRegister(mint, 0)], [stranger]);
+    assert.equal(await counted(0), 5_500n);
+    // Alice was counted across both of her accounts
+    const entitlement = (await connection.getAccountInfo(af.entitlement(af.payout(mint, 0), alice.publicKey), "confirmed"))!;
+    assert.equal(entitlement.data.readBigUInt64LE(UNITS_AT), 3_000n);
   });
 
   it("pays nothing until the payment is fully funded", async () => {
-    await refused(pay(alice, 3_000n, tree.proofs[0]), /Underfunded/);
-    await fund(200n * USD);
-    await refused(pay(alice, 3_000n, tree.proofs[0]), /Underfunded/);
+    await refused(pay(alice), /Underfunded/);
     await fund(75n * USD);
   });
 
-  it("pays each eligible holder exactly the coupon the terms give their holding", async () => {
-    await pay(alice, 3_000n, tree.proofs[0]);
-    await pay(bob, 1_000n, tree.proofs[1]);
+  it("pays each eligible holder exactly the coupon the terms give their whole holding", async () => {
+    const counter = await connection.getBalance(issuer.publicKey, "confirmed");
+    await pay(alice);
+    await pay(bob);
     assert.equal(await usdcBalance(alice.publicKey), 150n * USD);
     assert.equal(await usdcBalance(bob.publicKey), 50n * USD);
+    // the entitlements are gone, their rent back with whoever counted them
+    assert.equal(await connection.getAccountInfo(af.entitlement(af.payout(mint, 0), alice.publicKey), "confirmed"), null);
+    assert.ok((await connection.getBalance(issuer.publicKey, "confirmed")) > counter);
   });
 
   it("holds back the coupon of a holder who is no longer eligible", async () => {
@@ -245,24 +348,50 @@ describe("coupons", () => {
       [af.setInvestorProfile(issuer.publicKey, registry, carol.publicKey, profile(HONG_KONG, true))],
       [issuer],
     );
-    await pay(carol, 1_500n, tree.proofs[2]);
+    await pay(carol);
     assert.equal(await usdcBalance(carol.publicKey), 0n);
     const vault = await getAccount(connection, af.payoutVault(af.payout(mint, 0)), "confirmed", TOKEN_PROGRAM_ID);
     assert.equal(vault.amount, 75n * USD);
   });
 
-  it("never pays the same holder twice", async () => {
-    await refused(pay(alice, 3_000n, tree.proofs[0]), /already in use/);
+  it("never pays the same holder twice, and pays nobody who was not counted", async () => {
+    await refused(pay(alice), /AccountNotInitialized|already in use/);
+    await refused(pay(Keypair.generate()), /AccountNotInitialized/);
   });
 
-  it("refuses a proof for units the holder was not given", async () => {
-    const extra = Keypair.generate();
-    await refused(pay(extra, 3_000n, tree.proofs[0]), /InvalidProof/);
+  it("returns a counted marker's rent to whoever paid it, once", async () => {
+    const marker = af.counted(af.payout(mint, 0), aliceSecond);
+    await refused(
+      send(connection, [af.releaseCounted(mint, 0, aliceSecond, issuer.publicKey)], [stranger]),
+      /ConstraintAddress|2012/,
+    );
+    await send(connection, [af.releaseCounted(mint, 0, aliceSecond, stranger.publicKey)], [stranger]);
+    assert.equal(await connection.getAccountInfo(marker, "confirmed"), null);
   });
 
-  it("moves units again once the entitlements are committed", async () => {
-    await transferUnits(alice, bob.publicKey, 10n);
+  it("moves units again once the register is counted", async () => {
+    await transferUnits(alice, assetAccount(bob.publicKey), 10n);
     const bobUnits = (await getAccount(connection, assetAccount(bob.publicKey), "confirmed", TOKEN_2022_PROGRAM_ID)).amount;
     assert.equal(bobUnits, 1_010n);
+  });
+
+  it("counts the next register from the chain alone", async () => {
+    await send(connection, [af.fixRegister(stranger.publicKey, mint, 1, usdc, TOKEN_PROGRAM_ID)], [stranger]);
+    const sources = await registerSources(connection, af, mint);
+    const ixs = await countInstructions(connection, af, stranger.publicKey, mint, 1, sources);
+    for (let i = 0; i < ixs.length; i += 4) await send(connection, ixs.slice(i, i + 4), [stranger]);
+    await send(connection, [af.closeRegister(mint, 1)], [stranger]);
+    const units = async (h: Keypair) =>
+      (await connection.getAccountInfo(af.entitlement(af.payout(mint, 1), h.publicKey), "confirmed"))!.data.readBigUInt64LE(UNITS_AT);
+    assert.equal(await units(alice), 2_990n);
+    assert.equal(await units(bob), 1_010n);
+    assert.equal(await units(carol), 1_500n);
+  });
+
+  it("will not fix a register before its record date", async () => {
+    await refused(
+      send(connection, [af.fixRegister(stranger.publicKey, mint, 2, usdc, TOKEN_PROGRAM_ID)], [stranger]),
+      /RecordDateNotReached/,
+    );
   });
 });

@@ -1,22 +1,24 @@
 //! Coupons: the instrument's terms on-chain, and each payment worked out by
 //! the program from them.
 //!
-//! A payment runs in four steps. `fix_register` pauses the mint once the record
-//! date has passed, so no unit moves while the register is read. The issuer
-//! then commits a Merkle root over (holder, units) and the total, which must
-//! equal the supply at the fix; that unpauses the mint and fixes what the whole
-//! payment costs. Anyone funds the payment's own vault. Anyone then pays each
-//! holder by proving their leaf: the program computes the amount from the terms,
-//! pays an eligible holder in the payment currency and holds back the coupon of
-//! a holder who is no longer eligible.
+//! A payment runs in steps, and none of them needs the issuer's key.
+//! `fix_register` pauses the mint once the record date has passed, so no unit
+//! moves while the register is read, and prices the whole payment from the
+//! supply. Anyone then counts the register into the program, one source at a
+//! time: each holder account of the mint, each open redemption request, and
+//! the private pool. Every source is counted once, and once the count adds up
+//! to the supply, anyone closes it and the mint resumes. Anyone funds the
+//! payment's own vault, and anyone pays each holder: the program computes the
+//! amount from the terms, pays an eligible holder in the payment currency and
+//! holds back the coupon of a holder who is no longer eligible.
 //!
-//! Leaves carry units, never cash, so a wrong root can at worst move units
-//! between holders; it can never make the payment cost more than the total
-//! committed, and no payment can reach another payment's vault.
+//! Nobody tells the program who holds what. While the mint is paused no
+//! balance and no supply can change, and the supply is the sum of every
+//! account's balance; so a count that reaches the supply, having counted each
+//! source at most once, has left nobody out and counted nobody twice.
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
-use solana_sha256_hasher::hashv;
 use anchor_spl::token_2022::spl_token_2022::{
     extension::{pausable::instruction as pausable, pausable::PausableConfig, BaseStateWithExtensions, StateWithExtensions},
     state::Mint as MintState,
@@ -24,12 +26,16 @@ use anchor_spl::token_2022::spl_token_2022::{
 use anchor_spl::token_2022::Token2022;
 use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
 
-use crate::{Asset, AssetFlowError, Registry, ASSET_SEED, INVESTOR_SEED};
+use crate::private::{PrivatePool, PRIVATE_POOL_SEED};
+use crate::redemptions::{RedemptionRequest, RedemptionStatus};
+use crate::{holder_is_eligible, Asset, AssetFlowError, Registry, ASSET_SEED, INVESTOR_SEED};
 
 pub const TERMS_SEED: &[u8] = b"terms";
 pub const PAYOUT_SEED: &[u8] = b"payout";
 pub const PAYOUT_VAULT_SEED: &[u8] = b"payout_vault";
 pub const PAYMENT_SEED: &[u8] = b"paid";
+pub const ENTITLED_SEED: &[u8] = b"entitled";
+pub const COUNTED_SEED: &[u8] = b"counted";
 pub const MAX_PERIODS: usize = 8;
 
 /// One coupon period. Accrual dates are the nominal dates the coupon is
@@ -60,10 +66,10 @@ pub struct Terms {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq, InitSpace)]
 pub enum PayoutStatus {
-    /// Mint paused; the register is being read.
-    RegisterFixed,
-    /// Root committed, mint resumed; funding and payment are open.
-    Committed,
+    /// Mint paused; the register is being counted.
+    Counting,
+    /// Every unit counted, mint resumed; payment is open.
+    Counted,
 }
 
 #[account]
@@ -75,17 +81,49 @@ pub struct Payout {
     pub fixed_ts: i64,
     pub fixed_slot: u64,
     pub supply_at_fix: u64,
-    pub root: [u8; 32],
-    pub total_units: u64,
-    /// What the whole payment costs, computed from the total when committed.
+    /// Units counted into the register so far; the count is complete when
+    /// this reaches the supply at the fix.
+    pub counted: u64,
+    /// What the whole payment costs, computed from the supply at the fix.
     pub required: u64,
     pub funded: u64,
     pub paid: u64,
     /// Coupons of holders who were not eligible when paid: kept in the vault.
     pub held_back: u64,
     pub payments: u32,
+    /// The private pool, counted as one line: the units in the private escrow
+    /// at the fix. Who among the private holders owns them is settled inside
+    /// the private rollup.
+    pub private_counted: bool,
+    pub private_units: u64,
+    /// The private pool's coupon, moved to the private cash vault.
+    pub private_coupon: u64,
+    pub private_paid: bool,
     pub bump: u8,
     pub vault_bump: u8,
+}
+
+/// What one holder is owed a coupon on: every account they held at the fix,
+/// and every unit they had waiting in the redemption escrow.
+#[account]
+#[derive(InitSpace)]
+pub struct Entitlement {
+    pub payout: Pubkey,
+    pub holder: Pubkey,
+    pub units: u64,
+    /// Paid the rent; gets it back when the coupon is paid.
+    pub payer: Pubkey,
+    pub bump: u8,
+}
+
+/// Marks one source (a holder account or a redemption request) as counted
+/// into one payment's register.
+#[account]
+#[derive(InitSpace)]
+pub struct CountedSource {
+    pub payout: Pubkey,
+    /// Paid the rent; gets it back once the register is counted.
+    pub payer: Pubkey,
 }
 
 #[account]
@@ -149,23 +187,6 @@ pub fn interest(terms: &Terms, days: i64, units: u64) -> Result<u64> {
     u64::try_from(raw - raw % cent).map_err(|_| error!(AssetFlowError::MathOverflow))
 }
 
-/// A leaf: domain byte 0, the payment it belongs to, the holder, their units.
-/// Binding the payment makes a proof for one payment useless for another.
-pub fn leaf(payout: &Pubkey, holder: &Pubkey, units: u64) -> [u8; 32] {
-    hashv(&[&[0u8][..], payout.as_ref(), holder.as_ref(), &units.to_le_bytes()[..]]).to_bytes()
-}
-
-/// Inner nodes: domain byte 1 and the sorted pair, so a leaf can never pose
-/// as a node.
-pub fn verify_proof(proof: &[[u8; 32]], root: &[u8; 32], leaf: [u8; 32]) -> bool {
-    let mut node = leaf;
-    for sibling in proof {
-        let (a, b) = if node <= *sibling { (node, *sibling) } else { (*sibling, node) };
-        node = hashv(&[&[1u8][..], &a[..], &b[..]]).to_bytes();
-    }
-    node == *root
-}
-
 pub fn validate_periods(periods: &[Period]) -> Result<()> {
     require!(!periods.is_empty() && periods.len() <= MAX_PERIODS, AssetFlowError::InvalidTerms);
     let mut previous: Option<&Period> = None;
@@ -220,7 +241,7 @@ pub fn pay_from_vault<'info>(
     payout: &Account<'info, Payout>,
     mint: &Pubkey,
     vault: &InterfaceAccount<'info, TokenAccount>,
-    destination: &InterfaceAccount<'info, TokenAccount>,
+    destination: &AccountInfo<'info>,
     currency_mint: &InterfaceAccount<'info, Mint>,
     currency_program: &Interface<'info, TokenInterface>,
     amount: u64,
@@ -232,7 +253,7 @@ pub fn pay_from_vault<'info>(
             TransferChecked {
                 from: vault.to_account_info(),
                 mint: currency_mint.to_account_info(),
-                to: destination.to_account_info(),
+                to: destination.clone(),
                 authority: payout.to_account_info(),
             },
             &[seeds],
@@ -240,6 +261,239 @@ pub fn pay_from_vault<'info>(
         amount,
         currency_mint.decimals,
     )
+}
+
+/// Add units to the register: to the holder's entitlement, and to the count.
+fn count_into(
+    payout: &mut Account<Payout>,
+    entitlement: &mut Account<Entitlement>,
+    holder: Pubkey,
+    payer: Pubkey,
+    bump: u8,
+    units: u64,
+) -> Result<()> {
+    let counted = payout.counted.checked_add(units).ok_or(error!(AssetFlowError::MathOverflow))?;
+    require!(counted <= payout.supply_at_fix, AssetFlowError::CountOverflow);
+    payout.counted = counted;
+    if entitlement.payout == Pubkey::default() {
+        entitlement.payout = payout.key();
+        entitlement.holder = holder;
+        entitlement.payer = payer;
+        entitlement.bump = bump;
+    }
+    entitlement.units = entitlement.units.checked_add(units).ok_or(error!(AssetFlowError::MathOverflow))?;
+    Ok(())
+}
+
+pub fn fix(ctx: Context<FixRegister>, period: u8) -> Result<()> {
+    let a = &ctx.accounts;
+    let schedule = *a.terms.periods.get(period as usize).ok_or(error!(AssetFlowError::InvalidPeriod))?;
+    // Coupons are counted in order, so a later register never opens while an
+    // earlier one is still being counted.
+    if period > 0 {
+        let previous = a.previous.as_ref().ok_or(error!(AssetFlowError::PreviousPeriodOpen))?;
+        require!(previous.status == PayoutStatus::Counted, AssetFlowError::PreviousPeriodOpen);
+    }
+    let clock = Clock::get()?;
+    require!(clock.unix_timestamp >= schedule.record_ts, AssetFlowError::RecordDateNotReached);
+    let mint = a.mint.to_account_info();
+    let (supply, paused) = mint_supply_and_paused(&mint)?;
+    require!(!paused, AssetFlowError::RegisterWindowOpen);
+    set_paused(true, &a.token_program, &mint, &a.asset)?;
+    // The count must reach the supply, so the payment can be priced now and
+    // funded while the register is still being counted.
+    let required = coupon_amount(&a.terms, &schedule, supply)?;
+
+    let payout = &mut ctx.accounts.payout;
+    payout.asset = ctx.accounts.asset.key();
+    payout.period = period;
+    payout.status = PayoutStatus::Counting;
+    payout.fixed_ts = clock.unix_timestamp;
+    payout.fixed_slot = clock.slot;
+    payout.supply_at_fix = supply;
+    payout.required = required;
+    payout.bump = ctx.bumps.payout;
+    payout.vault_bump = ctx.bumps.vault;
+    emit!(RegisterFixed { asset: payout.asset, period, supply, required, slot: clock.slot });
+    Ok(())
+}
+
+pub fn count_account(mut ctx: Context<CountHolding>, period: u8) -> Result<()> {
+    require!(ctx.accounts.payout.status == PayoutStatus::Counting, AssetFlowError::WrongPayoutStatus);
+    // Counting a source twice is a no-op, so batches that overlap still land.
+    if ctx.accounts.marker.payout != Pubkey::default() {
+        return Ok(());
+    }
+    let units = ctx.accounts.holding.amount;
+    require!(units > 0, AssetFlowError::InvalidAmount);
+    let holder = ctx.accounts.holding.owner;
+    let caller = ctx.accounts.caller.key();
+    let a = &mut ctx.accounts;
+    a.marker.payout = a.payout.key();
+    a.marker.payer = caller;
+    count_into(&mut a.payout, &mut a.entitlement, holder, caller, ctx.bumps.entitlement, units)?;
+    emit!(HoldingCounted { asset: a.payout.asset, period, holder, source: a.holding.key(), units });
+    Ok(())
+}
+
+pub fn count_request(mut ctx: Context<CountRedemption>, period: u8) -> Result<()> {
+    require!(ctx.accounts.payout.status == PayoutStatus::Counting, AssetFlowError::WrongPayoutStatus);
+    if ctx.accounts.marker.payout != Pubkey::default() {
+        return Ok(());
+    }
+    // Requests cannot open or close while the mint is paused, and the escrow
+    // holds exactly the open ones; it is never counted as a holding itself.
+    require!(ctx.accounts.request.status == RedemptionStatus::Requested, AssetFlowError::RequestClosed);
+    let units = ctx.accounts.request.units;
+    let holder = ctx.accounts.request.holder;
+    let caller = ctx.accounts.caller.key();
+    let a = &mut ctx.accounts;
+    a.marker.payout = a.payout.key();
+    a.marker.payer = caller;
+    count_into(&mut a.payout, &mut a.entitlement, holder, caller, ctx.bumps.entitlement, units)?;
+    emit!(HoldingCounted { asset: a.payout.asset, period, holder, source: a.request.key(), units });
+    Ok(())
+}
+
+pub fn count_pool(ctx: Context<CountPrivatePool>, period: u8) -> Result<()> {
+    let a = &ctx.accounts;
+    require!(a.payout.status == PayoutStatus::Counting, AssetFlowError::WrongPayoutStatus);
+    require!(!a.payout.private_counted, AssetFlowError::AlreadyCounted);
+    let units = a.escrow.amount;
+    // Every unit in the private escrow came in through a deposit and leaves
+    // only through a release.
+    let expected = a.pool.total_deposited.checked_sub(a.pool.total_released).ok_or(error!(AssetFlowError::MathOverflow))?;
+    require!(units == expected, AssetFlowError::PrivatePoolMismatch);
+    let payout = &mut ctx.accounts.payout;
+    let counted = payout.counted.checked_add(units).ok_or(error!(AssetFlowError::MathOverflow))?;
+    require!(counted <= payout.supply_at_fix, AssetFlowError::CountOverflow);
+    payout.counted = counted;
+    payout.private_counted = true;
+    payout.private_units = units;
+    emit!(PrivatePoolCounted { asset: payout.asset, period, units });
+    Ok(())
+}
+
+pub fn close_count(ctx: Context<CloseRegister>, period: u8) -> Result<()> {
+    let a = &ctx.accounts;
+    require!(a.payout.status == PayoutStatus::Counting, AssetFlowError::WrongPayoutStatus);
+    require!(a.payout.counted == a.payout.supply_at_fix, AssetFlowError::CountIncomplete);
+    set_paused(false, &a.token_program, &a.mint.to_account_info(), &a.asset)?;
+    let payout = &mut ctx.accounts.payout;
+    payout.status = PayoutStatus::Counted;
+    emit!(RegisterCounted { asset: payout.asset, period, units: payout.counted, required: payout.required });
+    Ok(())
+}
+
+pub fn fund(ctx: Context<FundPayout>, period: u8, amount: u64) -> Result<()> {
+    require!(amount > 0, AssetFlowError::InvalidAmount);
+    let before = ctx.accounts.vault.amount;
+    token_interface::transfer_checked(
+        CpiContext::new(
+            ctx.accounts.currency_program.key(),
+            TransferChecked {
+                from: ctx.accounts.source.to_account_info(),
+                mint: ctx.accounts.currency_mint.to_account_info(),
+                to: ctx.accounts.vault.to_account_info(),
+                authority: ctx.accounts.funder.to_account_info(),
+            },
+        ),
+        amount,
+        ctx.accounts.currency_mint.decimals,
+    )?;
+    ctx.accounts.vault.reload()?;
+    let received = ctx.accounts.vault.amount.checked_sub(before).ok_or(error!(AssetFlowError::MathOverflow))?;
+    let payout = &mut ctx.accounts.payout;
+    payout.funded = payout.funded.checked_add(received).ok_or(error!(AssetFlowError::MathOverflow))?;
+    emit!(PayoutFunded { asset: payout.asset, period, amount: received, funded: payout.funded });
+    Ok(())
+}
+
+/// What the payment has committed so far, plus `amount`, never above what it
+/// was funded with.
+fn commit_spend(payout: &Payout, amount: u64) -> Result<()> {
+    let committed = payout
+        .paid
+        .checked_add(payout.held_back)
+        .and_then(|v| v.checked_add(amount))
+        .ok_or(error!(AssetFlowError::MathOverflow))?;
+    require!(committed <= payout.funded, AssetFlowError::Overdrawn);
+    Ok(())
+}
+
+pub fn pay(ctx: Context<PayEntitlement>, period: u8, holder: Pubkey) -> Result<()> {
+    let a = &ctx.accounts;
+    require!(a.payout.status == PayoutStatus::Counted, AssetFlowError::WrongPayoutStatus);
+    require!(a.payout.funded >= a.payout.required, AssetFlowError::Underfunded);
+    let schedule = a.terms.periods[period as usize];
+    let units = a.entitlement.units;
+    let amount = coupon_amount(&a.terms, &schedule, units)?;
+    let eligible = holder_is_eligible(&a.asset.key(), &a.registry, &holder, &a.investor.to_account_info())?;
+    commit_spend(&a.payout, amount)?;
+    if eligible && amount > 0 {
+        pay_from_vault(
+            &a.payout,
+            &a.mint.key(),
+            &a.vault,
+            &a.destination.to_account_info(),
+            &a.currency_mint,
+            &a.currency_program,
+            amount,
+        )?;
+    }
+
+    let payout_key = ctx.accounts.payout.key();
+    let payout = &mut ctx.accounts.payout;
+    if eligible {
+        payout.paid += amount;
+    } else {
+        payout.held_back += amount;
+    }
+    payout.payments += 1;
+    let record = &mut ctx.accounts.record;
+    record.payout = payout_key;
+    record.holder = holder;
+    record.units = units;
+    record.amount = amount;
+    record.held_back = !eligible;
+    record.ts = Clock::get()?.unix_timestamp;
+    emit!(CouponPaid { asset: payout.asset, period, holder, units, amount, held_back: !eligible });
+    Ok(())
+}
+
+pub fn pay_pool(ctx: Context<PayPrivatePool>, period: u8) -> Result<()> {
+    let a = &ctx.accounts;
+    require!(a.payout.status == PayoutStatus::Counted, AssetFlowError::WrongPayoutStatus);
+    require!(a.payout.funded >= a.payout.required, AssetFlowError::Underfunded);
+    require!(a.payout.private_counted && !a.payout.private_paid, AssetFlowError::WrongPayoutStatus);
+    let schedule = a.terms.periods[period as usize];
+    // One coupon on the whole pool; each private holder's share is rounded
+    // down on their own holding inside the rollup, so the shares never add up
+    // to more than this.
+    let amount = coupon_amount(&a.terms, &schedule, a.payout.private_units)?;
+    commit_spend(&a.payout, amount)?;
+    if amount > 0 {
+        pay_from_vault(
+            &a.payout,
+            &a.mint.key(),
+            &a.vault,
+            &a.cash_vault.to_account_info(),
+            &a.currency_mint,
+            &a.currency_program,
+            amount,
+        )?;
+    }
+    let payout = &mut ctx.accounts.payout;
+    payout.paid += amount;
+    payout.private_coupon = amount;
+    payout.private_paid = true;
+    emit!(PrivatePoolPaid { asset: payout.asset, period, units: payout.private_units, amount });
+    Ok(())
+}
+
+pub fn release_marker(ctx: Context<ReleaseCounted>) -> Result<()> {
+    require!(ctx.accounts.payout.status == PayoutStatus::Counted, AssetFlowError::WrongPayoutStatus);
+    Ok(())
 }
 
 #[derive(Accounts)]
@@ -266,9 +520,9 @@ pub struct FixRegister<'info> {
     #[account(mut)]
     pub caller: Signer<'info>,
     #[account(has_one = mint)]
-    pub asset: Account<'info, Asset>,
+    pub asset: Box<Account<'info, Asset>>,
     #[account(seeds = [TERMS_SEED, mint.key().as_ref()], bump = terms.bump, has_one = asset)]
-    pub terms: Account<'info, Terms>,
+    pub terms: Box<Account<'info, Terms>>,
     /// CHECK: the asset's mint (bound by has_one); paused here.
     #[account(mut)]
     pub mint: UncheckedAccount<'info>,
@@ -279,37 +533,23 @@ pub struct FixRegister<'info> {
         seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period]],
         bump
     )]
-    pub payout: Account<'info, Payout>,
-    pub token_program: Program<'info, Token2022>,
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-#[instruction(period: u8)]
-pub struct CommitEntitlements<'info> {
-    #[account(mut)]
-    pub issuer: Signer<'info>,
-    #[account(has_one = issuer @ AssetFlowError::Unauthorized, has_one = mint)]
-    pub asset: Account<'info, Asset>,
-    #[account(seeds = [TERMS_SEED, mint.key().as_ref()], bump = terms.bump, has_one = asset)]
-    pub terms: Account<'info, Terms>,
-    /// CHECK: the asset's mint (bound by has_one); resumed here.
-    #[account(mut)]
-    pub mint: UncheckedAccount<'info>,
-    #[account(mut, seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period]], bump = payout.bump)]
-    pub payout: Account<'info, Payout>,
+    pub payout: Box<Account<'info, Payout>>,
+    /// The previous period's payment; required, and counted, from the second
+    /// period on.
+    #[account(seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period.saturating_sub(1)]], bump = previous.bump)]
+    pub previous: Option<Box<Account<'info, Payout>>>,
     #[account(address = terms.currency_mint)]
-    pub currency_mint: InterfaceAccount<'info, Mint>,
+    pub currency_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(
         init,
-        payer = issuer,
+        payer = caller,
         token::mint = currency_mint,
         token::authority = payout,
         token::token_program = currency_program,
         seeds = [PAYOUT_VAULT_SEED, payout.key().as_ref()],
         bump
     )]
-    pub vault: InterfaceAccount<'info, TokenAccount>,
+    pub vault: Box<InterfaceAccount<'info, TokenAccount>>,
     pub token_program: Program<'info, Token2022>,
     pub currency_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
@@ -317,22 +557,121 @@ pub struct CommitEntitlements<'info> {
 
 #[derive(Accounts)]
 #[instruction(period: u8)]
-pub struct FundPayout<'info> {
-    pub funder: Signer<'info>,
+pub struct CountHolding<'info> {
+    #[account(mut)]
+    pub caller: Signer<'info>,
     #[account(has_one = mint)]
-    pub asset: Account<'info, Asset>,
-    #[account(seeds = [TERMS_SEED, mint.key().as_ref()], bump = terms.bump, has_one = asset)]
-    pub terms: Account<'info, Terms>,
+    pub asset: Box<Account<'info, Asset>>,
     /// CHECK: the asset's mint (bound by has_one).
     pub mint: UncheckedAccount<'info>,
     #[account(mut, seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period]], bump = payout.bump)]
-    pub payout: Account<'info, Payout>,
+    pub payout: Box<Account<'info, Payout>>,
+    /// A Token-2022 account of this mint. The asset's own accounts (the
+    /// escrows) are never a holding: their units are counted through the
+    /// requests and the private pool.
+    #[account(
+        token::mint = mint,
+        token::token_program = token_program,
+        constraint = holding.owner != asset.key() @ AssetFlowError::NotAHolding
+    )]
+    pub holding: Box<InterfaceAccount<'info, TokenAccount>>,
+    #[account(
+        init_if_needed,
+        payer = caller,
+        space = 8 + CountedSource::INIT_SPACE,
+        seeds = [COUNTED_SEED, payout.key().as_ref(), holding.key().as_ref()],
+        bump
+    )]
+    pub marker: Box<Account<'info, CountedSource>>,
+    #[account(
+        init_if_needed,
+        payer = caller,
+        space = 8 + Entitlement::INIT_SPACE,
+        seeds = [ENTITLED_SEED, payout.key().as_ref(), holding.owner.as_ref()],
+        bump
+    )]
+    pub entitlement: Box<Account<'info, Entitlement>>,
+    pub token_program: Program<'info, Token2022>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(period: u8)]
+pub struct CountRedemption<'info> {
+    #[account(mut)]
+    pub caller: Signer<'info>,
+    #[account(has_one = mint)]
+    pub asset: Box<Account<'info, Asset>>,
+    /// CHECK: the asset's mint (bound by has_one).
+    pub mint: UncheckedAccount<'info>,
+    #[account(mut, seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period]], bump = payout.bump)]
+    pub payout: Box<Account<'info, Payout>>,
+    #[account(has_one = asset)]
+    pub request: Box<Account<'info, RedemptionRequest>>,
+    #[account(
+        init_if_needed,
+        payer = caller,
+        space = 8 + CountedSource::INIT_SPACE,
+        seeds = [COUNTED_SEED, payout.key().as_ref(), request.key().as_ref()],
+        bump
+    )]
+    pub marker: Box<Account<'info, CountedSource>>,
+    #[account(
+        init_if_needed,
+        payer = caller,
+        space = 8 + Entitlement::INIT_SPACE,
+        seeds = [ENTITLED_SEED, payout.key().as_ref(), request.holder.as_ref()],
+        bump
+    )]
+    pub entitlement: Box<Account<'info, Entitlement>>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(period: u8)]
+pub struct CountPrivatePool<'info> {
+    #[account(has_one = mint)]
+    pub asset: Box<Account<'info, Asset>>,
+    /// CHECK: the asset's mint (bound by has_one).
+    pub mint: UncheckedAccount<'info>,
+    #[account(mut, seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period]], bump = payout.bump)]
+    pub payout: Box<Account<'info, Payout>>,
+    #[account(seeds = [PRIVATE_POOL_SEED, mint.key().as_ref()], bump = pool.bump, has_one = asset, has_one = escrow)]
+    pub pool: Box<Account<'info, PrivatePool>>,
+    pub escrow: Box<InterfaceAccount<'info, TokenAccount>>,
+}
+
+#[derive(Accounts)]
+#[instruction(period: u8)]
+pub struct CloseRegister<'info> {
+    #[account(has_one = mint)]
+    pub asset: Box<Account<'info, Asset>>,
+    /// CHECK: the asset's mint (bound by has_one); resumed here.
+    #[account(mut)]
+    pub mint: UncheckedAccount<'info>,
+    #[account(mut, seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period]], bump = payout.bump)]
+    pub payout: Box<Account<'info, Payout>>,
+    pub token_program: Program<'info, Token2022>,
+}
+
+#[derive(Accounts)]
+#[instruction(period: u8)]
+pub struct FundPayout<'info> {
+    pub funder: Signer<'info>,
+    #[account(has_one = mint)]
+    pub asset: Box<Account<'info, Asset>>,
+    #[account(seeds = [TERMS_SEED, mint.key().as_ref()], bump = terms.bump, has_one = asset)]
+    pub terms: Box<Account<'info, Terms>>,
+    /// CHECK: the asset's mint (bound by has_one).
+    pub mint: UncheckedAccount<'info>,
+    #[account(mut, seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period]], bump = payout.bump)]
+    pub payout: Box<Account<'info, Payout>>,
     #[account(address = terms.currency_mint)]
-    pub currency_mint: InterfaceAccount<'info, Mint>,
+    pub currency_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, token::mint = currency_mint, token::authority = funder)]
-    pub source: InterfaceAccount<'info, TokenAccount>,
+    pub source: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(mut, seeds = [PAYOUT_VAULT_SEED, payout.key().as_ref()], bump = payout.vault_bump)]
-    pub vault: InterfaceAccount<'info, TokenAccount>,
+    pub vault: Box<InterfaceAccount<'info, TokenAccount>>,
     pub currency_program: Interface<'info, TokenInterface>,
 }
 
@@ -342,24 +681,35 @@ pub struct PayEntitlement<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     #[account(has_one = mint, has_one = registry)]
-    pub asset: Account<'info, Asset>,
-    pub registry: Account<'info, Registry>,
+    pub asset: Box<Account<'info, Asset>>,
+    pub registry: Box<Account<'info, Registry>>,
     #[account(seeds = [TERMS_SEED, mint.key().as_ref()], bump = terms.bump, has_one = asset)]
-    pub terms: Account<'info, Terms>,
+    pub terms: Box<Account<'info, Terms>>,
     /// CHECK: the asset's mint (bound by has_one).
     pub mint: UncheckedAccount<'info>,
     #[account(mut, seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period]], bump = payout.bump)]
-    pub payout: Account<'info, Payout>,
+    pub payout: Box<Account<'info, Payout>>,
     #[account(address = terms.currency_mint)]
-    pub currency_mint: InterfaceAccount<'info, Mint>,
+    pub currency_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, seeds = [PAYOUT_VAULT_SEED, payout.key().as_ref()], bump = payout.vault_bump)]
-    pub vault: InterfaceAccount<'info, TokenAccount>,
+    pub vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    /// Paid once: closed here, its rent going back to whoever counted it.
+    #[account(
+        mut,
+        seeds = [ENTITLED_SEED, payout.key().as_ref(), holder.as_ref()],
+        bump = entitlement.bump,
+        close = rent_receiver
+    )]
+    pub entitlement: Box<Account<'info, Entitlement>>,
+    /// CHECK: receives the entitlement's rent; pinned to who paid it.
+    #[account(mut, address = entitlement.payer)]
+    pub rent_receiver: UncheckedAccount<'info>,
     #[account(
         mut,
         token::mint = currency_mint,
         constraint = destination.owner == holder @ AssetFlowError::WrongDestination
     )]
-    pub destination: InterfaceAccount<'info, TokenAccount>,
+    pub destination: Box<InterfaceAccount<'info, TokenAccount>>,
     /// CHECK: may not exist. A holder with no profile is not eligible.
     #[account(seeds = [INVESTOR_SEED, registry.key().as_ref(), holder.as_ref()], bump)]
     pub investor: UncheckedAccount<'info>,
@@ -370,9 +720,54 @@ pub struct PayEntitlement<'info> {
         seeds = [PAYMENT_SEED, payout.key().as_ref(), holder.as_ref()],
         bump
     )]
-    pub record: Account<'info, PaymentRecord>,
+    pub record: Box<Account<'info, PaymentRecord>>,
     pub currency_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(period: u8)]
+pub struct PayPrivatePool<'info> {
+    #[account(has_one = mint)]
+    pub asset: Box<Account<'info, Asset>>,
+    #[account(seeds = [TERMS_SEED, mint.key().as_ref()], bump = terms.bump, has_one = asset)]
+    pub terms: Box<Account<'info, Terms>>,
+    /// CHECK: the asset's mint (bound by has_one).
+    pub mint: UncheckedAccount<'info>,
+    #[account(mut, seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period]], bump = payout.bump)]
+    pub payout: Box<Account<'info, Payout>>,
+    #[account(address = terms.currency_mint)]
+    pub currency_mint: Box<InterfaceAccount<'info, Mint>>,
+    #[account(mut, seeds = [PAYOUT_VAULT_SEED, payout.key().as_ref()], bump = payout.vault_bump)]
+    pub vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    #[account(seeds = [PRIVATE_POOL_SEED, mint.key().as_ref()], bump = pool.bump, has_one = asset, has_one = cash_vault)]
+    pub pool: Box<Account<'info, PrivatePool>>,
+    #[account(mut)]
+    pub cash_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub currency_program: Interface<'info, TokenInterface>,
+}
+
+/// Return the rent of a counted marker once the register is counted.
+#[derive(Accounts)]
+#[instruction(period: u8, source: Pubkey)]
+pub struct ReleaseCounted<'info> {
+    #[account(has_one = mint)]
+    pub asset: Box<Account<'info, Asset>>,
+    /// CHECK: the asset's mint (bound by has_one).
+    pub mint: UncheckedAccount<'info>,
+    #[account(seeds = [PAYOUT_SEED, mint.key().as_ref(), &[period]], bump = payout.bump)]
+    pub payout: Box<Account<'info, Payout>>,
+    #[account(
+        mut,
+        seeds = [COUNTED_SEED, payout.key().as_ref(), source.as_ref()],
+        bump,
+        has_one = payout,
+        close = rent_receiver
+    )]
+    pub marker: Box<Account<'info, CountedSource>>,
+    /// CHECK: receives the marker's rent; pinned to who paid it.
+    #[account(mut, address = marker.payer)]
+    pub rent_receiver: UncheckedAccount<'info>,
 }
 
 #[event]
@@ -389,15 +784,32 @@ pub struct RegisterFixed {
     pub asset: Pubkey,
     pub period: u8,
     pub supply: u64,
+    pub required: u64,
     pub slot: u64,
 }
 
 #[event]
-pub struct EntitlementsCommitted {
+pub struct HoldingCounted {
     pub asset: Pubkey,
     pub period: u8,
-    pub root: [u8; 32],
-    pub total_units: u64,
+    pub holder: Pubkey,
+    /// The holder account or redemption request counted.
+    pub source: Pubkey,
+    pub units: u64,
+}
+
+#[event]
+pub struct PrivatePoolCounted {
+    pub asset: Pubkey,
+    pub period: u8,
+    pub units: u64,
+}
+
+#[event]
+pub struct RegisterCounted {
+    pub asset: Pubkey,
+    pub period: u8,
+    pub units: u64,
     pub required: u64,
 }
 
@@ -417,6 +829,14 @@ pub struct CouponPaid {
     pub units: u64,
     pub amount: u64,
     pub held_back: bool,
+}
+
+#[event]
+pub struct PrivatePoolPaid {
+    pub asset: Pubkey,
+    pub period: u8,
+    pub units: u64,
+    pub amount: u64,
 }
 
 #[cfg(test)]
@@ -488,25 +908,5 @@ mod tests {
         let parts = [1u64, 7, 333, 1_001, 2_659];
         let sum: u64 = parts.iter().map(|u| coupon_amount(&t, &p, *u).unwrap()).sum();
         assert!(sum <= coupon_amount(&t, &p, parts.iter().sum()).unwrap());
-    }
-
-    #[test]
-    fn a_proof_holds_only_for_its_own_payment() {
-        let payout = Pubkey::new_unique();
-        let other = Pubkey::new_unique();
-        let (a, b, c) = (Pubkey::new_unique(), Pubkey::new_unique(), Pubkey::new_unique());
-        let la = leaf(&payout, &a, 3_000);
-        let lb = leaf(&payout, &b, 1_000);
-        let lc = leaf(&payout, &c, 1_500);
-        let pair = |x: [u8; 32], y: [u8; 32]| {
-            let (p, q) = if x <= y { (x, y) } else { (y, x) };
-            hashv(&[&[1u8][..], &p[..], &q[..]]).to_bytes()
-        };
-        let ab = pair(la, lb);
-        let root = pair(ab, lc);
-        assert!(verify_proof(&[lb, lc], &root, la));
-        assert!(verify_proof(&[ab], &root, lc));
-        assert!(!verify_proof(&[lb, lc], &root, leaf(&payout, &a, 3_001)));
-        assert!(!verify_proof(&[lb, lc], &root, leaf(&other, &a, 3_000)));
     }
 }

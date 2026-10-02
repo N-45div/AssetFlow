@@ -7,7 +7,7 @@
 //! Until the issuer answers, the holder can withdraw the request.
 //!
 //! Maturity closes the instrument. Once the last payment date has passed and
-//! every coupon's register is committed, anyone can start it: the mint
+//! every coupon's register is counted, anyone can start it: the mint
 //! authority is dropped, so no unit can ever be issued again, and the face of
 //! every unit outstanding falls due. Once the issuer has funded all of it,
 //! anyone can redeem any holding: its units burn and the face goes to its
@@ -345,7 +345,7 @@ pub fn begin_maturity(ctx: Context<StartMaturity>) -> Result<()> {
             AssetFlowError::CouponsOutstanding
         );
         let payout = Payout::try_deserialize(&mut &info.try_borrow_data()?[..])?;
-        require!(payout.status == PayoutStatus::Committed, AssetFlowError::CouponsOutstanding);
+        require!(payout.status == PayoutStatus::Counted, AssetFlowError::CouponsOutstanding);
     }
 
     let bump = [a.asset.bump];

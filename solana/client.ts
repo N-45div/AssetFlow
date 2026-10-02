@@ -86,6 +86,14 @@ export class AssetFlow {
   paymentRecord(payout: PublicKey, holder: PublicKey) {
     return pda([Buffer.from("paid"), payout.toBuffer(), holder.toBuffer()], this.programId);
   }
+  /** What a holder was counted for: every account they held, and their escrowed units. */
+  entitlement(payout: PublicKey, holder: PublicKey) {
+    return pda([Buffer.from("entitled"), payout.toBuffer(), holder.toBuffer()], this.programId);
+  }
+  /** Marks a holder account or a redemption request as counted for a payment. */
+  counted(payout: PublicKey, source: PublicKey) {
+    return pda([Buffer.from("counted"), payout.toBuffer(), source.toBuffer()], this.programId);
+  }
   freezeMetas(mint: PublicKey) {
     return pda([Buffer.from("freeze_extra_account_metas"), mint.toBuffer()], this.programId);
   }
@@ -93,6 +101,17 @@ export class AssetFlow {
     const n = Buffer.alloc(4);
     n.writeUInt32LE(id);
     return pda([Buffer.from("redemption"), mint.toBuffer(), holder.toBuffer(), n], this.programId);
+  }
+  privatePool(mint: PublicKey) {
+    return pda([Buffer.from("private_pool"), mint.toBuffer()], this.programId);
+  }
+  /** Units in private holdings wait here, owned by the asset account. */
+  privateEscrow(mint: PublicKey) {
+    return pda([Buffer.from("private_escrow"), mint.toBuffer()], this.programId);
+  }
+  /** Private holders' coupons, until each takes theirs out. */
+  privateCash(mint: PublicKey) {
+    return pda([Buffer.from("private_cash"), mint.toBuffer()], this.programId);
   }
   /** Where requested units wait: the asset's own associated account. */
   escrow(mint: PublicKey) {
@@ -266,8 +285,13 @@ export class AssetFlow {
     );
   }
 
-  /** Anyone, once the record date has passed: pauses the mint for the register. */
-  fixRegister(caller: PublicKey, mint: PublicKey, period: number) {
+  /**
+   * Anyone, once the record date has passed: pauses the mint for the register,
+   * prices the payment from the supply and opens its vault. From the second
+   * period on, the previous period's register must be counted.
+   */
+  fixRegister(caller: PublicKey, mint: PublicKey, period: number, currencyMint: PublicKey, currencyProgram: PublicKey) {
+    const payout = this.payout(mint, period);
     return this.ix(
       "fix_register",
       [
@@ -275,7 +299,32 @@ export class AssetFlow {
         { pubkey: this.asset(mint), isSigner: false, isWritable: false },
         { pubkey: this.terms(mint), isSigner: false, isWritable: false },
         { pubkey: mint, isSigner: false, isWritable: true },
-        { pubkey: this.payout(mint, period), isSigner: false, isWritable: true },
+        { pubkey: payout, isSigner: false, isWritable: true },
+        // an optional account Anchor reads as absent when it is the program id
+        { pubkey: period > 0 ? this.payout(mint, period - 1) : this.programId, isSigner: false, isWritable: false },
+        { pubkey: currencyMint, isSigner: false, isWritable: false },
+        { pubkey: this.payoutVault(payout), isSigner: false, isWritable: true },
+        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: currencyProgram, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      [u8(period)],
+    );
+  }
+
+  /** Anyone, while the register is being counted: one holder account of the mint. */
+  countHolding(caller: PublicKey, mint: PublicKey, period: number, holding: PublicKey, owner: PublicKey) {
+    const payout = this.payout(mint, period);
+    return this.ix(
+      "count_holding",
+      [
+        { pubkey: caller, isSigner: true, isWritable: true },
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: payout, isSigner: false, isWritable: true },
+        { pubkey: holding, isSigner: false, isWritable: false },
+        { pubkey: this.counted(payout, holding), isSigner: false, isWritable: true },
+        { pubkey: this.entitlement(payout, owner), isSigner: false, isWritable: true },
         { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
@@ -283,31 +332,51 @@ export class AssetFlow {
     );
   }
 
-  commitEntitlements(
-    issuer: PublicKey,
-    mint: PublicKey,
-    period: number,
-    currencyMint: PublicKey,
-    currencyProgram: PublicKey,
-    root: Buffer,
-    totalUnits: bigint,
-  ) {
+  /** Anyone, while the register is being counted: one open redemption request. */
+  countRedemption(caller: PublicKey, mint: PublicKey, period: number, request: PublicKey, holder: PublicKey) {
     const payout = this.payout(mint, period);
     return this.ix(
-      "commit_entitlements",
+      "count_redemption",
       [
-        { pubkey: issuer, isSigner: true, isWritable: true },
+        { pubkey: caller, isSigner: true, isWritable: true },
         { pubkey: this.asset(mint), isSigner: false, isWritable: false },
-        { pubkey: this.terms(mint), isSigner: false, isWritable: false },
-        { pubkey: mint, isSigner: false, isWritable: true },
+        { pubkey: mint, isSigner: false, isWritable: false },
         { pubkey: payout, isSigner: false, isWritable: true },
-        { pubkey: currencyMint, isSigner: false, isWritable: false },
-        { pubkey: this.payoutVault(payout), isSigner: false, isWritable: true },
-        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
-        { pubkey: currencyProgram, isSigner: false, isWritable: false },
+        { pubkey: request, isSigner: false, isWritable: false },
+        { pubkey: this.counted(payout, request), isSigner: false, isWritable: true },
+        { pubkey: this.entitlement(payout, holder), isSigner: false, isWritable: true },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
-      [u8(period), root, u64(totalUnits)],
+      [u8(period)],
+    );
+  }
+
+  /** Anyone, while the register is being counted: the private escrow, as one line. */
+  countPrivatePool(mint: PublicKey, period: number) {
+    return this.ix(
+      "count_private_pool",
+      [
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: this.payout(mint, period), isSigner: false, isWritable: true },
+        { pubkey: this.privatePool(mint), isSigner: false, isWritable: false },
+        { pubkey: this.privateEscrow(mint), isSigner: false, isWritable: false },
+      ],
+      [u8(period)],
+    );
+  }
+
+  /** Anyone, once the count reaches the supply: the register is on record and the mint resumes. */
+  closeRegister(mint: PublicKey, period: number) {
+    return this.ix(
+      "close_register",
+      [
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: true },
+        { pubkey: this.payout(mint, period), isSigner: false, isWritable: true },
+        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+      ],
+      [u8(period)],
     );
   }
 
@@ -338,7 +407,11 @@ export class AssetFlow {
     );
   }
 
-  /** Anyone: pays one holder, or holds their coupon back if they are not eligible. */
+  /**
+   * Anyone: pays one holder what they were counted for, or holds their coupon
+   * back if they are not eligible. The entitlement's rent goes back to
+   * `rentReceiver`, whoever paid it.
+   */
   payEntitlement(
     payer: PublicKey,
     registry: PublicKey,
@@ -348,12 +421,9 @@ export class AssetFlow {
     currencyProgram: PublicKey,
     destination: PublicKey,
     holder: PublicKey,
-    units: bigint,
-    proof: Buffer[],
+    rentReceiver: PublicKey,
   ) {
     const payout = this.payout(mint, period);
-    const count = Buffer.alloc(4);
-    count.writeUInt32LE(proof.length);
     return this.ix(
       "pay_entitlement",
       [
@@ -365,13 +435,51 @@ export class AssetFlow {
         { pubkey: payout, isSigner: false, isWritable: true },
         { pubkey: currencyMint, isSigner: false, isWritable: false },
         { pubkey: this.payoutVault(payout), isSigner: false, isWritable: true },
+        { pubkey: this.entitlement(payout, holder), isSigner: false, isWritable: true },
+        { pubkey: rentReceiver, isSigner: false, isWritable: true },
         { pubkey: destination, isSigner: false, isWritable: true },
         { pubkey: this.investor(registry, holder), isSigner: false, isWritable: false },
         { pubkey: this.paymentRecord(payout, holder), isSigner: false, isWritable: true },
         { pubkey: currencyProgram, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
-      [u8(period), holder.toBuffer(), u64(units), count, ...proof],
+      [u8(period), holder.toBuffer()],
+    );
+  }
+
+  /** Anyone: the private pool's coupon, from the payment vault to the private cash vault. */
+  payPrivatePool(mint: PublicKey, period: number, currencyMint: PublicKey, currencyProgram: PublicKey) {
+    const payout = this.payout(mint, period);
+    return this.ix(
+      "pay_private_pool",
+      [
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: this.terms(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: payout, isSigner: false, isWritable: true },
+        { pubkey: currencyMint, isSigner: false, isWritable: false },
+        { pubkey: this.payoutVault(payout), isSigner: false, isWritable: true },
+        { pubkey: this.privatePool(mint), isSigner: false, isWritable: false },
+        { pubkey: this.privateCash(mint), isSigner: false, isWritable: true },
+        { pubkey: currencyProgram, isSigner: false, isWritable: false },
+      ],
+      [u8(period)],
+    );
+  }
+
+  /** Anyone, once the register is counted: a counted marker's rent back to whoever paid it. */
+  releaseCounted(mint: PublicKey, period: number, source: PublicKey, rentReceiver: PublicKey) {
+    const payout = this.payout(mint, period);
+    return this.ix(
+      "release_counted",
+      [
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: payout, isSigner: false, isWritable: false },
+        { pubkey: this.counted(payout, source), isSigner: false, isWritable: true },
+        { pubkey: rentReceiver, isSigner: false, isWritable: true },
+      ],
+      [u8(period), source.toBuffer()],
     );
   }
 
@@ -577,37 +685,73 @@ export interface Period {
   paymentTs: number;
 }
 
-const sha256 = (...parts: Buffer[]) => createHash("sha256").update(Buffer.concat(parts)).digest();
-
-/** A leaf: domain byte 0, the payment, the holder, their units (as the program hashes it). */
-export function entitlementLeaf(payout: PublicKey, holder: PublicKey, units: bigint) {
-  return sha256(Buffer.from([0]), payout.toBuffer(), holder.toBuffer(), u64(units));
+/** Anchor's account prefix: the first eight bytes of sha256("account:Name"). */
+export function accountDiscriminator(name: string): Buffer {
+  return createHash("sha256").update(`account:${name}`).digest().subarray(0, 8);
 }
 
+/** One thing the register counts: a holder account, or an open redemption request. */
+export type RegisterSource =
+  | { kind: "holding"; address: PublicKey; owner: PublicKey; units: bigint }
+  | { kind: "request"; address: PublicKey; holder: PublicKey; units: bigint };
+
 /**
- * The entitlement tree: sorted pairs under domain byte 1, an odd node carried
- * up unchanged. Returns the root and a proof per leaf, in input order.
+ * Every source the register of `mint` counts, read from the chain: each
+ * Token-2022 account of the mint with units, except the asset's own (the
+ * escrows), and each open redemption request. The program checks every one
+ * as it is counted, so a wrong or missing source can only leave the count
+ * short of the supply, never wrong.
  */
-export function entitlementTree(leaves: Buffer[]) {
-  let level = leaves.map((leaf, i) => ({ hash: leaf, members: [i] }));
-  const proofs: Buffer[][] = leaves.map(() => []);
-  while (level.length > 1) {
-    const next: typeof level = [];
-    for (let i = 0; i < level.length; i += 2) {
-      const a = level[i];
-      const b = level[i + 1];
-      if (!b) {
-        next.push(a);
-        continue;
-      }
-      for (const m of a.members) proofs[m].push(b.hash);
-      for (const m of b.members) proofs[m].push(a.hash);
-      const [lo, hi] = Buffer.compare(a.hash, b.hash) <= 0 ? [a.hash, b.hash] : [b.hash, a.hash];
-      next.push({ hash: sha256(Buffer.from([1]), lo, hi), members: [...a.members, ...b.members] });
-    }
-    level = next;
+export async function registerSources(connection: Connection, af: AssetFlow, mint: PublicKey) {
+  const asset = af.asset(mint);
+  const sources: RegisterSource[] = [];
+  const accounts = await connection.getProgramAccounts(TOKEN_2022_PROGRAM_ID, {
+    commitment: "confirmed",
+    filters: [{ memcmp: { offset: 0, bytes: mint.toBase58() } }],
+  });
+  for (const { pubkey, account } of accounts) {
+    if (account.data.length < 165) continue;
+    const owner = new PublicKey(account.data.subarray(32, 64));
+    const units = account.data.readBigUInt64LE(64);
+    if (units === 0n || owner.equals(asset)) continue;
+    sources.push({ kind: "holding", address: pubkey, owner, units });
   }
-  return { root: level[0]?.hash ?? Buffer.alloc(32), proofs };
+  const requests = await connection.getProgramAccounts(af.programId, {
+    commitment: "confirmed",
+    filters: [
+      { memcmp: { offset: 0, bytes: accountDiscriminator("RedemptionRequest").toString("base64"), encoding: "base64" } },
+      { memcmp: { offset: 8, bytes: asset.toBase58() } },
+    ],
+  });
+  for (const { pubkey, account } of requests) {
+    // asset 8, holder 40, id 72, units 76, status 84 (0 = Requested)
+    if (account.data[84] !== 0) continue;
+    sources.push({
+      kind: "request",
+      address: pubkey,
+      holder: new PublicKey(account.data.subarray(40, 72)),
+      units: account.data.readBigUInt64LE(76),
+    });
+  }
+  return sources;
+}
+
+/** The count instructions for `sources`, plus the private pool when the asset has one. */
+export async function countInstructions(
+  connection: Connection,
+  af: AssetFlow,
+  caller: PublicKey,
+  mint: PublicKey,
+  period: number,
+  sources: RegisterSource[],
+) {
+  const ixs = sources.map((src) =>
+    src.kind === "holding"
+      ? af.countHolding(caller, mint, period, src.address, src.owner)
+      : af.countRedemption(caller, mint, period, src.address, src.holder),
+  );
+  if (await connection.getAccountInfo(af.privatePool(mint), "confirmed")) ixs.push(af.countPrivatePool(mint, period));
+  return ixs;
 }
 
 export interface ProfileTerms {

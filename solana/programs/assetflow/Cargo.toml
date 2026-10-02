@@ -26,5 +26,3 @@ anchor-spl = "1.2.0"
 # gate needs (asset, registry, investor profile) for a thaw or freeze.
 spl-tlv-account-resolution = "0.11"
 spl-discriminator = "0.5"
-# sha256 for the coupon Merkle tree; the syscall on-chain, a software hash in unit tests.
-solana-sha256-hasher = "3.1"
