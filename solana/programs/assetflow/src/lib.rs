@@ -32,6 +32,7 @@ use anchor_spl::token_2022::spl_token_2022::{
 };
 use anchor_spl::token_2022::Token2022;
 use anchor_spl::token_interface::{self, Mint, MintTo, TokenAccount};
+use ephemeral_rollups_sdk::anchor::ephemeral;
 use spl_discriminator::SplDiscriminate;
 use spl_tlv_account_resolution::{
     account::ExtraAccountMeta, pubkey_data::PubkeyData, seeds::Seed, state::ExtraAccountMetaList,
@@ -87,6 +88,7 @@ pub struct ThawQuestion;
 #[discriminator_hash_input("efficient-allow-block-list-standard:can-freeze-permissionless")]
 pub struct FreezeQuestion;
 
+#[ephemeral]
 #[program]
 pub mod assetflow {
     use super::*;
@@ -430,6 +432,96 @@ pub mod assetflow {
     /// its owner the face. A holder who is not eligible keeps their units.
     pub fn redeem_at_maturity(ctx: Context<RedeemAtMaturity>) -> Result<()> {
         redemptions::redeem_holding(ctx)
+    }
+
+    /// The issuer opens private holdings for an asset: an escrow for the
+    /// units, a vault for their coupons, and the rollup they live in, which
+    /// must be MagicBlock's private (TEE) validator.
+    pub fn enable_private_holdings(ctx: Context<EnablePrivateHoldings>, validator: Pubkey, auditor: Pubkey) -> Result<()> {
+        private::enable_holdings(ctx, validator, auditor)
+    }
+
+    /// The issuer names (or, with the default key, removes) the auditor who
+    /// may read every private holding.
+    pub fn set_private_auditor(ctx: Context<SetPrivateAuditor>, auditor: Pubkey) -> Result<()> {
+        private::set_auditor(ctx, auditor)
+    }
+
+    /// An eligible holder opens their private account: a public ledger, a
+    /// holding and an exit ticket, starting at the first register not yet
+    /// fixed.
+    pub fn open_private(ctx: Context<OpenPrivate>, next_period: u8) -> Result<()> {
+        private::open_holding(ctx, next_period)
+    }
+
+    /// The holder puts their holding in the rollup.
+    pub fn delegate_private_holding(ctx: Context<DelegatePrivateHolding>) -> Result<()> {
+        private::delegate_holding(ctx)
+    }
+
+    /// The holder puts their exit ticket in the rollup, ready for an exit.
+    pub fn delegate_private_exit(ctx: Context<DelegatePrivateExit>) -> Result<()> {
+        private::delegate_exit(ctx)
+    }
+
+    /// The holder moves units from their account into the private escrow.
+    pub fn deposit_private(ctx: Context<DepositPrivate>, units: u64) -> Result<()> {
+        private::deposit_units(ctx, units)
+    }
+
+    /// Anyone, once a register is fixed: record on a holder's ledger what they
+    /// had deposited and released by then.
+    pub fn checkpoint_private_ledger(ctx: Context<CheckpointPrivateLedger>) -> Result<()> {
+        private::checkpoint_ledger(ctx)
+    }
+
+    /// Anyone: pay out what a settled exit ticket says the holder withdrew.
+    pub fn release_private(ctx: Context<ReleasePrivate>) -> Result<()> {
+        private::release_exit(ctx)
+    }
+
+    /// The holder asks the delegation program to bring their holding back to
+    /// Solana, whether or not the rollup runs AssetFlow's instructions.
+    pub fn request_private_exit(ctx: Context<RequestPrivateExit>) -> Result<()> {
+        private::request_exit(ctx)
+    }
+
+    /// Anyone, once a holding is back on Solana: pay out everything in it.
+    pub fn recover_private(ctx: Context<RecoverPrivate>) -> Result<()> {
+        private::recover_holding(ctx)
+    }
+
+    /// Rollup, anyone: give a holding its read permission (holder, issuer,
+    /// compliance, auditor), or rebuild it after a key changed.
+    pub fn protect_private(ctx: Context<ProtectPrivate>) -> Result<()> {
+        private::protect_holding(ctx)
+    }
+
+    /// Rollup, anyone: credit a holding with what its holder deposited.
+    pub fn credit_private(ctx: Context<CreditPrivate>) -> Result<()> {
+        private::credit_deposits(ctx)
+    }
+
+    /// Rollup, the sender: move units to another eligible holder's holding.
+    pub fn transfer_private(ctx: Context<TransferPrivate>, units: u64) -> Result<()> {
+        private::transfer_units(ctx, units)
+    }
+
+    /// Rollup, the holder: take units and coupon cash out, settling the exit
+    /// ticket on Solana.
+    pub fn withdraw_private(ctx: Context<WithdrawPrivate>, units: u64, cash: u64) -> Result<()> {
+        private::withdraw_units(ctx, units, cash)
+    }
+
+    /// Rollup (or Solana, for a holding back there), anyone: credit a holding
+    /// with its coupon for a period whose private pool has been paid.
+    pub fn claim_private_coupon(ctx: Context<ClaimPrivateCoupon>, period: u8) -> Result<()> {
+        private::claim_coupon(ctx, period)
+    }
+
+    /// Compliance puts a private holding on hold, or lifts the hold.
+    pub fn hold_private(ctx: Context<HoldPrivate>, hold: bool) -> Result<()> {
+        private::set_hold(ctx, hold)
     }
 
     /// Name the SAS credential and schema this registry trusts for investor
@@ -1005,4 +1097,18 @@ pub enum AssetFlowError {
     AlreadyCounted,
     #[msg("the private escrow does not hold what was deposited less what was released")]
     PrivatePoolMismatch,
+    #[msg("a holder's private ledger and holding disagree")]
+    PrivateLedgerMismatch,
+    #[msg("a register was fixed: record it on the holder's private ledger first")]
+    CheckpointRequired,
+    #[msg("private holdings go only to MagicBlock's private rollup validator")]
+    ValidatorNotAllowed,
+    #[msg("the private account is not in the rollup")]
+    PrivateNotDelegated,
+    #[msg("the private account is already in the rollup")]
+    PrivateAlreadyDelegated,
+    #[msg("the private holding has no read permission yet")]
+    NotProtected,
+    #[msg("the private holding is on a compliance hold")]
+    HoldingOnHold,
 }

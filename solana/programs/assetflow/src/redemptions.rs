@@ -111,13 +111,13 @@ pub fn is_matured(mint: &Mint) -> bool {
     mint.mint_authority.is_none()
 }
 
-fn asset_seeds<'a>(mint: &'a Pubkey, bump: &'a [u8; 1]) -> [&'a [u8]; 3] {
+pub(crate) fn asset_seeds<'a>(mint: &'a Pubkey, bump: &'a [u8; 1]) -> [&'a [u8]; 3] {
     [ASSET_SEED, mint.as_ref(), bump]
 }
 
 /// Move units or cash out of an account a PDA of this program owns.
 #[allow(clippy::too_many_arguments)]
-fn transfer_signed<'info>(
+pub(crate) fn transfer_signed<'info>(
     program: &AccountInfo<'info>,
     from: &AccountInfo<'info>,
     mint: &InterfaceAccount<'info, Mint>,
@@ -164,7 +164,7 @@ fn burn_as_asset<'info>(
 /// The asset thaws it with Token ACL's authority thaw; the gate's own path
 /// would call back into this program, which Solana does not allow, and the
 /// gate refuses to thaw an account the asset owns in any case.
-fn open_escrow<'info>(
+pub(crate) fn open_escrow<'info>(
     frozen: bool,
     asset: &Account<'info, Asset>,
     mint: &AccountInfo<'info>,
@@ -178,7 +178,7 @@ fn open_escrow<'info>(
     Ok(())
 }
 
-fn close_escrow<'info>(
+pub(crate) fn close_escrow<'info>(
     asset: &Account<'info, Asset>,
     mint: &AccountInfo<'info>,
     escrow: &AccountInfo<'info>,

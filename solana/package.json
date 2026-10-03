@@ -3,7 +3,7 @@
   "private": true,
   "description": "AssetFlow's Solana program: client and local-validator tests",
   "scripts": {
-    "test": "mocha --require ts-node/register --timeout 120000 tests/*.test.ts"
+    "test": "mocha --require ts-node/register --timeout 300000 tests/*.test.ts"
   },
   "dependencies": {
     "@solana/spl-token": "^0.4.14",
