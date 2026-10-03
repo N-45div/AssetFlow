@@ -35,6 +35,9 @@ const ACCOUNT = {
   PaymentRecord: [202, 168, 56, 249, 127, 226, 86, 226],
 } as const;
 
+/** A payout from before on-chain counting: 8 + 32 + 1 + 1 + 8 * 3 + 32 (root) + 8 * 5 + 4 + 1 + 1 bytes. */
+const LEGACY_PAYOUT_LEN = 144;
+
 export interface Period {
   /** Nominal accrual dates, unix seconds at UTC midnight. */
   accrualStart: number;
@@ -384,13 +387,27 @@ export class Coupons {
     r.key(); // asset
     const p = r.u8();
     const status: PayoutStatus = r.u8() === 0 ? "counting" : "counted";
+    const head = { address, period: p, status, fixedTs: Number(r.i64()), fixedSlot: r.u64(), supplyAtFix: r.u64() };
+    // Payouts made before the register was counted on-chain kept a Merkle root and its
+    // committed total where the count now sits, and had no private pool.
+    if (info.data.length === LEGACY_PAYOUT_LEN) {
+      r.bytes(32); // root
+      return {
+        ...head,
+        counted: r.u64(),
+        required: r.u64(),
+        funded: r.u64(),
+        paid: r.u64(),
+        heldBack: r.u64(),
+        payments: r.u32(),
+        privateCounted: false,
+        privateUnits: 0n,
+        privateCoupon: 0n,
+        privatePaid: false,
+      };
+    }
     return {
-      address,
-      period: p,
-      status,
-      fixedTs: Number(r.i64()),
-      fixedSlot: r.u64(),
-      supplyAtFix: r.u64(),
+      ...head,
       counted: r.u64(),
       required: r.u64(),
       funded: r.u64(),
