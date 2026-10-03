@@ -97,7 +97,8 @@ EOF
 
 stop
 trap stop EXIT INT TERM
-ID="$(sed -nE 's/^declare_id!\("([^"]+)"\);/\1/p' "$HERE/../programs/assetflow/src/lib.rs")"
+# tr: a Windows checkout gives lib.rs CRLF endings, and a trailing \r makes the id unparseable
+ID="$(sed -nE 's/^declare_id!\("([^"]+)"\);/\1/p' "$HERE/../programs/assetflow/src/lib.rs" | tr -d '\r')"
 echo "assetflow at $ID"
 ACCOUNT_ARGS=()
 for name in "${ACCOUNTS[@]}"; do ACCOUNT_ARGS+=(--account - "$MB/accounts/$name.json"); done
