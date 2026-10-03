@@ -165,12 +165,24 @@ async function rollupFor(who: Keypair) {
   return new Connection(`${QFS_URL}?token=${tokens.get(key)}`, "confirmed");
 }
 
+const sentToRollup = new Set<string>();
+
 /** Send to the rollup, through the filter, paid by the first signer. */
 async function sendRollup(ixs: TransactionInstruction[], signers: Keypair[]) {
   const er = await rollupFor(signers[0]);
-  const { blockhash, lastValidBlockHeight } = await er.getLatestBlockhash("confirmed");
-  const tx = new Transaction({ feePayer: signers[0].publicKey, blockhash, lastValidBlockHeight }).add(...ixs);
+  // The local rollup confirms in milliseconds, so a repeat of the same instructions can land in the
+  // same slot under the same blockhash: the same transaction, refused as already processed. Wait
+  // for the next blockhash instead.
+  let { blockhash, lastValidBlockHeight } = await er.getLatestBlockhash("confirmed");
+  let tx = new Transaction({ feePayer: signers[0].publicKey, blockhash, lastValidBlockHeight }).add(...ixs);
   tx.sign(...signers);
+  for (let i = 0; i < 40 && sentToRollup.has(base58(tx.signature!)); i++) {
+    await new Promise((r) => setTimeout(r, 50));
+    ({ blockhash, lastValidBlockHeight } = await er.getLatestBlockhash("confirmed"));
+    tx = new Transaction({ feePayer: signers[0].publicKey, blockhash, lastValidBlockHeight }).add(...ixs);
+    tx.sign(...signers);
+  }
+  sentToRollup.add(base58(tx.signature!));
   const signature = await er.sendRawTransaction(tx.serialize(), { skipPreflight: true });
   // web3.js resolves with the error, or rejects with it bare when its status poll sees it first
   const err = await er
