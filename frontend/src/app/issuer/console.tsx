@@ -18,9 +18,10 @@ import { Investors } from "./investors";
 import { Issuance } from "./issuance";
 import { Overview } from "./overview";
 import { Policy } from "./policy";
+import { PrivateTab } from "./private";
 import { RedemptionsTab } from "./redemptions";
 
-const TABS = ["overview", "investors", "issuance", "coupons", "redemptions", "policy"] as const;
+const TABS = ["overview", "investors", "issuance", "coupons", "private", "redemptions", "policy"] as const;
 type Tab = (typeof TABS)[number];
 
 export function IssuerConsole() {
@@ -165,6 +166,8 @@ export function IssuerConsole() {
           <Investors view={view} rows={register.rows} onChange={() => register.refresh()} />
         ) : tab === "coupons" ? (
           <CouponsTab view={view} />
+        ) : tab === "private" ? (
+          <PrivateTab view={view} />
         ) : tab === "redemptions" ? (
           <RedemptionsTab
             view={view}

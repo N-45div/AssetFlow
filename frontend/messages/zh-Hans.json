@@ -191,7 +191,19 @@
     "MaturityNotStarted": "尚未启动到期。",
     "OpenRequest": "该持有人仍有未处理的赎回申请，须先撤回。",
     "UnitsLocked": "这些单位正在等待赎回申请，无法转移。",
-    "InsufficientBalance": "此钱包持有的支付货币不足以完成此操作。"
+    "InsufficientBalance": "此钱包持有的支付货币不足以完成此操作。",
+    "CountIncomplete": "名册尚未清点全部单位：请先清点其余账户。",
+    "CountOverflow": "清点这一项会使名册超过总发行量。",
+    "PreviousPeriodOpen": "上一期票息的名册尚未清点完毕。",
+    "AlreadyCounted": "已经清点过。",
+    "PrivatePoolMismatch": "隐私托管账户的余额不等于累计存入减去累计取出。",
+    "PrivateLedgerMismatch": "该持有人的隐私账本与持仓不一致。",
+    "CheckpointRequired": "已有一期票息名册被锁定：请先在隐私账本上记录。",
+    "ValidatorNotAllowed": "隐私持仓只能委托给 MagicBlock 的隐私 rollup 验证者。",
+    "PrivateNotDelegated": "该隐私账户不在隐私 rollup 中。",
+    "PrivateAlreadyDelegated": "该隐私账户已在隐私 rollup 中。",
+    "NotProtected": "该隐私持仓尚无读取权限：请先设为隐私。",
+    "HoldingOnHold": "该隐私持仓已被合规冻结。"
   },
   "eligibility": {
     "title": "资格",
@@ -268,12 +280,15 @@
       "lede": "年利率 {rate}%，支付给每个登记日持有单位的钱包。",
       "heldBack": "已暂扣",
       "paid": "已支付",
-      "paying": "付息中",
-      "fixed": "名册已锁定",
       "est": "预估",
       "scheduled": "已排期",
       "row": "第 {n} 期",
-      "notOnRegister": "不在登记名册上"
+      "notOnRegister": "不在登记名册上",
+      "counting": "名册清点中",
+      "owed": "应付给你",
+      "funding": "等待注资",
+      "getPaid": "领取",
+      "what": "领取票息"
     },
     "redeem": {
       "title": "赎回",
@@ -322,6 +337,56 @@
       "onboard": "用我的认证入驻",
       "getVerified": "前往 {provider} 验证",
       "what": "凭认证入驻"
+    },
+    "private": {
+      "title": "隐私持仓",
+      "onHold": "已冻结",
+      "lede": "你存放在这里的单位由 MagicBlock 的隐私 rollup 持有：只有你、发行人和合规人员可以看到你的余额、隐私转账和票息。每一笔存入和取出都是 Solana 上公开的代币转移。",
+      "ledeAuditor": "你存放在这里的单位由 MagicBlock 的隐私 rollup 持有：只有你、发行人、合规人员和审计人 {auditor} 可以看到你的余额、隐私转账和票息。每一笔存入和取出都是 Solana 上公开的代币转移。",
+      "open": "开设隐私账户",
+      "openNote": "在 Solana 上的一笔交易即可开设账户并将其放入隐私 rollup。账户会占用少量 SOL 作为租金，并支付 MagicBlock 的会话费用。",
+      "openIneligible": "只有有资格持有该资产的钱包才能开设隐私账户。",
+      "onSolana": "你的持仓已回到 Solana：把全部取出到你自己的账户，或将其放回隐私 rollup。",
+      "recover": "全部取出",
+      "returnToRollup": "放回隐私 rollup",
+      "signIn": "登录以查看你的隐私持仓",
+      "signInNote": "你的钱包签署的是一条消息，不是交易。",
+      "cannotSign": "此钱包无法签署消息，而隐私 rollup 需要这一步。",
+      "signInFailed": "隐私 rollup 未接受此次登录。",
+      "loading": "正在读取你的隐私持仓…",
+      "unreadable": "隐私 rollup 不向此钱包显示该持仓。",
+      "units": "隐私单位",
+      "cash": "票息现金",
+      "publicLine": "在 Solana 上公开：累计存入 {deposited}，累计取出 {released}。",
+      "protect": "设为隐私",
+      "protectNote": "在读取权限建立之前，持仓并不隐私，因此此前不会向其记入任何单位。",
+      "credit": "记入 {units} 个已存入单位",
+      "record": "记录最新名册",
+      "recordNote": "已有一期票息名册被锁定：在任何资产再次转移之前，你的账本会记录你截至当时的存入和取出数量。任何人都可以发送此交易。",
+      "claim": "记入 {n} 期票息",
+      "release": "取出 {units} 单位和 {cash}",
+      "rearm": "准备下一次取出",
+      "settling": "正在 Solana 上结算你的取出…",
+      "depositLabel": "转入单位（你在 Solana 上持有 {units}）",
+      "deposit": "转入",
+      "sendLabel": "私下转给另一位隐私持有人",
+      "recipient": "对方钱包地址",
+      "amount": "单位",
+      "sendAmount": "要发送的单位",
+      "takeOutUnits": "要取出的单位",
+      "takeOutCash": "要取出的票息现金（美元）",
+      "send": "发送",
+      "sendNote": "你们双方今天都必须符合资格。转账永远不会超过你持有的数量：发送后请查看余额。",
+      "takeOutLabel": "取出单位或票息现金",
+      "unitsPlaceholder": "单位",
+      "cashPlaceholder": "现金（美元）",
+      "takeOut": "取出",
+      "takeOutNote": "金额到达你在 Solana 上的账户时即公开。票息现金只会发给当时符合资格的钱包。",
+      "escapeTitle": "在 rollup 不运行 AssetFlow 的情况下离开隐私 rollup",
+      "escapeBody": "请求 Solana 上 MagicBlock 的委托程序把你的持仓带回。届时你的余额会公开。如果 rollup 的验证者永久消失，它从未结算的持仓将无法恢复。",
+      "escape": "把我的持仓带回 Solana",
+      "whatSolana": "Solana 交易",
+      "whatRollup": "隐私 rollup 交易"
     }
   },
   "issuer": {
@@ -336,9 +401,10 @@
       "overview": "概览",
       "investors": "投资者",
       "issuance": "发行",
-      "policy": "合规政策",
       "coupons": "票息",
-      "redemptions": "赎回"
+      "private": "隐私持仓",
+      "redemptions": "赎回",
+      "policy": "合规政策"
     },
     "onboarding": {
       "step": "设置：第 {n} 步，共 {of} 步",
@@ -519,16 +585,16 @@
       "stage": {
         "scheduled": "已排期",
         "due": "登记日已过",
-        "fixed": "名册已锁定",
         "funding": "待注资",
         "paying": "付息中",
-        "paid": "已支付"
+        "paid": "已支付",
+        "counting": "正在清点名册"
       },
       "panelTitle": "第 {n} 期票息，计息期截至 {date}",
       "steps": {
         "record": "登记日：{when}",
-        "fix": "锁定名册（暂停转账）",
-        "commit": "提交应得权益（恢复转账）",
+        "fix": "锁定名册（暂停转账，并为本期付息定价）",
+        "count": "清点名册（恢复转账）",
         "fund": "为本期付息注资",
         "pay": "向每位持有人付息"
       },
@@ -536,33 +602,37 @@
       "funded": "已注资",
       "paid": "已支付",
       "heldBack": "已暂扣",
-      "fixedAt": "名册于区块 {slot} 锁定：流通 {units} 单位。",
+      "fixedAt": "名册锁定于第 {slot} 个槽位：流通 {units} 单位。本期付息按此定价。",
       "waiting": "等待登记日。登记日过后，任何人都可以锁定名册。",
       "fix": "锁定名册",
-      "commit": "读取名册并提交",
       "fund": "注资 {amount}",
       "lowBalance": "你的钱包持有 {balance} 支付币种。",
-      "payAll": "向全部 {n} 位持有人付息",
-      "download": "下载名册",
-      "import": "载入已保存的名册",
-      "totalMismatch": "名册合计 {read} 单位，但登记日流通量为 {supply} 单位。",
-      "rootMismatch": "此名册与链上提交的根不符，无法用于付息。",
-      "badFile": "该文件不是从本控制台保存的名册。",
+      "payAll": "支付全部 {n} 笔应付款项",
       "what": {
-        "scheduled": "本期付息",
         "due": "锁定名册",
-        "fixed": "提交应得权益",
-        "funding": "为付息注资",
-        "paying": "本期付息"
+        "funding": "为付息注资"
       },
-      "registerNote": "名册即登记日链上的记录：任何人都可以重建名册，并与已提交的根核对。",
-      "sending": "发送中…",
-      "failed": "失败",
+      "registerNote": "每一行都是在转账暂停期间，根据持有人自己的账户在链上清点的。隐私持有人在池中的份额在隐私 rollup 内结算。",
       "unpaid": "尚未支付",
       "heldBackPill": "已暂扣",
       "paidPill": "已支付",
-      "rebuild": "从链上重建",
-      "rebuildMismatch": "登记日之后持仓已有变化，链上数据已无法重建已提交的根。请载入提交时保存的名册。"
+      "countedSoFar": "已清点",
+      "countedOf": "{counted} / {supply} 单位",
+      "countNote": "任何人都可以清点名册：每个持有人账户、每笔未结赎回申请和隐私池，各计一次。清点数达到总发行量后，任何人都可以结束清点，转账随即恢复。结束暂停不需要你的任何密钥。",
+      "countBatch": "已清点 {n} 个账户",
+      "countPool": "隐私池已清点",
+      "close": "名册已结束清点，转账已恢复",
+      "recordLedgers": "已在 {n} 个隐私账本上记录本期名册",
+      "reclaim": "取回 {n} 个清点标记的租金",
+      "reclaimBatch": "已退回 {n} 个标记的租金",
+      "progress": {
+        "sent": "发送中",
+        "done": "完成",
+        "failed": "失败"
+      },
+      "poolRow": "隐私池",
+      "poolPaid": "已转入隐私现金库",
+      "countRegister": "清点名册"
     },
     "redemptions": {
       "loading": "正在读取赎回信息…",
@@ -619,6 +689,55 @@
       },
       "allEligibleRedeemed": "所有符合资格的持仓均已赎回",
       "heldNote": "{units} 单位属于目前不符合资格的持有人。单位仍归其所有，本金保留在金库中，待合规审核通过后再行赎回。"
+    },
+    "private": {
+      "loading": "正在读取隐私持仓…",
+      "unreadable": "无法读取隐私持仓。",
+      "enableTitle": "开启隐私持仓",
+      "enableLede": "开启后，持有人可以把单位存入 Solana 上的托管账户，并在 MagicBlock 的隐私 rollup 中持有自己的份额：只有他们、你、合规人员和你指定的审计人可以看到余额和隐私转账。每一笔隐私转移都受同样的资格规则约束。",
+      "validator": "隐私 rollup 验证者",
+      "validatorTee": "MagicBlock 的隐私临时 rollup，运行在 Intel TDX 可信执行环境中。程序不接受其他验证者。",
+      "validatorLocal": "MagicBlock 的本地开发验证者（solana/tests/rollup.sh）。不是可信执行环境。",
+      "auditor": "审计人（可选）",
+      "auditorPlaceholder": "钱包地址，或留空",
+      "needsTerms": "请先设置票息条款：隐私票息以其币种支付。",
+      "enable": "开启隐私持仓",
+      "enableNote": "仍然公开的：谁拥有隐私账户、每一笔存入和取出隐私持仓的操作，以及托管账户的总额。不公开的：余额、隐私转账和每位持有人的票息。",
+      "whatEnable": "开启隐私持仓",
+      "poolTitle": "隐私池",
+      "poolLede": "隐私持仓中的单位存放在资产账户拥有的托管账户中。在登记日，名册把它们作为一行清点；每位持有人的份额在 rollup 内结算。",
+      "escrow": "托管中",
+      "deposited": "累计存入",
+      "released": "累计取出",
+      "holders": "隐私账户",
+      "validatorLine": "委托给",
+      "validatorOther": "不是本网络的隐私 rollup",
+      "auditorNow": "审计人：{auditor}",
+      "auditorNone": "未指定审计人",
+      "setAuditor": "设置审计人",
+      "whatAuditor": "设置审计人",
+      "registerTitle": "隐私名册",
+      "reprotect": "重建读取权限",
+      "registerLede": "通过隐私 rollup 读取：作为发行人，你可以看到每一个隐私持仓。更换审计人或合规密钥后，请重建读取权限。",
+      "signIn": "登录隐私 rollup",
+      "signInNote": "你的钱包签署的是一条消息，不是交易：之后 rollup 会向你显示你有权读取的内容。",
+      "cannotSign": "此钱包无法签署消息，而隐私 rollup 需要这一步。",
+      "signInFailed": "隐私 rollup 未接受此次登录。",
+      "loadingRegister": "正在读取隐私名册…",
+      "empty": "尚无隐私持仓。",
+      "col": {
+        "holder": "持有人",
+        "units": "单位",
+        "cash": "票息现金",
+        "status": "状态"
+      },
+      "held": "已冻结",
+      "private": "隐私",
+      "unprotected": "尚未设为隐私",
+      "hold": "冻结",
+      "releaseHold": "解除冻结",
+      "publicNote": "冻结会阻止持仓转出或取出单位，但仍可接收。只有合规人员可以设置或解除。",
+      "whatRollup": "隐私 rollup 交易"
     }
   },
   "proof": {
@@ -663,11 +782,19 @@
       },
       "pause": {
         "title": "只有资产账户可以暂停",
-        "why": "暂停用于在登记日锁定名册；其他人无法停止转账。"
+        "why": "暂停用于在登记日锁定名册，且仅在清点期间持续；其他人无法停止转账。"
       },
       "mintAuthorityMatured": {
         "title": "已到期：任何人都无法铸造",
         "why": "到期时已移除铸造权限，AssetFlow 或任何人都无法再发行新单位。"
+      },
+      "privateValidator": {
+        "title": "隐私持仓只存在于 MagicBlock 的隐私 rollup 中",
+        "why": "每个隐私账户都委托给程序固定的可信执行环境验证者；其他 rollup 无法读取它们，也无法结算其取出。"
+      },
+      "privateEscrow": {
+        "title": "隐私托管账户恰好持有存入减去取出的数量",
+        "why": "它属于资产账户，闸门永远不会打开它，其余额始终等于存入减去取出。"
       }
     },
     "supplyTitle": "流通份额",

@@ -7,7 +7,7 @@
 //! Until the issuer answers, the holder can withdraw the request.
 //!
 //! Maturity closes the instrument. Once the last payment date has passed and
-//! every coupon's register is committed, anyone can start it: the mint
+//! every coupon's register is counted, anyone can start it: the mint
 //! authority is dropped, so no unit can ever be issued again, and the face of
 //! every unit outstanding falls due. Once the issuer has funded all of it,
 //! anyone can redeem any holding: its units burn and the face goes to its
@@ -111,13 +111,13 @@ pub fn is_matured(mint: &Mint) -> bool {
     mint.mint_authority.is_none()
 }
 
-fn asset_seeds<'a>(mint: &'a Pubkey, bump: &'a [u8; 1]) -> [&'a [u8]; 3] {
+pub(crate) fn asset_seeds<'a>(mint: &'a Pubkey, bump: &'a [u8; 1]) -> [&'a [u8]; 3] {
     [ASSET_SEED, mint.as_ref(), bump]
 }
 
 /// Move units or cash out of an account a PDA of this program owns.
 #[allow(clippy::too_many_arguments)]
-fn transfer_signed<'info>(
+pub(crate) fn transfer_signed<'info>(
     program: &AccountInfo<'info>,
     from: &AccountInfo<'info>,
     mint: &InterfaceAccount<'info, Mint>,
@@ -164,7 +164,7 @@ fn burn_as_asset<'info>(
 /// The asset thaws it with Token ACL's authority thaw; the gate's own path
 /// would call back into this program, which Solana does not allow, and the
 /// gate refuses to thaw an account the asset owns in any case.
-fn open_escrow<'info>(
+pub(crate) fn open_escrow<'info>(
     frozen: bool,
     asset: &Account<'info, Asset>,
     mint: &AccountInfo<'info>,
@@ -178,7 +178,7 @@ fn open_escrow<'info>(
     Ok(())
 }
 
-fn close_escrow<'info>(
+pub(crate) fn close_escrow<'info>(
     asset: &Account<'info, Asset>,
     mint: &AccountInfo<'info>,
     escrow: &AccountInfo<'info>,
@@ -345,7 +345,7 @@ pub fn begin_maturity(ctx: Context<StartMaturity>) -> Result<()> {
             AssetFlowError::CouponsOutstanding
         );
         let payout = Payout::try_deserialize(&mut &info.try_borrow_data()?[..])?;
-        require!(payout.status == PayoutStatus::Committed, AssetFlowError::CouponsOutstanding);
+        require!(payout.status == PayoutStatus::Counted, AssetFlowError::CouponsOutstanding);
     }
 
     let bump = [a.asset.bump];

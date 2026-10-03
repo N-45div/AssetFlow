@@ -3,6 +3,9 @@
 #
 #   wsl bash solana/build.sh          # compile to SBF
 #   wsl bash solana/build.sh --ids    # print the program id and exit
+#   wsl bash solana/build.sh --features local-rollup
+#                                     # a build for tests/rollup.sh: private holdings
+#                                     # also accept MagicBlock's local validator
 #
 # Run from WSL. The Rust target directory stays on the Linux filesystem:
 # building under /mnt/c goes through the 9p bridge and is many times slower.
@@ -31,5 +34,5 @@ echo "assetflow = $id"
 [ "${1:-}" = "--ids" ] && exit 0
 
 cd "$HERE"
-cargo build-sbf
+cargo build-sbf "$@"
 ls -la "$CARGO_TARGET_DIR"/sbpf*/release/assetflow.so 2>/dev/null || ls -la "$DEPLOY"/*.so

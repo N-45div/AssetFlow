@@ -190,8 +190,8 @@ export function RedemptionsTab({ view, rows, onChange }: { view: AssetView; rows
   };
 
   const due = maturityDate(terms);
-  const committed = payouts.filter((p) => p?.status === "committed").length;
-  const ready = now >= due && committed === terms.periods.length;
+  const counted = payouts.filter((p) => p?.status === "counted").length;
+  const ready = now >= due && counted === terms.periods.length;
   const outstanding = rows?.reduce((s, r) => s + r.units, 0n) ?? 0n;
   // Units of holders who are not eligible stay put until compliance clears them.
   const held = rows?.filter((r) => !r.eligible).reduce((s, r) => s + r.units, 0n) ?? 0n;
@@ -291,7 +291,7 @@ export function RedemptionsTab({ view, rows, onChange }: { view: AssetView; rows
             </p>
             <ul className="mt-4 space-y-2">
               {check(now >= due, t("checkDate", { date: date(due) }))}
-              {check(committed === terms.periods.length, t("checkCoupons", { done: committed, of: terms.periods.length }))}
+              {check(counted === terms.periods.length, t("checkCoupons", { done: counted, of: terms.periods.length }))}
             </ul>
             {open.length > 0 && <p className="mt-3 text-xs text-ink-3">{t("openAtMaturity", { n: open.length })}</p>}
             <button className="btn btn-primary mt-4" disabled={tx.busy || !ready} onClick={start}>

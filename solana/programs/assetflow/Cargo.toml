@@ -18,6 +18,11 @@ no-log-ix-name = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 # Referenced inside Anchor's derive macros; declared so rustc stops warning.
 anchor-debug = []
+custom-heap = []
+custom-panic = []
+# Also accept MagicBlock's local development validator for private holdings:
+# its key is public, so only a build for local tests may.
+local-rollup = []
 
 [dependencies]
 anchor-lang = { version = "1.2.0", features = ["init-if-needed"] }
@@ -26,5 +31,6 @@ anchor-spl = "1.2.0"
 # gate needs (asset, registry, investor profile) for a thaw or freeze.
 spl-tlv-account-resolution = "0.11"
 spl-discriminator = "0.5"
-# sha256 for the coupon Merkle tree; the syscall on-chain, a software hash in unit tests.
-solana-sha256-hasher = "3.1"
+# MagicBlock: delegating private holdings to the private rollup, their read
+# permissions, and committing exit tickets back to Solana.
+ephemeral-rollups-sdk = { version = "0.17.3", features = ["anchor", "access-control", "instruction"] }

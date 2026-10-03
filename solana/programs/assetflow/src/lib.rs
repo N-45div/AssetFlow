@@ -32,6 +32,7 @@ use anchor_spl::token_2022::spl_token_2022::{
 };
 use anchor_spl::token_2022::Token2022;
 use anchor_spl::token_interface::{self, Mint, MintTo, TokenAccount};
+use ephemeral_rollups_sdk::anchor::ephemeral;
 use spl_discriminator::SplDiscriminate;
 use spl_tlv_account_resolution::{
     account::ExtraAccountMeta, pubkey_data::PubkeyData, seeds::Seed, state::ExtraAccountMetaList,
@@ -43,6 +44,8 @@ pub mod redemptions;
 pub use redemptions::*;
 pub mod kyc;
 pub use kyc::*;
+pub mod private;
+pub use private::*;
 
 declare_id!("BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR");
 
@@ -85,6 +88,7 @@ pub struct ThawQuestion;
 #[discriminator_hash_input("efficient-allow-block-list-standard:can-freeze-permissionless")]
 pub struct FreezeQuestion;
 
+#[ephemeral]
 #[program]
 pub mod assetflow {
     use super::*;
@@ -333,164 +337,59 @@ pub mod assetflow {
     }
 
     /// Fix the register for a period: once the record date has passed anyone
-    /// may pause the mint, so no unit moves while the holders are read.
+    /// may pause the mint, so no unit moves while the holders are counted.
+    /// The payment is priced from the supply now, and its vault opened.
     pub fn fix_register(ctx: Context<FixRegister>, period: u8) -> Result<()> {
-        let schedule = *ctx
-            .accounts
-            .terms
-            .periods
-            .get(period as usize)
-            .ok_or(error!(AssetFlowError::InvalidPeriod))?;
-        let clock = Clock::get()?;
-        require!(clock.unix_timestamp >= schedule.record_ts, AssetFlowError::RecordDateNotReached);
-        let mint = ctx.accounts.mint.to_account_info();
-        let (supply, paused) = mint_supply_and_paused(&mint)?;
-        require!(!paused, AssetFlowError::RegisterWindowOpen);
-        set_paused(true, &ctx.accounts.token_program, &mint, &ctx.accounts.asset)?;
-
-        let payout = &mut ctx.accounts.payout;
-        payout.asset = ctx.accounts.asset.key();
-        payout.period = period;
-        payout.status = PayoutStatus::RegisterFixed;
-        payout.fixed_ts = clock.unix_timestamp;
-        payout.fixed_slot = clock.slot;
-        payout.supply_at_fix = supply;
-        payout.bump = ctx.bumps.payout;
-        emit!(RegisterFixed { asset: payout.asset, period, supply, slot: clock.slot });
-        Ok(())
+        coupons::fix(ctx, period)
     }
 
-    /// Commit who is entitled to what: a Merkle root over (holder, units) and
-    /// the total, which must be the whole supply at the fix. The cost of the
-    /// payment is computed here from the terms, and the mint resumes.
-    pub fn commit_entitlements(
-        ctx: Context<CommitEntitlements>,
-        period: u8,
-        root: [u8; 32],
-        total_units: u64,
-    ) -> Result<()> {
-        require!(
-            ctx.accounts.payout.status == PayoutStatus::RegisterFixed,
-            AssetFlowError::WrongPayoutStatus
-        );
-        require!(total_units == ctx.accounts.payout.supply_at_fix, AssetFlowError::TotalMismatch);
-        let schedule = ctx.accounts.terms.periods[period as usize];
-        let required = coupon_amount(&ctx.accounts.terms, &schedule, total_units)?;
-        let mint = ctx.accounts.mint.to_account_info();
-        set_paused(false, &ctx.accounts.token_program, &mint, &ctx.accounts.asset)?;
+    /// Anyone: count one holder account into the register.
+    pub fn count_holding(ctx: Context<CountHolding>, period: u8) -> Result<()> {
+        coupons::count_account(ctx, period)
+    }
 
-        let payout = &mut ctx.accounts.payout;
-        payout.root = root;
-        payout.total_units = total_units;
-        payout.required = required;
-        payout.status = PayoutStatus::Committed;
-        payout.vault_bump = ctx.bumps.vault;
-        emit!(EntitlementsCommitted { asset: payout.asset, period, root, total_units, required });
-        Ok(())
+    /// Anyone: count the units an open redemption request has in escrow to
+    /// the holder who asked.
+    pub fn count_redemption(ctx: Context<CountRedemption>, period: u8) -> Result<()> {
+        coupons::count_request(ctx, period)
+    }
+
+    /// Anyone: count the private escrow as one line of the register.
+    pub fn count_private_pool(ctx: Context<CountPrivatePool>, period: u8) -> Result<()> {
+        coupons::count_pool(ctx, period)
+    }
+
+    /// Anyone, once the count adds up to the supply: the register is on
+    /// record and the mint resumes. No key is needed to end the pause.
+    pub fn close_register(ctx: Context<CloseRegister>, period: u8) -> Result<()> {
+        coupons::close_count(ctx, period)
     }
 
     /// Put money in a payment's own vault. Counted as what the vault actually
     /// received, so a currency that charges a fee cannot inflate it.
     pub fn fund_payout(ctx: Context<FundPayout>, period: u8, amount: u64) -> Result<()> {
-        require!(amount > 0, AssetFlowError::InvalidAmount);
-        require!(
-            ctx.accounts.payout.status == PayoutStatus::Committed,
-            AssetFlowError::WrongPayoutStatus
-        );
-        let before = ctx.accounts.vault.amount;
-        token_interface::transfer_checked(
-            CpiContext::new(
-                ctx.accounts.currency_program.key(),
-                token_interface::TransferChecked {
-                    from: ctx.accounts.source.to_account_info(),
-                    mint: ctx.accounts.currency_mint.to_account_info(),
-                    to: ctx.accounts.vault.to_account_info(),
-                    authority: ctx.accounts.funder.to_account_info(),
-                },
-            ),
-            amount,
-            ctx.accounts.currency_mint.decimals,
-        )?;
-        ctx.accounts.vault.reload()?;
-        let received = ctx
-            .accounts
-            .vault
-            .amount
-            .checked_sub(before)
-            .ok_or(error!(AssetFlowError::MathOverflow))?;
-        let payout = &mut ctx.accounts.payout;
-        payout.funded = payout.funded.checked_add(received).ok_or(error!(AssetFlowError::MathOverflow))?;
-        emit!(PayoutFunded { asset: payout.asset, period, amount: received, funded: payout.funded });
-        Ok(())
+        coupons::fund(ctx, period, amount)
     }
 
-    /// Pay one holder their coupon. Anyone may send this: the holder proves
-    /// their units against the committed root, the program computes the
-    /// amount, and a holder who is not eligible today has it held back in the
-    /// vault instead. Nothing is paid until the payment is fully funded, so
-    /// holders paid first and holders paid last are treated the same.
-    pub fn pay_entitlement(
-        ctx: Context<PayEntitlement>,
-        period: u8,
-        holder: Pubkey,
-        units: u64,
-        proof: Vec<[u8; 32]>,
-    ) -> Result<()> {
-        let payout_key = ctx.accounts.payout.key();
-        {
-            let payout = &ctx.accounts.payout;
-            require!(payout.status == PayoutStatus::Committed, AssetFlowError::WrongPayoutStatus);
-            require!(payout.funded >= payout.required, AssetFlowError::Underfunded);
-            require!(
-                verify_proof(&proof, &payout.root, coupons::leaf(&payout_key, &holder, units)),
-                AssetFlowError::InvalidProof
-            );
-        }
-        let schedule = ctx.accounts.terms.periods[period as usize];
-        let amount = coupon_amount(&ctx.accounts.terms, &schedule, units)?;
-        let eligible = holder_is_eligible(
-            &ctx.accounts.asset.key(),
-            &ctx.accounts.registry,
-            &holder,
-            &ctx.accounts.investor.to_account_info(),
-        )?;
-        {
-            let payout = &ctx.accounts.payout;
-            let committed = payout
-                .paid
-                .checked_add(payout.held_back)
-                .and_then(|v| v.checked_add(amount))
-                .ok_or(error!(AssetFlowError::MathOverflow))?;
-            require!(committed <= payout.funded, AssetFlowError::Overdrawn);
-        }
-        if eligible && amount > 0 {
-            pay_from_vault(
-                &ctx.accounts.payout,
-                &ctx.accounts.mint.key(),
-                &ctx.accounts.vault,
-                &ctx.accounts.destination,
-                &ctx.accounts.currency_mint,
-                &ctx.accounts.currency_program,
-                amount,
-            )?;
-        }
+    /// Pay one holder their coupon. Anyone may send this: the program reads
+    /// what the holder was counted for, computes the amount, and a holder who
+    /// is not eligible today has it held back in the vault instead. Nothing is
+    /// paid until the payment is fully funded, so holders paid first and
+    /// holders paid last are treated the same.
+    pub fn pay_entitlement(ctx: Context<PayEntitlement>, period: u8, holder: Pubkey) -> Result<()> {
+        coupons::pay(ctx, period, holder)
+    }
 
-        let payout = &mut ctx.accounts.payout;
-        if eligible {
-            payout.paid += amount;
-        } else {
-            payout.held_back += amount;
-        }
-        payout.payments += 1;
-        let record = &mut ctx.accounts.record;
-        record.payout = payout_key;
-        record.holder = holder;
-        record.units = units;
-        record.amount = amount;
-        record.held_back = !eligible;
-        record.ts = Clock::get()?.unix_timestamp;
-        emit!(CouponPaid { asset: payout.asset, period, holder, units, amount, held_back: !eligible });
-        Ok(())
+    /// Anyone: move the private pool's coupon into the private cash vault,
+    /// where each private holder's share is credited inside the rollup.
+    pub fn pay_private_pool(ctx: Context<PayPrivatePool>, period: u8) -> Result<()> {
+        coupons::pay_pool(ctx, period)
+    }
+
+    /// Anyone, once the register is counted: return a counted marker's rent
+    /// to whoever paid it.
+    pub fn release_counted(ctx: Context<ReleaseCounted>, _period: u8, _source: Pubkey) -> Result<()> {
+        coupons::release_marker(ctx)
     }
 
     /// Ask to redeem units early. They move into the asset's escrow until the
@@ -518,7 +417,7 @@ pub mod assetflow {
     }
 
     /// Anyone, once the last payment date has passed and every coupon's
-    /// register is committed: no unit can be issued again, and the face of
+    /// register is counted: no unit can be issued again, and the face of
     /// every unit outstanding falls due.
     pub fn start_maturity(ctx: Context<StartMaturity>) -> Result<()> {
         redemptions::begin_maturity(ctx)
@@ -533,6 +432,96 @@ pub mod assetflow {
     /// its owner the face. A holder who is not eligible keeps their units.
     pub fn redeem_at_maturity(ctx: Context<RedeemAtMaturity>) -> Result<()> {
         redemptions::redeem_holding(ctx)
+    }
+
+    /// The issuer opens private holdings for an asset: an escrow for the
+    /// units, a vault for their coupons, and the rollup they live in, which
+    /// must be MagicBlock's private (TEE) validator.
+    pub fn enable_private_holdings(ctx: Context<EnablePrivateHoldings>, validator: Pubkey, auditor: Pubkey) -> Result<()> {
+        private::enable_holdings(ctx, validator, auditor)
+    }
+
+    /// The issuer names (or, with the default key, removes) the auditor who
+    /// may read every private holding.
+    pub fn set_private_auditor(ctx: Context<SetPrivateAuditor>, auditor: Pubkey) -> Result<()> {
+        private::set_auditor(ctx, auditor)
+    }
+
+    /// An eligible holder opens their private account: a public ledger, a
+    /// holding and an exit ticket, starting at the first register not yet
+    /// fixed.
+    pub fn open_private(ctx: Context<OpenPrivate>, next_period: u8) -> Result<()> {
+        private::open_holding(ctx, next_period)
+    }
+
+    /// The holder puts their holding in the rollup.
+    pub fn delegate_private_holding(ctx: Context<DelegatePrivateHolding>) -> Result<()> {
+        private::delegate_holding(ctx)
+    }
+
+    /// The holder puts their exit ticket in the rollup, ready for an exit.
+    pub fn delegate_private_exit(ctx: Context<DelegatePrivateExit>) -> Result<()> {
+        private::delegate_exit(ctx)
+    }
+
+    /// The holder moves units from their account into the private escrow.
+    pub fn deposit_private(ctx: Context<DepositPrivate>, units: u64) -> Result<()> {
+        private::deposit_units(ctx, units)
+    }
+
+    /// Anyone, once a register is fixed: record on a holder's ledger what they
+    /// had deposited and released by then.
+    pub fn checkpoint_private_ledger(ctx: Context<CheckpointPrivateLedger>) -> Result<()> {
+        private::checkpoint_ledger(ctx)
+    }
+
+    /// Anyone: pay out what a settled exit ticket says the holder withdrew.
+    pub fn release_private(ctx: Context<ReleasePrivate>) -> Result<()> {
+        private::release_exit(ctx)
+    }
+
+    /// The holder asks the delegation program to bring their holding back to
+    /// Solana, whether or not the rollup runs AssetFlow's instructions.
+    pub fn request_private_exit(ctx: Context<RequestPrivateExit>) -> Result<()> {
+        private::request_exit(ctx)
+    }
+
+    /// Anyone, once a holding is back on Solana: pay out everything in it.
+    pub fn recover_private(ctx: Context<RecoverPrivate>) -> Result<()> {
+        private::recover_holding(ctx)
+    }
+
+    /// Rollup, anyone: give a holding its read permission (holder, issuer,
+    /// compliance, auditor), or rebuild it after a key changed.
+    pub fn protect_private(ctx: Context<ProtectPrivate>) -> Result<()> {
+        private::protect_holding(ctx)
+    }
+
+    /// Rollup, anyone: credit a holding with what its holder deposited.
+    pub fn credit_private(ctx: Context<CreditPrivate>) -> Result<()> {
+        private::credit_deposits(ctx)
+    }
+
+    /// Rollup, the sender: move units to another eligible holder's holding.
+    pub fn transfer_private(ctx: Context<TransferPrivate>, units: u64) -> Result<()> {
+        private::transfer_units(ctx, units)
+    }
+
+    /// Rollup, the holder: take units and coupon cash out, settling the exit
+    /// ticket on Solana.
+    pub fn withdraw_private(ctx: Context<WithdrawPrivate>, units: u64, cash: u64) -> Result<()> {
+        private::withdraw_units(ctx, units, cash)
+    }
+
+    /// Rollup (or Solana, for a holding back there), anyone: credit a holding
+    /// with its coupon for a period whose private pool has been paid.
+    pub fn claim_private_coupon(ctx: Context<ClaimPrivateCoupon>, period: u8) -> Result<()> {
+        private::claim_coupon(ctx, period)
+    }
+
+    /// Compliance puts a private holding on hold, or lifts the hold.
+    pub fn hold_private(ctx: Context<HoldPrivate>, hold: bool) -> Result<()> {
+        private::set_hold(ctx, hold)
     }
 
     /// Name the SAS credential and schema this registry trusts for investor
@@ -1078,7 +1067,7 @@ pub enum AssetFlowError {
     AssetMatured,
     #[msg("the asset has not reached its maturity date")]
     MaturityNotReached,
-    #[msg("every coupon's register must be committed before maturity")]
+    #[msg("every coupon's register must be counted before maturity")]
     CouponsOutstanding,
     #[msg("the redemption request is no longer open")]
     RequestClosed,
@@ -1098,4 +1087,28 @@ pub enum AssetFlowError {
     WrongSchemaLayout,
     #[msg("the attestation still vouches for this investor")]
     StillAttested,
+    #[msg("the register has not counted every unit of the supply yet")]
+    CountIncomplete,
+    #[msg("counting this would take the register past the supply")]
+    CountOverflow,
+    #[msg("the previous coupon's register is not counted yet")]
+    PreviousPeriodOpen,
+    #[msg("already counted")]
+    AlreadyCounted,
+    #[msg("the private escrow does not hold what was deposited less what was released")]
+    PrivatePoolMismatch,
+    #[msg("a holder's private ledger and holding disagree")]
+    PrivateLedgerMismatch,
+    #[msg("a register was fixed: record it on the holder's private ledger first")]
+    CheckpointRequired,
+    #[msg("private holdings go only to MagicBlock's private rollup validator")]
+    ValidatorNotAllowed,
+    #[msg("the private account is not in the rollup")]
+    PrivateNotDelegated,
+    #[msg("the private account is already in the rollup")]
+    PrivateAlreadyDelegated,
+    #[msg("the private holding has no read permission yet")]
+    NotProtected,
+    #[msg("the private holding is on a compliance hold")]
+    HoldingOnHold,
 }

@@ -11,6 +11,7 @@ import {
   getDefaultAccountState,
   getExtensionTypes,
   getMint,
+  getAccount,
   getPausableConfig,
   getPermanentDelegate,
 } from "@solana/spl-token";
@@ -18,6 +19,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { PageShell } from "@/components/page-shell";
 import { assetFromQuery, PROGRAM_ID } from "@/lib/chain/config";
 import { explorer, shortKey } from "@/lib/chain/explorer";
+import { Coupons } from "@/lib/chain/coupons";
+import { PrivateHoldings, ROLLUP_VALIDATOR } from "@/lib/chain/private";
 import { TokenAcl, TOKEN_ACL_ID } from "@/lib/chain/program";
 import { Redemptions } from "@/lib/chain/redemptions";
 import { formatUnits, program } from "@/lib/chain/use-asset";
@@ -55,13 +58,22 @@ export function ProofView() {
     (async (): Promise<Proof | null> => {
       const asset = program.assetAddress(mint);
       const mintConfig = TokenAcl.mintConfig(mint);
-      const [info, configInfo, assetAccount, maturity] = await Promise.all([
+      const coupons = new Coupons(PROGRAM_ID);
+      const holdings = new PrivateHoldings(PROGRAM_ID);
+      const [info, configInfo, assetAccount, maturity, terms, pool] = await Promise.all([
         getMint(connection, mint, "confirmed", TOKEN_2022_PROGRAM_ID),
         connection.getAccountInfo(mintConfig),
         program.fetchAsset(connection, mint),
         new Redemptions(PROGRAM_ID).fetchMaturity(connection, mint),
+        coupons.fetchTerms(connection, mint),
+        holdings.fetchPool(connection, mint),
       ]);
       if (!assetAccount) return null;
+      // A pause is expected only while a coupon's register is being counted.
+      const payouts = terms ? await Promise.all(terms.periods.map((_, i) => coupons.fetchPayout(connection, mint, i))) : [];
+      const counting = payouts.find((p) => p?.status === "counting");
+      const paused = !!getPausableConfig(info)?.paused;
+      const escrow = pool ? await getAccount(connection, pool.escrow, "confirmed", TOKEN_2022_PROGRAM_ID) : null;
       const config = configInfo?.owner.equals(TOKEN_ACL_ID) ? decodeMintConfig(configInfo.data) : null;
       const same = (a: PublicKey | null | undefined, b: PublicKey) => !!a && a.equals(b);
       const checks: Check[] = [
@@ -86,9 +98,21 @@ export function ProofView() {
         { id: "delegate", pass: same(getPermanentDelegate(info)?.delegate, asset), evidence: asset.toBase58() },
         {
           id: "pause",
-          pass: same(getPausableConfig(info)?.authority, asset) && !getPausableConfig(info)?.paused,
-          evidence: asset.toBase58(),
+          pass: same(getPausableConfig(info)?.authority, asset) && (!paused || !!counting),
+          evidence: (paused && counting ? counting.address : asset).toBase58(),
         },
+        // Private holdings, where the asset has them: only MagicBlock's private
+        // rollup holds them, and the escrow holds exactly what went in less what came out.
+        ...(pool && escrow
+          ? [
+              { id: "privateValidator", pass: pool.validator.equals(ROLLUP_VALIDATOR), evidence: pool.address.toBase58() },
+              {
+                id: "privateEscrow",
+                pass: escrow.owner.equals(asset) && escrow.amount === pool.totalDeposited - pool.totalReleased,
+                evidence: pool.escrow.toBase58(),
+              },
+            ]
+          : []),
       ];
       const extensions = getExtensionTypes(info.tlvData).map((e) => ExtensionType[e]);
       return { checks, extensions, supply: info.supply, decimals: info.decimals };

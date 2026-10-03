@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, Transaction } from "@solana/web3.js";
+import { PublicKey, Transaction, type TransactionInstruction } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
@@ -18,21 +18,25 @@ import {
   Coupons,
   couponAmount,
   days30360,
-  entitlementTree,
-  readRegister,
-  type Entitlement,
+  registerSources,
+  type CountedEntitlement,
+  type PaymentRecord,
   type Payout,
   type Period,
   type Terms,
 } from "@/lib/chain/coupons";
 import { explorer, shortKey } from "@/lib/chain/explorer";
+import { PrivateHoldings, type PrivatePool } from "@/lib/chain/private";
 import { Redemptions } from "@/lib/chain/redemptions";
 import type { AssetView } from "@/lib/chain/use-asset";
 import { useTransaction } from "@/lib/chain/use-transaction";
 
 const coupons = new Coupons(PROGRAM_ID);
 const redemptions = new Redemptions(PROGRAM_ID);
+const privateHoldings = new PrivateHoldings(PROGRAM_ID);
 const DAY = 86_400;
+/** Count instructions per transaction: each adds three accounts. */
+const COUNTS_PER_TX = 4;
 
 export function money(amount: bigint, decimals: number, locale: string) {
   return new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(Number(amount) / 10 ** decimals);
@@ -43,32 +47,8 @@ const dateOf = (ts: number, locale: string) =>
 const timeOf = (ts: number, locale: string) =>
   new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(ts * 1000);
 
-/** The register committed for a payment, kept where the issuer can pay from it later. */
-const registerKey = (payout: PublicKey) => `assetflow:register:${payout.toBase58()}`;
-function saveRegister(payout: PublicKey, entitlements: Entitlement[]) {
-  try {
-    localStorage.setItem(
-      registerKey(payout),
-      JSON.stringify(entitlements.map((e) => ({ holder: e.holder.toBase58(), units: e.units.toString() }))),
-    );
-  } catch {
-    // storage unavailable: the download below still works
-  }
-}
-function parseRegister(text: string): Entitlement[] {
-  return (JSON.parse(text) as { holder: string; units: string }[]).map((e) => ({
-    holder: new PublicKey(e.holder),
-    units: BigInt(e.units),
-  }));
-}
-function loadRegister(payout: PublicKey): Entitlement[] | null {
-  try {
-    const text = localStorage.getItem(registerKey(payout));
-    return text ? parseRegister(text) : null;
-  } catch {
-    return null;
-  }
-}
+const chunk = <T,>(items: T[], size: number) =>
+  Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, (i + 1) * size));
 
 export function CouponsTab({ view }: { view: AssetView }) {
   const { connection } = useConnection();
@@ -258,11 +238,11 @@ function TermsForm({ view, onDone }: { view: AssetView; onDone: () => void }) {
   );
 }
 
-type Stage = "scheduled" | "due" | "fixed" | "funding" | "paying";
+type Stage = "scheduled" | "due" | "counting" | "funding" | "paying";
 
 function stageOf(period: Period, payout: Payout | null, now: number): Stage {
   if (!payout) return now >= period.recordTs ? "due" : "scheduled";
-  if (payout.status === "registerFixed") return "fixed";
+  if (payout.status === "counting") return "counting";
   if (payout.funded < payout.required) return "funding";
   return "paying";
 }
@@ -289,7 +269,7 @@ function Schedule({
   }, []);
   const active = terms.periods.findIndex((p, i) => {
     const payout = payouts[i];
-    return !payout || payout.status !== "committed" || payout.funded < payout.required || payout.paid + payout.heldBack < payout.required;
+    return !payout || payout.status !== "counted" || payout.funded < payout.required || payout.paid + payout.heldBack < payout.required;
   });
   const [selected, setSelected] = useState<number | null>(null);
   const current = selected ?? (active === -1 ? terms.periods.length - 1 : active);
@@ -325,8 +305,8 @@ function Schedule({
               {terms.periods.map((p, i) => {
                 const payout = payouts[i] ?? null;
                 const stage = stageOf(p, payout, now);
-                const done = payout && payout.funded >= payout.required && payout.paid + payout.heldBack >= payout.required && payout.status === "committed";
-                const cost = payout?.status === "committed" ? payout.required : couponAmount(terms, p, view.supply);
+                const done = payout && payout.funded >= payout.required && payout.paid + payout.heldBack >= payout.required && payout.status === "counted";
+                const cost = payout ? payout.required : couponAmount(terms, p, view.supply);
                 return (
                   <tr
                     key={i}
@@ -366,6 +346,8 @@ function Schedule({
   );
 }
 
+type Progress = { label: string; signature?: string; state: "sent" | "done" | "failed" };
+
 function PaymentPanel({
   view,
   terms,
@@ -389,16 +371,27 @@ function PaymentPanel({
   const { publicKey, signAllTransactions, sendTransaction } = useWallet();
   const tx = useTransaction();
   const [balance, setBalance] = useState<bigint | null>(null);
-  const [register, setRegister] = useState<Entitlement[] | null>(null);
-  const [progress, setProgress] = useState<{ holder: string; signature?: string; state: "sent" | "done" | "failed" | "skipped" }[]>([]);
-  const [paying, setPaying] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [unpaid, setUnpaid] = useState<CountedEntitlement[] | null>(null);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [myMarkers, setMyMarkers] = useState<PublicKey[]>([]);
+  const [pool, setPool] = useState<PrivatePool | null>(null);
+  const [progress, setProgress] = useState<Progress[]>([]);
+  const [working, setWorking] = useState(false);
+  // What the receipt is about: the step that was sent, not the stage the payment is in now.
+  const [what, setWhat] = useState("");
   const schedule = terms.periods[period];
   const stage = stageOf(schedule, payout, now);
   const cur = (v: bigint) => money(v, terms.currencyDecimals, locale);
+  const mint = view.asset.mint;
+  const asset = view.asset.address;
   // One PublicKey per payment, not one per render: effects below depend on it.
-  const mintAddress = view.asset.mint.toBase58();
+  const mintAddress = mint.toBase58();
   const payoutKey = useMemo(() => coupons.payout(new PublicKey(mintAddress), period), [mintAddress, period]);
+  const counted = payout?.status === "counted";
+  const poolOwed = !!payout && payout.privateCounted && payout.privateUnits > 0n && !payout.privatePaid;
+  const funded = !!payout && payout.funded >= payout.required;
+  const settled = counted && funded && unpaid !== null && unpaid.length === 0 && !poolOwed;
+  const owed = (unpaid?.length ?? 0) + (poolOwed ? 1 : 0);
 
   useEffect(() => {
     if (!publicKey) return;
@@ -408,140 +401,142 @@ function PaymentPanel({
       .catch(() => setBalance(0n));
   }, [connection, publicKey, terms.currencyMint, currencyProgram, payout?.status, payout?.funded]);
 
+  // The register as the chain records it: entitlements still unpaid, the
+  // coupons already paid or held back, and the markers this wallet paid for.
   useEffect(() => {
-    setRegister(loadRegister(payoutKey));
-  }, [payoutKey]);
+    let live = true;
+    const me = publicKey?.toBase58();
+    Promise.all([
+      payout ? coupons.fetchEntitlements(connection, payoutKey) : Promise.resolve(null),
+      payout ? coupons.fetchPayments(connection, payoutKey) : Promise.resolve([]),
+      payout?.status === "counted" ? coupons.fetchMarkers(connection, payoutKey) : Promise.resolve([]),
+      privateHoldings.fetchPool(connection, new PublicKey(mintAddress)),
+    ])
+      .then(([entitlements, paid, markers, foundPool]) => {
+        if (!live) return;
+        setUnpaid(entitlements);
+        setPayments(paid);
+        setMyMarkers(markers.filter((m) => m.payer.toBase58() === me).map((m) => m.source));
+        setPool(foundPool);
+      })
+      .catch(() => live && setUnpaid(null));
+    return () => {
+      live = false;
+    };
+  }, [connection, publicKey, payoutKey, mintAddress, payout, payout?.status, payout?.counted, payout?.payments, payout?.privatePaid]);
 
-  const fix = async () => {
+  /**
+   * Sign a batch of transactions at once and send them one after another,
+   * each confirmed before the next: anyone could send these, the issuer is
+   * simply the one who does.
+   */
+  const sendAll = async (groups: { label: string; ixs: TransactionInstruction[] }[]) => {
     if (!publicKey) return;
-    const r = await tx.run([coupons.fixRegister(publicKey, view.asset.mint, period)]);
-    if (r.status === "confirmed") onChange();
-  };
-
-  const commit = async () => {
-    if (!publicKey || !payout) return;
-    setProblem(null);
-    const entitlements = await readRegister(
-      connection,
-      view.asset.mint,
-      view.asset.address,
-      await redemptions.pending(connection, view.asset.address),
-    );
-    const total = entitlements.reduce((s, e) => s + e.units, 0n);
-    if (total !== payout.supplyAtFix) {
-      setProblem(t("totalMismatch", { read: total.toString(), supply: payout.supplyAtFix.toString() }));
-      return;
-    }
-    const tree = await entitlementTree(payoutKey, entitlements);
-    saveRegister(payoutKey, entitlements);
-    setRegister(entitlements);
-    const r = await tx.run([
-      coupons.commitEntitlements(publicKey, view.asset.mint, period, terms.currencyMint, currencyProgram, tree.root, total),
-    ]);
-    if (r.status === "confirmed") onChange();
-  };
-
-  const fund = async () => {
-    if (!publicKey || !payout) return;
-    const source = getAssociatedTokenAddressSync(terms.currencyMint, publicKey, false, currencyProgram);
-    const r = await tx.run([
-      coupons.fundPayout(publicKey, view.asset.mint, period, terms.currencyMint, currencyProgram, source, payout.required - payout.funded),
-    ]);
-    if (r.status === "confirmed") onChange();
-  };
-
-  // Pay every holder in the committed register, one transaction each, signed
-  // together: anyone could send these, the issuer is simply the one who does.
-  const payAll = async () => {
-    if (!publicKey || !payout || !register) return;
-    setProblem(null);
-    const tree = await entitlementTree(payoutKey, register);
-    if (!tree.root.equals(payout.root)) {
-      setProblem(t("rootMismatch"));
-      return;
-    }
-    setPaying(true);
-    const pending: { entitlement: Entitlement; proof: Buffer[] }[] = [];
-    const rows: typeof progress = [];
-    for (let i = 0; i < register.length; i++) {
-      const e = register[i];
-      const done = await coupons.fetchPayment(connection, payoutKey, e.holder);
-      if (done) rows.push({ holder: e.holder.toBase58(), state: "skipped" });
-      else pending.push({ entitlement: e, proof: tree.proofs[i] });
-    }
-    setProgress([...rows]);
-    try {
+    const rows: Progress[] = [];
+    setProgress([]);
+    for (const part of chunk(groups, 10)) {
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-      const txs = pending.map(({ entitlement: e, proof }) => {
-        const destination = getAssociatedTokenAddressSync(terms.currencyMint, e.holder, true, currencyProgram);
-        return new Transaction({ feePayer: publicKey, blockhash, lastValidBlockHeight }).add(
-          createAssociatedTokenAccountIdempotentInstruction(publicKey, destination, e.holder, terms.currencyMint, currencyProgram),
-          coupons.payEntitlement(publicKey, view.registry.address, view.asset.mint, period, terms.currencyMint, currencyProgram, destination, e.holder, e.units, proof),
-        );
-      });
+      const txs = part.map((g) => new Transaction({ feePayer: publicKey, blockhash, lastValidBlockHeight }).add(...g.ixs));
       const signed = signAllTransactions ? await signAllTransactions(txs) : null;
       for (let i = 0; i < txs.length; i++) {
-        const holder = pending[i].entitlement.holder.toBase58();
+        const label = part[i].label;
         try {
-          const signature = signed
-            ? await connection.sendRawTransaction(signed[i].serialize())
-            : await sendTransaction(txs[i], connection);
-          rows.push({ holder, signature, state: "sent" });
+          const signature = signed ? await connection.sendRawTransaction(signed[i].serialize()) : await sendTransaction(txs[i], connection);
+          rows.push({ label, signature, state: "sent" });
           setProgress([...rows]);
           const result = await waitForConfirmation(connection, signature, lastValidBlockHeight);
-          rows[rows.length - 1] = { holder, signature, state: result.err ? "failed" : "done" };
+          rows[rows.length - 1] = { label, signature, state: result.err ? "failed" : "done" };
         } catch {
-          rows.push({ holder, state: "failed" });
+          rows.push({ label, state: "failed" });
         }
         setProgress([...rows]);
       }
+    }
+  };
+
+  const run = async (work: () => Promise<void>) => {
+    setWorking(true);
+    try {
+      await work();
     } finally {
-      setPaying(false);
+      setWorking(false);
       onChange();
     }
   };
 
-  const download = () => {
-    if (!register) return;
-    const blob = new Blob(
-      [JSON.stringify(register.map((e) => ({ holder: e.holder.toBase58(), units: e.units.toString() })), null, 2)],
-      { type: "application/json" },
-    );
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `register-${view.asset.mint.toBase58().slice(0, 8)}-coupon-${period + 1}.json`;
-    a.click();
+  const fix = async () => {
+    if (!publicKey) return;
+    setWhat(t("what.due"));
+    const r = await tx.run([coupons.fixRegister(publicKey, mint, period, terms.currencyMint, currencyProgram)]);
+    if (r.status === "confirmed") onChange();
   };
 
-  // No saved copy in this browser: read the register again and keep it only
-  // if it rebuilds the root committed on-chain, which it does until a unit moves.
-  const rebuild = async () => {
-    if (!payout) return;
-    setProblem(null);
-    const entitlements = await readRegister(
-      connection,
-      view.asset.mint,
-      view.asset.address,
-      await redemptions.pending(connection, view.asset.address),
-    );
-    const tree = await entitlementTree(payoutKey, entitlements);
-    if (!tree.root.equals(payout.root)) {
-      setProblem(t("rebuildMismatch"));
-      return;
-    }
-    saveRegister(payoutKey, entitlements);
-    setRegister(entitlements);
+  // Count every source the chain shows, skipping what is already counted;
+  // then close the register, and record the cut on every private ledger.
+  const count = () =>
+    run(async () => {
+      if (!publicKey || !payout) return;
+      const open = (await redemptions.fetchRequests(connection, asset)).filter((r) => r.status === "requested");
+      const sources = await registerSources(connection, mint, asset, open);
+      const markers = (
+        await Promise.all(chunk(sources, 100).map((part) => connection.getMultipleAccountsInfo(part.map((s) => coupons.counted(payoutKey, s.address)))))
+      ).flat();
+      const todo = sources.filter((_, i) => !markers[i]);
+      const groups = chunk(todo, COUNTS_PER_TX).map((part) => ({
+        label: t("countBatch", { n: part.length }),
+        ixs: part.map((s) =>
+          s.kind === "holding"
+            ? coupons.countHolding(publicKey, mint, period, s.address, s.owner)
+            : coupons.countRedemption(publicKey, mint, period, s.address, s.holder),
+        ),
+      }));
+      if (pool && !payout.privateCounted) groups.push({ label: t("countPool"), ixs: [coupons.countPrivatePool(mint, period)] });
+      groups.push({ label: t("close"), ixs: [coupons.closeRegister(mint, period)] });
+      const ledgers = pool ? (await privateHoldings.fetchLedgers(connection, asset)).filter((l) => l.nextPeriod === period) : [];
+      for (const part of chunk(ledgers, 6)) {
+        groups.push({ label: t("recordLedgers", { n: part.length }), ixs: part.map((l) => privateHoldings.checkpointLedger(mint, l.holder, period)) });
+      }
+      await sendAll(groups);
+    });
+
+  const fund = async () => {
+    if (!publicKey || !payout) return;
+    setWhat(t("what.funding"));
+    const source = getAssociatedTokenAddressSync(terms.currencyMint, publicKey, false, currencyProgram);
+    const r = await tx.run([
+      coupons.fundPayout(publicKey, mint, period, terms.currencyMint, currencyProgram, source, payout.required - payout.funded),
+    ]);
+    if (r.status === "confirmed") onChange();
   };
 
-  const importFile = async (file: File) => {
-    try {
-      const entitlements = parseRegister(await file.text());
-      saveRegister(payoutKey, entitlements);
-      setRegister(entitlements);
-    } catch {
-      setProblem(t("badFile"));
-    }
-  };
+  // Pay every holder still owed, one transaction each, and the private pool.
+  const payAll = () =>
+    run(async () => {
+      if (!publicKey || !payout || !unpaid) return;
+      const groups = unpaid.map((e) => {
+        const destination = getAssociatedTokenAddressSync(terms.currencyMint, e.holder, true, currencyProgram);
+        return {
+          label: shortKey(e.holder.toBase58()),
+          ixs: [
+            createAssociatedTokenAccountIdempotentInstruction(publicKey, destination, e.holder, terms.currencyMint, currencyProgram),
+            coupons.payEntitlement(publicKey, view.registry.address, mint, period, terms.currencyMint, currencyProgram, destination, e.holder, e.payer),
+          ],
+        };
+      });
+      if (poolOwed) groups.push({ label: t("poolRow"), ixs: [coupons.payPrivatePool(mint, period, terms.currencyMint, currencyProgram)] });
+      await sendAll(groups);
+    });
+
+  const reclaim = () =>
+    run(async () => {
+      if (!publicKey) return;
+      await sendAll(
+        chunk(myMarkers, 6).map((part) => ({
+          label: t("reclaimBatch", { n: part.length }),
+          ixs: part.map((source) => coupons.releaseCounted(mint, period, source, publicKey)),
+        })),
+      );
+    });
 
   const step = (n: number, label: string, done: boolean, activeNow: boolean) => (
     <li className="flex items-center gap-3 text-sm">
@@ -556,10 +551,6 @@ function PaymentPanel({
     </li>
   );
 
-  const committed = payout?.status === "committed";
-  const funded = committed && payout!.funded >= payout!.required;
-  const settled = funded && payout!.paid + payout!.heldBack >= payout!.required;
-
   return (
     <section className="card p-5">
       <h2 className="font-semibold">{t("panelTitle", { n: period + 1, date: dateOf(schedule.accrualEnd, locale) })}</h2>
@@ -567,13 +558,13 @@ function PaymentPanel({
         <ol className="space-y-3">
           {step(1, t("steps.record", { when: timeOf(schedule.recordTs, locale) }), now >= schedule.recordTs, stage === "scheduled")}
           {step(2, t("steps.fix"), !!payout, stage === "due")}
-          {step(3, t("steps.commit"), committed, stage === "fixed")}
-          {step(4, t("steps.fund"), funded, stage === "funding")}
-          {step(5, t("steps.pay"), !!settled, stage === "paying" && !settled)}
+          {step(3, t("steps.count"), counted, stage === "counting")}
+          {step(4, t("steps.fund"), funded, stage === "funding" || (stage === "counting" && !funded))}
+          {step(5, t("steps.pay"), settled, stage === "paying" && !settled)}
         </ol>
 
         <div className="text-sm">
-          {payout && committed && (
+          {payout && (
             <dl className="grid grid-cols-2 gap-3">
               <div>
                 <dt className="text-ink-2">{t("required")}</dt>
@@ -583,14 +574,25 @@ function PaymentPanel({
                 <dt className="text-ink-2">{t("funded")}</dt>
                 <dd className="tabular text-lg font-semibold">{cur(payout.funded)}</dd>
               </div>
-              <div>
-                <dt className="text-ink-2">{t("paid")}</dt>
-                <dd className="tabular text-lg font-semibold">{cur(payout.paid)}</dd>
-              </div>
-              <div>
-                <dt className="text-ink-2">{t("heldBack")}</dt>
-                <dd className="tabular text-lg font-semibold">{cur(payout.heldBack)}</dd>
-              </div>
+              {counted ? (
+                <>
+                  <div>
+                    <dt className="text-ink-2">{t("paid")}</dt>
+                    <dd className="tabular text-lg font-semibold">{cur(payout.paid)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-ink-2">{t("heldBack")}</dt>
+                    <dd className="tabular text-lg font-semibold">{cur(payout.heldBack)}</dd>
+                  </div>
+                </>
+              ) : (
+                <div className="col-span-2">
+                  <dt className="text-ink-2">{t("countedSoFar")}</dt>
+                  <dd className="tabular text-lg font-semibold">
+                    {t("countedOf", { counted: payout.counted.toString(), supply: payout.supplyAtFix.toString() })}
+                  </dd>
+                </div>
+              )}
             </dl>
           )}
           {payout && (
@@ -606,15 +608,15 @@ function PaymentPanel({
                 {t("fix")}
               </button>
             )}
-            {stage === "fixed" && (
-              <button className="btn btn-primary" disabled={tx.busy} onClick={commit}>
-                {t("commit")}
+            {stage === "counting" && (
+              <button className="btn btn-primary" disabled={working} onClick={count}>
+                {t("countRegister")}
               </button>
             )}
-            {stage === "funding" && payout && (
+            {(stage === "funding" || (stage === "counting" && !funded)) && payout && (
               <>
                 <button
-                  className="btn btn-primary"
+                  className={stage === "funding" ? "btn btn-primary" : "btn btn-secondary"}
                   disabled={tx.busy || balance === null || balance < payout.required - payout.funded}
                   onClick={fund}
                 >
@@ -626,34 +628,40 @@ function PaymentPanel({
               </>
             )}
             {stage === "paying" && !settled && (
-              <button className="btn btn-primary" disabled={paying || !register} onClick={payAll}>
-                {t("payAll", { n: register?.length ?? 0 })}
+              <button className="btn btn-primary" disabled={working || unpaid === null} onClick={payAll}>
+                {t("payAll", { n: owed })}
               </button>
             )}
-            {committed && register && (
-              <button className="btn btn-secondary" onClick={download}>
-                {t("download")}
+            {counted && myMarkers.length > 0 && (
+              <button className="btn btn-secondary" disabled={working} onClick={reclaim}>
+                {t("reclaim", { n: myMarkers.length })}
               </button>
-            )}
-            {committed && !register && (
-              <button className="btn btn-secondary" onClick={rebuild}>
-                {t("rebuild")}
-              </button>
-            )}
-            {committed && !register && (
-              <label className="btn btn-secondary cursor-pointer">
-                {t("import")}
-                <input type="file" accept="application/json" className="sr-only" onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} />
-              </label>
             )}
           </div>
-          {problem && <p className="mt-3 rounded-md bg-bad-soft p-3 text-bad">{problem}</p>}
+          {stage === "counting" && <p className="mt-3 text-xs text-ink-3">{t("countNote")}</p>}
+          {progress.length > 0 && (
+            <ul className="mt-3 space-y-1 text-xs">
+              {progress.map((row, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <span className={`pill ${row.state === "done" ? "pill-ok" : row.state === "failed" ? "pill-bad" : "pill-neutral"}`}>
+                    {t(`progress.${row.state}`)}
+                  </span>
+                  <span>{row.label}</span>
+                  {row.signature && (
+                    <a className="underline" href={explorer.tx(row.signature)} target="_blank" rel="noreferrer">
+                      ↗
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
-      <TxReceipt state={tx.state} what={t(`what.${stage}`)} />
+      <TxReceipt state={tx.state} what={what} />
 
-      {committed && register && (
+      {counted && unpaid && (
         <div className="mt-5 overflow-x-auto">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="border-b border-line text-ink-2">
@@ -665,73 +673,43 @@ function PaymentPanel({
               </tr>
             </thead>
             <tbody className="divide-y divide-line tabular">
-              {register.map((e) => {
-                const row = progress.find((p) => p.holder === e.holder.toBase58());
-                return (
-                  <tr key={e.holder.toBase58()}>
-                    <td className="mono py-2 pr-4">{shortKey(e.holder.toBase58())}</td>
-                    <td className="py-2 pr-4 text-right">{e.units.toString()}</td>
-                    <td className="py-2 pr-4 text-right">{cur(couponAmount(terms, schedule, e.units))}</td>
-                    <td className="py-2 pr-4">
-                      <PaymentState payout={payoutKey} holder={e.holder} row={row} tick={payout?.payments ?? 0} />
-                    </td>
-                  </tr>
-                );
-              })}
+              {unpaid.map((e) => (
+                <tr key={e.holder.toBase58()}>
+                  <td className="mono py-2 pr-4">{shortKey(e.holder.toBase58())}</td>
+                  <td className="py-2 pr-4 text-right">{e.units.toString()}</td>
+                  <td className="py-2 pr-4 text-right">{cur(couponAmount(terms, schedule, e.units))}</td>
+                  <td className="py-2 pr-4">
+                    <span className="pill pill-neutral">{t("unpaid")}</span>
+                  </td>
+                </tr>
+              ))}
+              {payments.map((r) => (
+                <tr key={r.holder.toBase58()}>
+                  <td className="mono py-2 pr-4">{shortKey(r.holder.toBase58())}</td>
+                  <td className="py-2 pr-4 text-right">{r.units.toString()}</td>
+                  <td className="py-2 pr-4 text-right">{cur(r.amount)}</td>
+                  <td className="py-2 pr-4">
+                    <span className={`pill ${r.heldBack ? "pill-warn" : "pill-ok"}`}>{r.heldBack ? t("heldBackPill") : t("paidPill")}</span>
+                  </td>
+                </tr>
+              ))}
+              {payout.privateCounted && payout.privateUnits > 0n && (
+                <tr>
+                  <td className="py-2 pr-4">{t("poolRow")}</td>
+                  <td className="py-2 pr-4 text-right">{payout.privateUnits.toString()}</td>
+                  <td className="py-2 pr-4 text-right">{cur(couponAmount(terms, schedule, payout.privateUnits))}</td>
+                  <td className="py-2 pr-4">
+                    <span className={`pill ${payout.privatePaid ? "pill-ok" : "pill-neutral"}`}>
+                      {payout.privatePaid ? t("poolPaid") : t("unpaid")}
+                    </span>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
           <p className="mt-2 text-xs text-ink-3">{t("registerNote")}</p>
         </div>
       )}
     </section>
-  );
-}
-
-/** A holder's payment as the chain records it, or the transaction in flight. */
-function PaymentState({
-  payout,
-  holder,
-  row,
-  tick,
-}: {
-  payout: PublicKey;
-  holder: PublicKey;
-  row?: { signature?: string; state: string };
-  tick: number;
-}) {
-  const t = useTranslations("issuer.coupons");
-  const { connection } = useConnection();
-  const [record, setRecord] = useState<{ heldBack: boolean } | null | undefined>(undefined);
-  const payoutAddress = payout.toBase58();
-  const holderAddress = holder.toBase58();
-  useEffect(() => {
-    coupons
-      .fetchPayment(connection, new PublicKey(payoutAddress), new PublicKey(holderAddress))
-      .then(setRecord)
-      .catch(() => setRecord(null));
-  }, [connection, payoutAddress, holderAddress, tick, row?.state]);
-  if (row?.state === "sent") return <span className="pill pill-neutral">{t("sending")}</span>;
-  if (row?.state === "failed")
-    return (
-      <span className="pill pill-bad">
-        {t("failed")}
-        {row.signature && (
-          <a className="underline" href={explorer.tx(row.signature)} target="_blank" rel="noreferrer">
-            ↗
-          </a>
-        )}
-      </span>
-    );
-  if (record === undefined) return <span className="text-ink-3">…</span>;
-  if (!record) return <span className="pill pill-neutral">{t("unpaid")}</span>;
-  return (
-    <span className={`pill ${record.heldBack ? "pill-warn" : "pill-ok"}`}>
-      {record.heldBack ? t("heldBackPill") : t("paidPill")}
-      {row?.signature && (
-        <a className="underline" href={explorer.tx(row.signature)} target="_blank" rel="noreferrer">
-          ↗
-        </a>
-      )}
-    </span>
   );
 }

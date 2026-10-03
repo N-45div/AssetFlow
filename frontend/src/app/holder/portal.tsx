@@ -9,6 +9,7 @@ import { TOKEN_2022_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstructio
 import { EligibilityChecklist } from "@/components/eligibility-checklist";
 import { HolderCoupons } from "@/components/holder-coupons";
 import { HolderKyc } from "@/components/holder-kyc";
+import { HolderPrivate } from "@/components/holder-private";
 import { HolderRedemptions } from "@/components/holder-redemptions";
 import { PageShell } from "@/components/page-shell";
 import { TxReceipt } from "@/components/tx-receipt";
@@ -192,6 +193,17 @@ export function HolderPortal() {
             </p>
           </section>
 
+          <HolderPrivate
+            view={view}
+            wallet={publicKey}
+            units={account?.amount ?? 0n}
+            tokenAccount={tokenAccount}
+            eligible={eligible}
+            onChange={() => {
+              holder.refresh();
+              asset.refresh();
+            }}
+          />
           <HolderCoupons view={view} wallet={publicKey} units={account?.amount ?? 0n} />
           <HolderRedemptions
             view={view}

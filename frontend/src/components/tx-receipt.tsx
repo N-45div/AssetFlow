@@ -12,8 +12,11 @@ export function TxReceipt({
 }: {
   state: TxState;
   what: string;
-  /** Where a transaction is opened: Solana's explorer unless told otherwise. */
-  link?: (signature: string) => string;
+  /**
+   * Where a transaction is opened: Solana's explorer unless told otherwise,
+   * and nowhere (null) for one sent to the private rollup.
+   */
+  link?: ((signature: string) => string) | null;
 }) {
   const t = useTranslations("tx");
   const tr = useTranslations("refusal");
@@ -35,7 +38,7 @@ export function TxReceipt({
           {state.status === "confirmed" && t("confirmed", { what })}
           {state.status === "failed" && t("failed", { what })}
         </p>
-        {"signature" in state && state.signature && (
+        {"signature" in state && state.signature && link && (
           <a
             className="mono text-accent underline underline-offset-2"
             href={link(state.signature)}
@@ -45,6 +48,7 @@ export function TxReceipt({
             {shortKey(state.signature, 6)} ↗
           </a>
         )}
+        {"signature" in state && state.signature && !link && <span className="mono text-ink-2">{shortKey(state.signature, 6)}</span>}
       </div>
       {state.status === "failed" && (
         <>

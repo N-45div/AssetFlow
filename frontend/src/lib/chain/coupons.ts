@@ -1,7 +1,8 @@
 /**
- * Coupons in the browser: the same instructions, accounts, entitlement tree
- * and coupon arithmetic as the program (solana/programs/assetflow/src/coupons.rs),
- * so the console can show what a payment will cost before anyone signs.
+ * Coupons in the browser: the same instructions, accounts and coupon
+ * arithmetic as the program (solana/programs/assetflow/src/coupons.rs), so the
+ * console can count a register and show what a payment will cost before
+ * anyone signs.
  */
 import { Buffer } from "buffer";
 import {
@@ -16,14 +17,21 @@ import { TOKEN_2022_PROGRAM_ID, unpackAccount } from "@solana/spl-token";
 const IX = {
   set_terms: [198, 18, 197, 226, 220, 230, 87, 173],
   fix_register: [149, 92, 228, 109, 14, 243, 82, 199],
-  commit_entitlements: [143, 200, 170, 19, 197, 80, 163, 247],
+  count_holding: [208, 92, 73, 78, 161, 17, 56, 114],
+  count_redemption: [248, 137, 12, 188, 16, 148, 166, 75],
+  count_private_pool: [222, 88, 145, 48, 187, 23, 45, 50],
+  close_register: [24, 125, 130, 213, 123, 221, 152, 30],
   fund_payout: [29, 105, 203, 76, 139, 85, 21, 111],
   pay_entitlement: [164, 119, 134, 1, 234, 77, 48, 71],
+  pay_private_pool: [30, 229, 49, 211, 115, 45, 33, 218],
+  release_counted: [29, 198, 168, 94, 147, 106, 88, 130],
 } as const;
 
 const ACCOUNT = {
   Terms: [223, 24, 40, 223, 249, 219, 14, 97],
   Payout: [69, 45, 245, 131, 218, 101, 158, 228],
+  Entitlement: [220, 250, 27, 244, 55, 49, 74, 154],
+  CountedSource: [61, 26, 69, 19, 231, 2, 132, 248],
   PaymentRecord: [202, 168, 56, 249, 127, 226, 86, 226],
 } as const;
 
@@ -45,7 +53,8 @@ export interface Terms {
   periods: Period[];
 }
 
-export type PayoutStatus = "registerFixed" | "committed";
+/** Counting: the mint is paused and anyone counts the register; counted: it is on record. */
+export type PayoutStatus = "counting" | "counted";
 
 export interface Payout {
   address: PublicKey;
@@ -54,13 +63,27 @@ export interface Payout {
   fixedTs: number;
   fixedSlot: bigint;
   supplyAtFix: bigint;
-  root: Buffer;
-  totalUnits: bigint;
+  /** Units counted so far; the register is complete at the supply. */
+  counted: bigint;
   required: bigint;
   funded: bigint;
   paid: bigint;
   heldBack: bigint;
   payments: number;
+  /** The private escrow, counted as one line, and its coupon. */
+  privateCounted: boolean;
+  privateUnits: bigint;
+  privateCoupon: bigint;
+  privatePaid: boolean;
+}
+
+/** What a holder was counted for, until their coupon is paid. */
+export interface CountedEntitlement {
+  address: PublicKey;
+  holder: PublicKey;
+  units: bigint;
+  /** Paid the rent; gets it back when the coupon is paid. */
+  payer: PublicKey;
 }
 
 export interface PaymentRecord {
@@ -117,6 +140,21 @@ export class Coupons {
   paymentRecord(payout: PublicKey, holder: PublicKey) {
     return pda([Buffer.from("paid"), payout.toBuffer(), holder.toBuffer()], this.programId);
   }
+  entitlement(payout: PublicKey, holder: PublicKey) {
+    return pda([Buffer.from("entitled"), payout.toBuffer(), holder.toBuffer()], this.programId);
+  }
+  counted(payout: PublicKey, source: PublicKey) {
+    return pda([Buffer.from("counted"), payout.toBuffer(), source.toBuffer()], this.programId);
+  }
+  privatePool(mint: PublicKey) {
+    return pda([Buffer.from("private_pool"), mint.toBuffer()], this.programId);
+  }
+  privateEscrow(mint: PublicKey) {
+    return pda([Buffer.from("private_escrow"), mint.toBuffer()], this.programId);
+  }
+  privateCash(mint: PublicKey) {
+    return pda([Buffer.from("private_cash"), mint.toBuffer()], this.programId);
+  }
 
   private ix(name: keyof typeof IX, keys: AccountMeta[], args: Buffer[]) {
     return new TransactionInstruction({
@@ -139,7 +177,13 @@ export class Coupons {
     );
   }
 
-  fixRegister(caller: PublicKey, mint: PublicKey, period: number) {
+  /**
+   * Anyone, once the record date has passed: pauses the mint, prices the
+   * payment and opens its vault. From the second period on, the previous
+   * register must be counted.
+   */
+  fixRegister(caller: PublicKey, mint: PublicKey, period: number, currencyMint: PublicKey, currencyProgram: PublicKey) {
+    const payout = this.payout(mint, period);
     return this.ix(
       "fix_register",
       [
@@ -147,7 +191,32 @@ export class Coupons {
         account(this.asset(mint)),
         account(this.terms(mint)),
         account(mint, true),
-        account(this.payout(mint, period), true),
+        account(payout, true),
+        // an optional account, absent when it is the program id
+        account(period > 0 ? this.payout(mint, period - 1) : this.programId),
+        account(currencyMint),
+        account(this.vault(payout), true),
+        account(TOKEN_2022_PROGRAM_ID),
+        account(currencyProgram),
+        account(SystemProgram.programId),
+      ],
+      [u8(period)],
+    );
+  }
+
+  /** Anyone, while the register is counted: one holder account of the mint. */
+  countHolding(caller: PublicKey, mint: PublicKey, period: number, holding: PublicKey, owner: PublicKey) {
+    const payout = this.payout(mint, period);
+    return this.ix(
+      "count_holding",
+      [
+        signer(caller, true),
+        account(this.asset(mint)),
+        account(mint),
+        account(payout, true),
+        account(holding),
+        account(this.counted(payout, holding), true),
+        account(this.entitlement(payout, owner), true),
         account(TOKEN_2022_PROGRAM_ID),
         account(SystemProgram.programId),
       ],
@@ -155,23 +224,46 @@ export class Coupons {
     );
   }
 
-  commitEntitlements(issuer: PublicKey, mint: PublicKey, period: number, currencyMint: PublicKey, currencyProgram: PublicKey, root: Buffer, totalUnits: bigint) {
+  /** Anyone, while the register is counted: one open redemption request. */
+  countRedemption(caller: PublicKey, mint: PublicKey, period: number, request: PublicKey, holder: PublicKey) {
     const payout = this.payout(mint, period);
     return this.ix(
-      "commit_entitlements",
+      "count_redemption",
       [
-        signer(issuer, true),
+        signer(caller, true),
         account(this.asset(mint)),
-        account(this.terms(mint)),
-        account(mint, true),
+        account(mint),
         account(payout, true),
-        account(currencyMint),
-        account(this.vault(payout), true),
-        account(TOKEN_2022_PROGRAM_ID),
-        account(currencyProgram),
+        account(request),
+        account(this.counted(payout, request), true),
+        account(this.entitlement(payout, holder), true),
         account(SystemProgram.programId),
       ],
-      [u8(period), root, u64(totalUnits)],
+      [u8(period)],
+    );
+  }
+
+  /** Anyone, while the register is counted: the private escrow, as one line. */
+  countPrivatePool(mint: PublicKey, period: number) {
+    return this.ix(
+      "count_private_pool",
+      [
+        account(this.asset(mint)),
+        account(mint),
+        account(this.payout(mint, period), true),
+        account(this.privatePool(mint)),
+        account(this.privateEscrow(mint)),
+      ],
+      [u8(period)],
+    );
+  }
+
+  /** Anyone, once the count reaches the supply: the register is on record and the mint resumes. */
+  closeRegister(mint: PublicKey, period: number) {
+    return this.ix(
+      "close_register",
+      [account(this.asset(mint)), account(mint, true), account(this.payout(mint, period), true), account(TOKEN_2022_PROGRAM_ID)],
+      [u8(period)],
     );
   }
 
@@ -194,6 +286,11 @@ export class Coupons {
     );
   }
 
+  /**
+   * Anyone: pay a holder what they were counted for, or hold the coupon back
+   * if they are not eligible. The entitlement's rent goes back to whoever
+   * counted it (`rentReceiver`).
+   */
   payEntitlement(
     payer: PublicKey,
     registry: PublicKey,
@@ -203,8 +300,7 @@ export class Coupons {
     currencyProgram: PublicKey,
     destination: PublicKey,
     holder: PublicKey,
-    units: bigint,
-    proof: Buffer[],
+    rentReceiver: PublicKey,
   ) {
     const payout = this.payout(mint, period);
     return this.ix(
@@ -218,13 +314,45 @@ export class Coupons {
         account(payout, true),
         account(currencyMint),
         account(this.vault(payout), true),
+        account(this.entitlement(payout, holder), true),
+        account(rentReceiver, true),
         account(destination, true),
         account(this.investor(registry, holder)),
         account(this.paymentRecord(payout, holder), true),
         account(currencyProgram),
         account(SystemProgram.programId),
       ],
-      [u8(period), holder.toBuffer(), u64(units), u32(proof.length), ...proof],
+      [u8(period), holder.toBuffer()],
+    );
+  }
+
+  /** Anyone: the private pool's coupon, from the payment vault into the private cash vault. */
+  payPrivatePool(mint: PublicKey, period: number, currencyMint: PublicKey, currencyProgram: PublicKey) {
+    const payout = this.payout(mint, period);
+    return this.ix(
+      "pay_private_pool",
+      [
+        account(this.asset(mint)),
+        account(this.terms(mint)),
+        account(mint),
+        account(payout, true),
+        account(currencyMint),
+        account(this.vault(payout), true),
+        account(this.privatePool(mint)),
+        account(this.privateCash(mint), true),
+        account(currencyProgram),
+      ],
+      [u8(period)],
+    );
+  }
+
+  /** Anyone, once the register is counted: a counted marker's rent back to whoever paid it. */
+  releaseCounted(mint: PublicKey, period: number, source: PublicKey, rentReceiver: PublicKey) {
+    const payout = this.payout(mint, period);
+    return this.ix(
+      "release_counted",
+      [account(this.asset(mint)), account(mint), account(payout), account(this.counted(payout, source), true), account(rentReceiver, true)],
+      [u8(period), source.toBuffer()],
     );
   }
 
@@ -255,7 +383,7 @@ export class Coupons {
     const r = new Reader(info.data);
     r.key(); // asset
     const p = r.u8();
-    const status: PayoutStatus = r.u8() === 0 ? "registerFixed" : "committed";
+    const status: PayoutStatus = r.u8() === 0 ? "counting" : "counted";
     return {
       address,
       period: p,
@@ -263,14 +391,65 @@ export class Coupons {
       fixedTs: Number(r.i64()),
       fixedSlot: r.u64(),
       supplyAtFix: r.u64(),
-      root: r.bytes(32),
-      totalUnits: r.u64(),
+      counted: r.u64(),
       required: r.u64(),
       funded: r.u64(),
       paid: r.u64(),
       heldBack: r.u64(),
       payments: r.u32(),
+      privateCounted: r.bool(),
+      privateUnits: r.u64(),
+      privateCoupon: r.u64(),
+      privatePaid: r.bool(),
     };
+  }
+
+  /** Every entitlement of a payment still waiting for its coupon. */
+  async fetchEntitlements(connection: Connection, payout: PublicKey): Promise<CountedEntitlement[]> {
+    const rows = await connection.getProgramAccounts(this.programId, {
+      filters: [
+        { memcmp: { offset: 0, bytes: Buffer.from(ACCOUNT.Entitlement).toString("base64"), encoding: "base64" } },
+        { memcmp: { offset: 8, bytes: payout.toBase58() } },
+      ],
+    });
+    return rows.map(({ pubkey, account: info }) => decodeEntitlement(pubkey, info.data));
+  }
+
+  /** Every coupon a payment has paid or held back. */
+  async fetchPayments(connection: Connection, payout: PublicKey): Promise<PaymentRecord[]> {
+    const rows = await connection.getProgramAccounts(this.programId, {
+      filters: [
+        { memcmp: { offset: 0, bytes: Buffer.from(ACCOUNT.PaymentRecord).toString("base64"), encoding: "base64" } },
+        { memcmp: { offset: 8, bytes: payout.toBase58() } },
+      ],
+    });
+    return rows.map(({ account: info }) => {
+      const r = new Reader(info.data);
+      r.key(); // payout
+      return { holder: r.key(), units: r.u64(), amount: r.u64(), heldBack: r.bool(), ts: Number(r.i64()) };
+    });
+  }
+
+  /** The markers a payment's count left, with whoever paid each one's rent. */
+  async fetchMarkers(connection: Connection, payout: PublicKey): Promise<{ source: PublicKey; payer: PublicKey }[]> {
+    const rows = await connection.getProgramAccounts(this.programId, {
+      filters: [
+        { memcmp: { offset: 0, bytes: Buffer.from(ACCOUNT.CountedSource).toString("base64"), encoding: "base64" } },
+        { memcmp: { offset: 8, bytes: payout.toBase58() } },
+      ],
+    });
+    return rows.map(({ account: info }) => {
+      const r = new Reader(info.data);
+      r.key(); // payout
+      return { source: r.key(), payer: r.key() };
+    });
+  }
+
+  async fetchEntitlement(connection: Connection, payout: PublicKey, holder: PublicKey): Promise<CountedEntitlement | null> {
+    const address = this.entitlement(payout, holder);
+    const info = await connection.getAccountInfo(address);
+    if (!info?.owner.equals(this.programId) || !hasDiscriminator(info.data, ACCOUNT.Entitlement)) return null;
+    return decodeEntitlement(address, info.data);
   }
 
   async fetchPayment(connection: Connection, payout: PublicKey, holder: PublicKey): Promise<PaymentRecord | null> {
@@ -280,6 +459,12 @@ export class Coupons {
     r.key(); // payout
     return { holder: r.key(), units: r.u64(), amount: r.u64(), heldBack: r.bool(), ts: Number(r.i64()) };
   }
+}
+
+function decodeEntitlement(address: PublicKey, data: Buffer): CountedEntitlement {
+  const r = new Reader(data);
+  r.key(); // payout
+  return { address, holder: r.key(), units: r.u64(), payer: r.key() };
 }
 
 export function hasDiscriminator(data: Buffer, expected: readonly number[]) {
@@ -354,63 +539,33 @@ export function couponAmount(terms: Pick<Terms, "facePerUnit" | "couponBps" | "c
   return raw - (raw % cent);
 }
 
-async function sha256(...parts: Uint8Array[]) {
-  const all = Buffer.concat(parts.map((p) => Buffer.from(p)));
-  return Buffer.from(await crypto.subtle.digest("SHA-256", all));
-}
-
 export interface Entitlement {
   holder: PublicKey;
   units: bigint;
 }
 
-/**
- * The entitlement tree the program verifies: leaves over (payment, holder,
- * units) under domain byte 0, sorted pairs under domain byte 1, an odd node
- * carried up unchanged. Returns the root and each entitlement's proof.
- */
-export async function entitlementTree(payout: PublicKey, entitlements: Entitlement[]) {
-  const leaves = await Promise.all(
-    entitlements.map((e) => sha256(Buffer.from([0]), payout.toBuffer(), e.holder.toBuffer(), u64(e.units))),
-  );
-  let level = leaves.map((hash, i) => ({ hash, members: [i] }));
-  const proofs: Buffer[][] = leaves.map(() => []);
-  while (level.length > 1) {
-    const next: typeof level = [];
-    for (let i = 0; i < level.length; i += 2) {
-      const a = level[i];
-      const b = level[i + 1];
-      if (!b) {
-        next.push(a);
-        continue;
-      }
-      for (const m of a.members) proofs[m].push(b.hash);
-      for (const m of b.members) proofs[m].push(a.hash);
-      const [lo, hi] = Buffer.compare(a.hash, b.hash) <= 0 ? [a.hash, b.hash] : [b.hash, a.hash];
-      next.push({ hash: await sha256(Buffer.from([1]), lo, hi), members: [...a.members, ...b.members] });
-    }
-    level = next;
-  }
-  return { root: level[0]?.hash ?? Buffer.alloc(32), proofs };
-}
+/** One thing a register counts: a holder account, or an open redemption request. */
+export type RegisterSource =
+  | { kind: "holding"; address: PublicKey; owner: PublicKey; units: bigint }
+  | { kind: "request"; address: PublicKey; holder: PublicKey; units: bigint };
 
 /**
- * The register as the chain holds it now: units per owner across every
- * holder account of the mint, leaving out accounts the asset itself owns,
- * plus `pending`: units waiting in the redemption escrow, which still belong
- * to whoever asked to redeem them. Read while the mint is paused, this is the
- * record-date register.
+ * Every source the register of `mint` counts, read from the chain: each
+ * holder account of the mint with units, except the asset's own (the escrows),
+ * and each open redemption request. The program checks each one as it is
+ * counted, so a source missing here leaves the count short of the supply,
+ * never wrong.
  */
-export async function readRegister(
+export async function registerSources(
   connection: Connection,
   mint: PublicKey,
   asset: PublicKey,
-  pending: Entitlement[] = [],
-): Promise<Entitlement[]> {
+  openRequests: { address: PublicKey; holder: PublicKey; units: bigint }[],
+): Promise<RegisterSource[]> {
   const rows = await connection.getProgramAccounts(TOKEN_2022_PROGRAM_ID, {
     filters: [{ memcmp: { offset: 0, bytes: mint.toBase58() } }],
   });
-  const byOwner = new Map<string, Entitlement>();
+  const sources: RegisterSource[] = [];
   for (const row of rows) {
     let acct;
     try {
@@ -419,17 +574,8 @@ export async function readRegister(
       continue;
     }
     if (acct.amount === 0n || acct.owner.equals(asset)) continue;
-    const key = acct.owner.toBase58();
-    const e = byOwner.get(key) ?? { holder: acct.owner, units: 0n };
-    e.units += acct.amount;
-    byOwner.set(key, e);
+    sources.push({ kind: "holding", address: row.pubkey, owner: acct.owner, units: acct.amount });
   }
-  for (const p of pending) {
-    const key = p.holder.toBase58();
-    const e = byOwner.get(key) ?? { holder: p.holder, units: 0n };
-    e.units += p.units;
-    byOwner.set(key, e);
-  }
-  // A fixed order, so anyone who reads the same register builds the same tree.
-  return [...byOwner.values()].sort((a, b) => Buffer.compare(a.holder.toBuffer(), b.holder.toBuffer()));
+  for (const r of openRequests) sources.push({ kind: "request", address: r.address, holder: r.holder, units: r.units });
+  return sources;
 }
