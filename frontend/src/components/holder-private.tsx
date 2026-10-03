@@ -339,6 +339,7 @@ export function HolderPrivate({
                 className="input tabular min-w-0 flex-1"
                 inputMode="decimal"
                 placeholder={t("amount")}
+                aria-label={t("depositLabel", { units: unitsOf(units) })}
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(e.target.value)}
               />
@@ -350,8 +351,8 @@ export function HolderPrivate({
           <div>
             <span className="field-label">{t("sendLabel")}</span>
             <div className="flex flex-wrap gap-2">
-              <input className="input mono min-w-0 flex-[2]" placeholder={t("recipient")} value={recipient} onChange={(e) => setRecipient(e.target.value)} />
-              <input className="input tabular min-w-0 flex-1" inputMode="decimal" placeholder={t("amount")} value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} />
+              <input className="input mono min-w-0 flex-[2]" placeholder={t("recipient")} aria-label={t("recipient")} value={recipient} onChange={(e) => setRecipient(e.target.value)} />
+              <input className="input tabular min-w-0 flex-1" inputMode="decimal" placeholder={t("amount")} aria-label={t("sendAmount")} value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} />
               <button className="btn btn-secondary" disabled={!mine || inRollup.busy} onClick={send}>
                 {t("send")}
               </button>
@@ -362,8 +363,8 @@ export function HolderPrivate({
           <div>
             <span className="field-label">{t("takeOutLabel")}</span>
             <div className="flex flex-wrap gap-2">
-              <input className="input tabular min-w-0 flex-1" inputMode="decimal" placeholder={t("unitsPlaceholder")} value={outUnits} onChange={(e) => setOutUnits(e.target.value)} />
-              <input className="input tabular min-w-0 flex-1" inputMode="decimal" placeholder={t("cashPlaceholder")} value={outCash} onChange={(e) => setOutCash(e.target.value)} />
+              <input className="input tabular min-w-0 flex-1" inputMode="decimal" placeholder={t("unitsPlaceholder")} aria-label={t("takeOutUnits")} value={outUnits} onChange={(e) => setOutUnits(e.target.value)} />
+              <input className="input tabular min-w-0 flex-1" inputMode="decimal" placeholder={t("cashPlaceholder")} aria-label={t("takeOutCash")} value={outCash} onChange={(e) => setOutCash(e.target.value)} />
               <button className="btn btn-secondary" disabled={!mine || inRollup.busy || !exit?.delegated} onClick={takeOut}>
                 {t("takeOut")}
               </button>
