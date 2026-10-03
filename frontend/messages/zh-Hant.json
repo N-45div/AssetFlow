@@ -191,7 +191,19 @@
     "MaturityNotStarted": "尚未啓動到期。",
     "OpenRequest": "該持有人仍有未處理的贖回申請，須先撤回。",
     "UnitsLocked": "這些單位正在等待贖回申請，無法轉移。",
-    "InsufficientBalance": "此錢包持有的支付貨幣不足以完成此操作。"
+    "InsufficientBalance": "此錢包持有的支付貨幣不足以完成此操作。",
+    "CountIncomplete": "名冊尚未清點全部單位：請先清點其餘賬户。",
+    "CountOverflow": "清點這一項會使名冊超過總髮行量。",
+    "PreviousPeriodOpen": "上一期票息的名冊尚未清點完畢。",
+    "AlreadyCounted": "已經清點過。",
+    "PrivatePoolMismatch": "隱私託管賬户的餘額不等於累計存入減去累計取出。",
+    "PrivateLedgerMismatch": "該持有人的隱私賬本與持倉不一致。",
+    "CheckpointRequired": "已有一期票息名冊被鎖定：請先在隱私賬本上記錄。",
+    "ValidatorNotAllowed": "隱私持倉只能委託給 MagicBlock 的隱私 rollup 驗證者。",
+    "PrivateNotDelegated": "該隱私賬户不在隱私 rollup 中。",
+    "PrivateAlreadyDelegated": "該隱私賬户已在隱私 rollup 中。",
+    "NotProtected": "該隱私持倉尚無讀取權限：請先設為隱私。",
+    "HoldingOnHold": "該隱私持倉已被合規凍結。"
   },
   "eligibility": {
     "title": "資格",
@@ -268,12 +280,15 @@
       "lede": "年利率 {rate}%，支付給每個登記日持有單位的錢包。",
       "heldBack": "已暫扣",
       "paid": "已支付",
-      "paying": "付息中",
-      "fixed": "名冊已鎖定",
       "est": "預估",
       "scheduled": "已排期",
       "row": "第 {n} 期",
-      "notOnRegister": "不在登記名冊上"
+      "notOnRegister": "不在登記名冊上",
+      "counting": "名冊清點中",
+      "owed": "應付給你",
+      "funding": "等待注資",
+      "getPaid": "領取",
+      "what": "領取票息"
     },
     "redeem": {
       "title": "贖回",
@@ -322,6 +337,53 @@
       "onboard": "用我的認證入駐",
       "getVerified": "前往 {provider} 驗證",
       "what": "憑認證入駐"
+    },
+    "private": {
+      "title": "隱私持倉",
+      "onHold": "已凍結",
+      "lede": "你存放在這裏的單位由 MagicBlock 的隱私 rollup 持有：只有你、發行人和合規人員可以看到你的餘額、隱私轉賬和票息。每一筆存入和取出都是 Solana 上公開的代幣轉移。",
+      "ledeAuditor": "你存放在這裏的單位由 MagicBlock 的隱私 rollup 持有：只有你、發行人、合規人員和審計人 {auditor} 可以看到你的餘額、隱私轉賬和票息。每一筆存入和取出都是 Solana 上公開的代幣轉移。",
+      "open": "開設隱私賬户",
+      "openNote": "在 Solana 上的一筆交易即可開設賬户並將其放入隱私 rollup。賬户會佔用少量 SOL 作為租金，並支付 MagicBlock 的會話費用。",
+      "openIneligible": "只有有資格持有該資產的錢包才能開設隱私賬户。",
+      "onSolana": "你的持倉已回到 Solana：把全部取出到你自己的賬户，或將其放回隱私 rollup。",
+      "recover": "全部取出",
+      "returnToRollup": "放回隱私 rollup",
+      "signIn": "登錄以查看你的隱私持倉",
+      "signInNote": "你的錢包簽署的是一條消息，不是交易。",
+      "cannotSign": "此錢包無法簽署消息，而隱私 rollup 需要這一步。",
+      "signInFailed": "隱私 rollup 未接受此次登錄。",
+      "loading": "正在讀取你的隱私持倉…",
+      "unreadable": "隱私 rollup 不向此錢包顯示該持倉。",
+      "units": "隱私單位",
+      "cash": "票息現金",
+      "publicLine": "在 Solana 上公開：累計存入 {deposited}，累計取出 {released}。",
+      "protect": "設為隱私",
+      "protectNote": "在讀取權限建立之前，持倉並不隱私，因此此前不會向其記入任何單位。",
+      "credit": "記入 {units} 個已存入單位",
+      "record": "記錄最新名冊",
+      "recordNote": "已有一期票息名冊被鎖定：在任何資產再次轉移之前，你的賬本會記錄你截至當時的存入和取出數量。任何人都可以發送此交易。",
+      "claim": "記入 {n} 期票息",
+      "release": "取出 {units} 單位和 {cash}",
+      "rearm": "準備下一次取出",
+      "settling": "正在 Solana 上結算你的取出…",
+      "depositLabel": "轉入單位（你在 Solana 上持有 {units}）",
+      "deposit": "轉入",
+      "sendLabel": "私下轉給另一位隱私持有人",
+      "recipient": "對方錢包地址",
+      "amount": "單位",
+      "send": "發送",
+      "sendNote": "你們雙方今天都必須符合資格。轉賬永遠不會超過你持有的數量：發送後請查看餘額。",
+      "takeOutLabel": "取出單位或票息現金",
+      "unitsPlaceholder": "單位",
+      "cashPlaceholder": "現金（美元）",
+      "takeOut": "取出",
+      "takeOutNote": "金額到達你在 Solana 上的賬户時即公開。票息現金只會發給當時符合資格的錢包。",
+      "escapeTitle": "在 rollup 不運行 AssetFlow 的情況下離開隱私 rollup",
+      "escapeBody": "請求 Solana 上 MagicBlock 的委託程序把你的持倉帶回。屆時你的餘額會公開。如果 rollup 的驗證者永久消失，它從未結算的持倉將無法恢復。",
+      "escape": "把我的持倉帶回 Solana",
+      "whatSolana": "Solana 交易",
+      "whatRollup": "隱私 rollup 交易"
     }
   },
   "issuer": {
@@ -336,9 +398,10 @@
       "overview": "概覽",
       "investors": "投資者",
       "issuance": "發行",
-      "policy": "合規政策",
       "coupons": "票息",
-      "redemptions": "贖回"
+      "private": "隱私持倉",
+      "redemptions": "贖回",
+      "policy": "合規政策"
     },
     "onboarding": {
       "step": "設置：第 {n} 步，共 {of} 步",
@@ -519,16 +582,16 @@
       "stage": {
         "scheduled": "已排期",
         "due": "登記日已過",
-        "fixed": "名冊已鎖定",
         "funding": "待注資",
         "paying": "付息中",
-        "paid": "已支付"
+        "paid": "已支付",
+        "counting": "正在清點名冊"
       },
       "panelTitle": "第 {n} 期票息，計息期截至 {date}",
       "steps": {
         "record": "登記日：{when}",
-        "fix": "鎖定名冊（暫停轉賬）",
-        "commit": "提交應得權益（恢復轉賬）",
+        "fix": "鎖定名冊（暫停轉賬，併為本期付息定價）",
+        "count": "清點名冊（恢復轉賬）",
         "fund": "為本期付息注資",
         "pay": "向每位持有人付息"
       },
@@ -536,33 +599,37 @@
       "funded": "已注資",
       "paid": "已支付",
       "heldBack": "已暫扣",
-      "fixedAt": "名冊於區塊 {slot} 鎖定：流通 {units} 單位。",
+      "fixedAt": "名冊鎖定於第 {slot} 個槽位：流通 {units} 單位。本期付息按此定價。",
       "waiting": "等待登記日。登記日過後，任何人都可以鎖定名冊。",
       "fix": "鎖定名冊",
-      "commit": "讀取名冊並提交",
       "fund": "注資 {amount}",
       "lowBalance": "你的錢包持有 {balance} 支付幣種。",
-      "payAll": "向全部 {n} 位持有人付息",
-      "download": "下載名冊",
-      "import": "載入已保存的名冊",
-      "totalMismatch": "名冊合計 {read} 單位，但登記日流通量為 {supply} 單位。",
-      "rootMismatch": "此名冊與鏈上提交的根不符，無法用於付息。",
-      "badFile": "該文件不是從本控制台保存的名冊。",
+      "payAll": "支付全部 {n} 筆應付款項",
       "what": {
-        "scheduled": "本期付息",
         "due": "鎖定名冊",
-        "fixed": "提交應得權益",
-        "funding": "為付息注資",
-        "paying": "本期付息"
+        "funding": "為付息注資"
       },
-      "registerNote": "名冊即登記日鏈上的記錄：任何人都可以重建名冊，並與已提交的根核對。",
-      "sending": "發送中…",
-      "failed": "失敗",
+      "registerNote": "每一行都是在轉賬暫停期間，根據持有人自己的賬户在鏈上清點的。隱私持有人在池中的份額在隱私 rollup 內結算。",
       "unpaid": "尚未支付",
       "heldBackPill": "已暫扣",
       "paidPill": "已支付",
-      "rebuild": "從鏈上重建",
-      "rebuildMismatch": "登記日之後持倉已有變化，鏈上數據已無法重建已提交的根。請載入提交時保存的名冊。"
+      "countedSoFar": "已清點",
+      "countedOf": "{counted} / {supply} 單位",
+      "countNote": "任何人都可以清點名冊：每個持有人賬户、每筆未結贖回申請和隱私池，各計一次。清點數達到總髮行量後，任何人都可以結束清點，轉賬隨即恢復。結束暫停不需要你的任何密鑰。",
+      "countBatch": "已清點 {n} 個賬户",
+      "countPool": "隱私池已清點",
+      "close": "名冊已結束清點，轉賬已恢復",
+      "recordLedgers": "已在 {n} 個隱私賬本上記錄本期名冊",
+      "reclaim": "取回 {n} 個清點標記的租金",
+      "reclaimBatch": "已退回 {n} 個標記的租金",
+      "progress": {
+        "sent": "發送中",
+        "done": "完成",
+        "failed": "失敗"
+      },
+      "poolRow": "隱私池",
+      "poolPaid": "已轉入隱私現金庫",
+      "countRegister": "清點名冊"
     },
     "redemptions": {
       "loading": "正在讀取贖回信息…",
@@ -619,6 +686,55 @@
       },
       "allEligibleRedeemed": "所有符合資格的持倉均已贖回",
       "heldNote": "{units} 單位屬於目前不符合資格的持有人。單位仍歸其所有，本金保留在金庫中，待合規審核通過後再行贖回。"
+    },
+    "private": {
+      "loading": "正在讀取隱私持倉…",
+      "unreadable": "無法讀取隱私持倉。",
+      "enableTitle": "開啓隱私持倉",
+      "enableLede": "開啓後，持有人可以把單位存入 Solana 上的託管賬户，並在 MagicBlock 的隱私 rollup 中持有自己的份額：只有他們、你、合規人員和你指定的審計人可以看到餘額和隱私轉賬。每一筆隱私轉移都受同樣的資格規則約束。",
+      "validator": "隱私 rollup 驗證者",
+      "validatorTee": "MagicBlock 的隱私臨時 rollup，運行在 Intel TDX 可信執行環境中。程序不接受其他驗證者。",
+      "validatorLocal": "MagicBlock 的本地開發驗證者（solana/tests/rollup.sh）。不是可信執行環境。",
+      "auditor": "審計人（可選）",
+      "auditorPlaceholder": "錢包地址，或留空",
+      "needsTerms": "請先設置票息條款：隱私票息以其幣種支付。",
+      "enable": "開啓隱私持倉",
+      "enableNote": "仍然公開的：誰擁有隱私賬户、每一筆存入和取出隱私持倉的操作，以及託管賬户的總額。不公開的：餘額、隱私轉賬和每位持有人的票息。",
+      "whatEnable": "開啓隱私持倉",
+      "poolTitle": "隱私池",
+      "poolLede": "隱私持倉中的單位存放在資產賬户擁有的託管賬户中。在登記日，名冊把它們作為一行清點；每位持有人的份額在 rollup 內結算。",
+      "escrow": "託管中",
+      "deposited": "累計存入",
+      "released": "累計取出",
+      "holders": "隱私賬户",
+      "validatorLine": "委託給",
+      "validatorOther": "不是本網絡的隱私 rollup",
+      "auditorNow": "審計人：{auditor}",
+      "auditorNone": "未指定審計人",
+      "setAuditor": "設置審計人",
+      "whatAuditor": "設置審計人",
+      "registerTitle": "隱私名冊",
+      "reprotect": "重建讀取權限",
+      "registerLede": "通過隱私 rollup 讀取：作為發行人，你可以看到每一個隱私持倉。更換審計人或合規密鑰後，請重建讀取權限。",
+      "signIn": "登錄隱私 rollup",
+      "signInNote": "你的錢包簽署的是一條消息，不是交易：之後 rollup 會向你顯示你有權讀取的內容。",
+      "cannotSign": "此錢包無法簽署消息，而隱私 rollup 需要這一步。",
+      "signInFailed": "隱私 rollup 未接受此次登錄。",
+      "loadingRegister": "正在讀取隱私名冊…",
+      "empty": "尚無隱私持倉。",
+      "col": {
+        "holder": "持有人",
+        "units": "單位",
+        "cash": "票息現金",
+        "status": "狀態"
+      },
+      "held": "已凍結",
+      "private": "隱私",
+      "unprotected": "尚未設為隱私",
+      "hold": "凍結",
+      "releaseHold": "解除凍結",
+      "publicNote": "凍結會阻止持倉轉出或取出單位，但仍可接收。只有合規人員可以設置或解除。",
+      "whatRollup": "隱私 rollup 交易"
     }
   },
   "proof": {
@@ -663,11 +779,19 @@
       },
       "pause": {
         "title": "只有資產賬户可以暫停",
-        "why": "暫停用於在登記日鎖定名冊；其他人無法停止轉賬。"
+        "why": "暫停用於在登記日鎖定名冊，且僅在清點期間持續；其他人無法停止轉賬。"
       },
       "mintAuthorityMatured": {
         "title": "已到期：任何人都無法鑄造",
         "why": "到期時已移除鑄造權限，AssetFlow 或任何人都無法再發行新單位。"
+      },
+      "privateValidator": {
+        "title": "隱私持倉只存在於 MagicBlock 的隱私 rollup 中",
+        "why": "每個隱私賬户都委託給程序固定的可信執行環境驗證者；其他 rollup 無法讀取它們，也無法結算其取出。"
+      },
+      "privateEscrow": {
+        "title": "隱私託管賬户恰好持有存入減去取出的數量",
+        "why": "它屬於資產賬户，閘門永遠不會打開它，其餘額始終等於存入減去取出。"
       }
     },
     "supplyTitle": "流通份額",

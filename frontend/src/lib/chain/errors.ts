@@ -1,7 +1,8 @@
 /**
  * Turns a failed transaction into the reason a person can act on. AssetFlow's
  * refusals are Anchor errors (6000 + their position in the program's enum);
- * a transfer into a frozen account is Token-2022's AccountFrozen (0x11).
+ * a transfer into a frozen account is Token-2022's AccountFrozen (0x11), and
+ * one while the register is counted its MintPaused (0x43).
  */
 const ASSETFLOW_ERRORS = [
   "Unauthorized",
@@ -43,6 +44,18 @@ const ASSETFLOW_ERRORS = [
   "AttestationExpired",
   "WrongSchemaLayout",
   "StillAttested",
+  "CountIncomplete",
+  "CountOverflow",
+  "PreviousPeriodOpen",
+  "AlreadyCounted",
+  "PrivatePoolMismatch",
+  "PrivateLedgerMismatch",
+  "CheckpointRequired",
+  "ValidatorNotAllowed",
+  "PrivateNotDelegated",
+  "PrivateAlreadyDelegated",
+  "NotProtected",
+  "HoldingOnHold",
 ] as const;
 
 /** Refusals only the EVM contracts give (evm/src). */
@@ -60,8 +73,16 @@ export interface Refusal {
   logs: string[];
 }
 
+/** The custom code in a transaction error object, as the rollup reports it without logs. */
+function customCode(error: unknown): number | null {
+  const ix = (error as { InstructionError?: [number, { Custom?: number }] } | null)?.InstructionError;
+  return typeof ix?.[1]?.Custom === "number" ? ix[1].Custom : null;
+}
+
 export function explainFailure(error: unknown, logs: string[] = []): Refusal {
-  const text = [error instanceof Error ? error.message : String(error ?? ""), ...logs].join("\n");
+  const code = customCode(error);
+  const described = code === null ? "" : `custom program error: 0x${code.toString(16)}`;
+  const text = [error instanceof Error ? error.message : String(error ?? ""), described, ...logs].join("\n");
   const anchor = /Error Code: (\w+)/.exec(text);
   if (anchor && (ASSETFLOW_ERRORS as readonly string[]).includes(anchor[1])) {
     return { code: anchor[1] as RefusalCode, logs };
@@ -71,6 +92,7 @@ export function explainFailure(error: unknown, logs: string[] = []): Refusal {
     const n = parseInt(custom[1], 16);
     if (n >= 6000 && n < 6000 + ASSETFLOW_ERRORS.length) return { code: ASSETFLOW_ERRORS[n - 6000], logs };
     if (n === 0x11) return { code: "AccountFrozen", logs };
+    if (n === 0x43) return { code: "MintPaused", logs };
   }
   if (/Account is frozen/i.test(text)) return { code: "AccountFrozen", logs };
   if (/User rejected|rejected the request/i.test(text)) return { code: "Rejected", logs };

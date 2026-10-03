@@ -5,7 +5,8 @@
 #   rollup        http://127.0.0.1:7799  an ephemeral rollup validator
 #   read filter   http://127.0.0.1:6699  the query filtering service: private accounts
 #                                        are readable only by their permission's members,
-#                                        the role the TEE endpoint plays on devnet
+#                                        the role the TEE endpoint plays on devnet; it answers
+#                                        browsers too, for the app on localnet
 #
 #   wsl bash solana/build.sh --features local-rollup   # private holdings accept the local validator
 #   wsl bash solana/tests/rollup.sh                    # run in the foreground; Ctrl-C stops it
@@ -151,7 +152,7 @@ done
 (cd "$MB" && "$MB/query-filtering-service-linux-x64/bin/query-filtering-service" \
   --listen-addr 127.0.0.1:6699 --listen-addr-ws 127.0.0.1:6700 \
   --ephemeral-url http://127.0.0.1:7799 --ephemeral-url-ws ws://127.0.0.1:7800 \
-  --validator-kp "$VALIDATOR_KEY" > "$MB/filter.log" 2>&1) &
+  --validator-kp "$VALIDATOR_KEY" --add-cors-headers > "$MB/filter.log" 2>&1) &
 
 echo "Solana :8899, rollup :7799, read filter :6699 (logs in $MB)"
 wait

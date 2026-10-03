@@ -191,7 +191,19 @@
     "MaturityNotStarted": "Maturity has not started yet.",
     "OpenRequest": "This holder has a redemption request open; it must be withdrawn first.",
     "UnitsLocked": "Those units are waiting on a redemption request and cannot move.",
-    "InsufficientBalance": "This wallet does not hold enough of the payment currency for this."
+    "InsufficientBalance": "This wallet does not hold enough of the payment currency for this.",
+    "CountIncomplete": "The register has not counted every unit yet: count the remaining accounts first.",
+    "CountOverflow": "Counting this would take the register past the supply.",
+    "PreviousPeriodOpen": "The previous coupon's register is not counted yet.",
+    "AlreadyCounted": "Already counted.",
+    "PrivatePoolMismatch": "The private escrow does not hold what was deposited less what was released.",
+    "PrivateLedgerMismatch": "This holder's private ledger and holding disagree.",
+    "CheckpointRequired": "A coupon register was fixed: record it on the private ledger first.",
+    "ValidatorNotAllowed": "Private holdings go only to MagicBlock's private rollup validator.",
+    "PrivateNotDelegated": "The private account is not in the private rollup.",
+    "PrivateAlreadyDelegated": "The private account is already in the private rollup.",
+    "NotProtected": "The private holding has no read permission yet: make it private first.",
+    "HoldingOnHold": "The private holding is on a compliance hold."
   },
   "eligibility": {
     "title": "Eligibility",
@@ -268,12 +280,15 @@
       "lede": "{rate}% a year, paid to the wallet that holds the units on each record date.",
       "heldBack": "Held back",
       "paid": "Paid",
-      "paying": "Being paid",
-      "fixed": "Register fixed",
       "est": "est.",
       "scheduled": "Scheduled",
       "row": "Coupon {n}",
-      "notOnRegister": "Not on the register"
+      "notOnRegister": "Not on the register",
+      "counting": "Register being counted",
+      "owed": "Owed to you",
+      "funding": "Waiting for funding",
+      "getPaid": "Get paid",
+      "what": "Collecting the coupon"
     },
     "redeem": {
       "title": "Redemptions",
@@ -322,6 +337,53 @@
       "onboard": "Onboard with my attestation",
       "getVerified": "Get verified by {provider}",
       "what": "Onboarding with your attestation"
+    },
+    "private": {
+      "title": "Private holding",
+      "onHold": "On hold",
+      "lede": "Units you park here are held in MagicBlock's private rollup: only you, the issuer and compliance can see your balance, your private transfers and your coupons. Every deposit and every release is a public token movement on Solana.",
+      "ledeAuditor": "Units you park here are held in MagicBlock's private rollup: only you, the issuer, compliance and the auditor {auditor} can see your balance, your private transfers and your coupons. Every deposit and every release is a public token movement on Solana.",
+      "open": "Open a private account",
+      "openNote": "One transaction on Solana opens your account and puts it in the private rollup. It holds a small amount of SOL as rent and pays MagicBlock's session fee.",
+      "openIneligible": "Only a wallet eligible to hold the asset can open a private account.",
+      "onSolana": "Your holding is back on Solana: take everything out to your own accounts, or return it to the private rollup.",
+      "recover": "Take everything out",
+      "returnToRollup": "Return it to the private rollup",
+      "signIn": "Sign in to see your private holding",
+      "signInNote": "Your wallet signs a message, not a transaction.",
+      "cannotSign": "This wallet cannot sign messages, which the private rollup needs.",
+      "signInFailed": "The private rollup did not accept the sign-in.",
+      "loading": "Reading your private holding…",
+      "unreadable": "The private rollup does not show this holding to this wallet.",
+      "units": "Private units",
+      "cash": "Coupon cash",
+      "publicLine": "Public on Solana: {deposited} deposited and {released} released in all.",
+      "protect": "Make it private",
+      "protectNote": "Until its read permission exists, a holding is not private, so nothing is credited to it before.",
+      "credit": "Credit {units} deposited units",
+      "record": "Record the latest register",
+      "recordNote": "A coupon register was fixed: your ledger records what you had deposited and released by then before anything moves again. Anyone can send this.",
+      "claim": "Credit {n, plural, one {# coupon} other {# coupons}}",
+      "release": "Release {units} units and {cash}",
+      "rearm": "Ready the next withdrawal",
+      "settling": "Settling your withdrawal on Solana…",
+      "depositLabel": "Move units in (you hold {units} on Solana)",
+      "deposit": "Move in",
+      "sendLabel": "Send privately to another private holder",
+      "recipient": "Their wallet address",
+      "amount": "Units",
+      "send": "Send",
+      "sendNote": "Both of you must be eligible today. A transfer never takes more than you hold: check your balance afterwards.",
+      "takeOutLabel": "Take units or coupon cash out",
+      "unitsPlaceholder": "Units",
+      "cashPlaceholder": "Cash (US$)",
+      "takeOut": "Take out",
+      "takeOutNote": "The amounts become public when they land in your accounts on Solana. Coupon cash goes only to a wallet eligible at that time.",
+      "escapeTitle": "Leave the private rollup without it running AssetFlow",
+      "escapeBody": "Asks MagicBlock's delegation program on Solana to bring your holding back. Your balance becomes public when it does. If the rollup's validator is gone for good, holdings it never settled cannot be recovered.",
+      "escape": "Bring my holding back to Solana",
+      "whatSolana": "The Solana transaction",
+      "whatRollup": "The private rollup transaction"
     }
   },
   "issuer": {
@@ -336,9 +398,10 @@
       "overview": "Overview",
       "investors": "Investors",
       "issuance": "Issuance",
-      "policy": "Policy",
       "coupons": "Coupons",
-      "redemptions": "Redemptions"
+      "private": "Private",
+      "redemptions": "Redemptions",
+      "policy": "Policy"
     },
     "onboarding": {
       "step": "Set-up, step {n} of {of}",
@@ -519,16 +582,16 @@
       "stage": {
         "scheduled": "Scheduled",
         "due": "Record date passed",
-        "fixed": "Register fixed",
         "funding": "Needs funding",
         "paying": "Paying",
-        "paid": "Paid"
+        "paid": "Paid",
+        "counting": "Counting the register"
       },
       "panelTitle": "Coupon {n}, for the period ending {date}",
       "steps": {
         "record": "Record date: {when}",
-        "fix": "Fix the register (pauses transfers)",
-        "commit": "Commit entitlements (resumes transfers)",
+        "fix": "Fix the register (pauses transfers, prices the payment)",
+        "count": "Count the register (resumes transfers)",
         "fund": "Fund the payment",
         "pay": "Pay every holder"
       },
@@ -536,33 +599,37 @@
       "funded": "Funded",
       "paid": "Paid",
       "heldBack": "Held back",
-      "fixedAt": "Register fixed at slot {slot}: {units} units outstanding.",
+      "fixedAt": "Register fixed at slot {slot}: {units} units outstanding. The payment is priced from them.",
       "waiting": "Waiting for the record date. Anyone can fix the register once it passes.",
       "fix": "Fix the register",
-      "commit": "Read the register and commit",
       "fund": "Fund {amount}",
       "lowBalance": "Your wallet holds {balance} of the payment currency.",
-      "payAll": "Pay all {n} holders",
-      "download": "Download the register",
-      "import": "Load a saved register",
-      "totalMismatch": "The register adds up to {read} units, but {supply} were outstanding at the record date.",
-      "rootMismatch": "This register does not match the root committed on-chain, so it cannot pay anyone.",
-      "badFile": "That file is not a register saved from this console.",
+      "payAll": "Pay all {n} owed",
       "what": {
-        "scheduled": "The payment",
         "due": "Fixing the register",
-        "fixed": "Committing the entitlements",
-        "funding": "Funding the payment",
-        "paying": "The payment"
+        "funding": "Funding the payment"
       },
-      "registerNote": "The register is the chain's own record at the record date: anyone can rebuild it and check it against the committed root.",
-      "sending": "Sending…",
-      "failed": "Failed",
+      "registerNote": "Every line was counted on-chain from the holders' own accounts while transfers were paused. Each private holder's share of the pool is settled inside the private rollup.",
       "unpaid": "Not yet paid",
       "heldBackPill": "Held back",
       "paidPill": "Paid",
-      "rebuild": "Rebuild from the chain",
-      "rebuildMismatch": "Holdings have changed since the record date, so the chain no longer rebuilds the committed root. Load the register saved at commit."
+      "countedSoFar": "Counted so far",
+      "countedOf": "{counted} of {supply} units",
+      "countNote": "Anyone can count the register: each holder account, each open redemption request and the private pool, once each. Once the count reaches the supply, anyone closes it and transfers resume. No key of yours is needed to end the pause.",
+      "countBatch": "{n, plural, one {# account} other {# accounts}} counted",
+      "countPool": "The private pool counted",
+      "close": "The register closed, transfers resumed",
+      "recordLedgers": "The register recorded on {n, plural, one {# private ledger} other {# private ledgers}}",
+      "reclaim": "Get back the rent of {n, plural, one {# counted marker} other {# counted markers}}",
+      "reclaimBatch": "Rent of {n, plural, one {# marker} other {# markers}} returned",
+      "progress": {
+        "sent": "Sending",
+        "done": "Done",
+        "failed": "Failed"
+      },
+      "poolRow": "Private pool",
+      "poolPaid": "In the private cash vault",
+      "countRegister": "Count the register"
     },
     "redemptions": {
       "loading": "Reading redemptions…",
@@ -619,6 +686,55 @@
       },
       "allEligibleRedeemed": "Every eligible holding redeemed",
       "heldNote": "{units} units belong to holders who are not eligible. They keep them, and their principal waits in the vault until compliance clears them; redeem them then."
+    },
+    "private": {
+      "loading": "Reading private holdings…",
+      "unreadable": "Private holdings could not be read.",
+      "enableTitle": "Open private holdings",
+      "enableLede": "Holders can then park units in an escrow on Solana and hold their share in MagicBlock's private rollup, where only they, you, compliance and an auditor you name can see balances and private transfers. The same eligibility rules bind every private move.",
+      "validator": "Private rollup validator",
+      "validatorTee": "MagicBlock's Private Ephemeral Rollup, running in an Intel TDX trusted execution environment. The program accepts no other.",
+      "validatorLocal": "MagicBlock's local development validator (solana/tests/rollup.sh). Not a TEE.",
+      "auditor": "Auditor (optional)",
+      "auditorPlaceholder": "Wallet address, or leave empty",
+      "needsTerms": "Set the coupon terms first: private coupons are paid in their currency.",
+      "enable": "Open private holdings",
+      "enableNote": "What stays public: who has a private account, every deposit into and release out of private holdings, and the escrow's total. What does not: balances, private transfers and each holder's coupon.",
+      "whatEnable": "Opening private holdings",
+      "poolTitle": "Private pool",
+      "poolLede": "The units in private holdings sit in an escrow the asset account owns. On a record date the register counts them as one line; each holder's share is settled in the rollup.",
+      "escrow": "In the escrow",
+      "deposited": "Deposited, all time",
+      "released": "Released, all time",
+      "holders": "Private accounts",
+      "validatorLine": "Delegated to",
+      "validatorOther": "not this cluster's private rollup",
+      "auditorNow": "Auditor: {auditor}",
+      "auditorNone": "No auditor",
+      "setAuditor": "Set the auditor",
+      "whatAuditor": "Setting the auditor",
+      "registerTitle": "Private register",
+      "reprotect": "Rebuild read permissions",
+      "registerLede": "Read through the private rollup: as the issuer you can see every private holding. Rebuild the read permissions after you change the auditor or the compliance key.",
+      "signIn": "Sign in to the private rollup",
+      "signInNote": "Your wallet signs a message, not a transaction: the rollup then shows you what you may read.",
+      "cannotSign": "This wallet cannot sign messages, which the private rollup needs.",
+      "signInFailed": "The private rollup did not accept the sign-in.",
+      "loadingRegister": "Reading the private register…",
+      "empty": "No private holdings yet.",
+      "col": {
+        "holder": "Holder",
+        "units": "Units",
+        "cash": "Coupon cash",
+        "status": "Status"
+      },
+      "held": "On hold",
+      "private": "Private",
+      "unprotected": "Not yet private",
+      "hold": "Hold",
+      "releaseHold": "Lift the hold",
+      "publicNote": "A hold stops a holding from sending units or taking them out; it can still receive. Only compliance can set or lift one.",
+      "whatRollup": "The private rollup transaction"
     }
   },
   "proof": {
@@ -663,11 +779,19 @@
       },
       "pause": {
         "title": "Only the asset account can pause",
-        "why": "Pausing fixes the register on the record date; no one else can stop transfers."
+        "why": "Pausing fixes the register on the record date, and only while it is counted; no one else can stop transfers."
       },
       "mintAuthorityMatured": {
         "title": "Matured: nobody can mint",
         "why": "Maturity removed the mint authority, so no unit can ever be issued again, by AssetFlow or anyone."
+      },
+      "privateValidator": {
+        "title": "Private holdings live only in MagicBlock's private rollup",
+        "why": "Every private account is delegated to the TEE validator the program pins; no other rollup can read them or settle their exits."
+      },
+      "privateEscrow": {
+        "title": "The private escrow holds exactly what went in less what came out",
+        "why": "It belongs to the asset account, the gate never opens it, and its balance always equals deposits less releases."
       }
     },
     "supplyTitle": "Units outstanding",

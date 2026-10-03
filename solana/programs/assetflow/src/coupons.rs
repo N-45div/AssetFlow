@@ -122,6 +122,8 @@ pub struct Entitlement {
 #[derive(InitSpace)]
 pub struct CountedSource {
     pub payout: Pubkey,
+    /// The holder account or redemption request counted.
+    pub source: Pubkey,
     /// Paid the rent; gets it back once the register is counted.
     pub payer: Pubkey,
 }
@@ -330,6 +332,7 @@ pub fn count_account(mut ctx: Context<CountHolding>, period: u8) -> Result<()> {
     let caller = ctx.accounts.caller.key();
     let a = &mut ctx.accounts;
     a.marker.payout = a.payout.key();
+    a.marker.source = a.holding.key();
     a.marker.payer = caller;
     count_into(&mut a.payout, &mut a.entitlement, holder, caller, ctx.bumps.entitlement, units)?;
     emit!(HoldingCounted { asset: a.payout.asset, period, holder, source: a.holding.key(), units });
@@ -349,6 +352,7 @@ pub fn count_request(mut ctx: Context<CountRedemption>, period: u8) -> Result<()
     let caller = ctx.accounts.caller.key();
     let a = &mut ctx.accounts;
     a.marker.payout = a.payout.key();
+    a.marker.source = a.request.key();
     a.marker.payer = caller;
     count_into(&mut a.payout, &mut a.entitlement, holder, caller, ctx.bumps.entitlement, units)?;
     emit!(HoldingCounted { asset: a.payout.asset, period, holder, source: a.request.key(), units });
