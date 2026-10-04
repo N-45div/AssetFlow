@@ -13,12 +13,14 @@ import type { BondView } from "@/lib/evm/use-bond";
 import { useEvmTx } from "@/lib/evm/use-evm-tx";
 import { useEvmWallet } from "@/lib/evm/wallet";
 import { useEvmChain } from "@/lib/evm/use-evm-chain";
+import { currencyKind } from "@/lib/evm/chains";
 
 type Entitlement = Awaited<ReturnType<typeof readEntitlements>>[number];
 
 /** The schedule, and the payment under way: funded, then paid to every holder on the record date. */
 export function BaseCoupons({ view, onChange }: { view: BondView; onChange: () => void }) {
-  const { pub, links } = useEvmChain();
+  const { cfg, pub, links } = useEvmChain();
+  const tn = useTranslations("base.currencyName");
   const t = useTranslations("issuer.coupons");
   const tb = useTranslations("base.coupons");
   const locale = useLocale();
@@ -97,7 +99,7 @@ export function BaseCoupons({ view, onChange }: { view: BondView; onChange: () =
       <section className="card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold">{t("scheduleTitle")}</h2>
-          <span className="text-sm text-ink-2">{tb("termsLine", { face: cur(bond.facePerUnit), rate: (bond.couponBps / 100).toFixed(2) })}</span>
+          <span className="text-sm text-ink-2">{tb("termsLine", { face: cur(bond.facePerUnit), rate: (bond.couponBps / 100).toFixed(2), currency: tn(currencyKind(cfg, bond.currency)) })}</span>
         </div>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
@@ -165,7 +167,7 @@ export function BaseCoupons({ view, onChange }: { view: BondView; onChange: () =
                   <button className="btn btn-primary" disabled={tx.busy || (balance ?? 0n) < required - pay.funded} onClick={fund}>
                     {t("fund", { amount: cur(required - pay.funded) })}
                   </button>
-                  {balance !== null && balance < required - pay.funded && <p className="w-full text-xs text-warn">{tb("lowBalance", { balance: cur(balance) })}</p>}
+                  {balance !== null && balance < required - pay.funded && <p className="w-full text-xs text-warn">{tb("lowBalance", { balance: cur(balance), currency: tn(currencyKind(cfg, bond.currency)) })}</p>}
                 </>
               )}
               {required !== null && pay.funded >= required && pending > 0 && (

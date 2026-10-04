@@ -24,6 +24,8 @@ export interface EvmChainConfig {
   dot: string;
   directory: Address;
   testUsd: Address;
+  /** Paxos's USDG on this testnet, where Paxos deploys it (docs.paxos.com); its faucet gives 100 a day. */
+  usdg?: Address;
   eas: Address;
   /** EAS 1.2 signs delegated requests without the attester; 1.3 and later with it. */
   easVersion: "1.2.0" | "1.3.0" | "1.4.0";
@@ -88,6 +90,7 @@ export const EVM_CHAINS: Record<EvmChainKey, EvmChainConfig> = {
     dot: "#28a0f0",
     directory: DIRECTORY,
     testUsd: TEST_USD,
+    usdg: "0xFFC95faa3d63Cde504a05B567C600B78C0b41892",
     eas: "0x2521021fc8BF070473E1e1801D3c7B4aB701E1dE",
     easVersion: "1.3.0",
     easFromBlock: 313_800_000n,
@@ -107,6 +110,7 @@ export const EVM_CHAINS: Record<EvmChainKey, EvmChainConfig> = {
     directory: DIRECTORY,
     testUsd: TEST_USD,
     // Robinhood Chain has no EAS of its own yet: AssetFlow runs the Foundation's contracts there.
+    usdg: "0x7E955252E15c84f5768B83c41a71F9eba181802F",
     eas: "0xdD5Fc46c9f5C87e887614DB3b124e51A4A5540A1",
     easVersion: "1.4.0",
     easFromBlock: 125_997_000n,
@@ -115,6 +119,17 @@ export const EVM_CHAINS: Record<EvmChainKey, EvmChainConfig> = {
 };
 
 export const EVM_CHAIN_KEYS = Object.keys(EVM_CHAINS) as EvmChainKey[];
+
+/** Paxos's testnet faucet: 100 USDG a day per wallet, on Arbitrum Sepolia and Robinhood Chain testnet among others. */
+export const USDG_FAUCET = "https://faucet.paxos.com/";
+
+/** What a bond's payment currency is, from its address. */
+export function currencyKind(cfg: EvmChainConfig, currency: string): "usdg" | "testUsd" | "other" {
+  const c = currency.toLowerCase();
+  if (cfg.usdg && c === cfg.usdg.toLowerCase()) return "usdg";
+  if (c === cfg.testUsd.toLowerCase()) return "testUsd";
+  return "other";
+}
 
 /** AssetFlow's investor schema, the same UID on every chain: uint16 jurisdiction, uint8 tier, bool accredited. */
 export const INVESTOR_SCHEMA: Hex = "0xc4f99bbaebea35d982f583b35f80da7ea6871d64fadb9dd220f45f578db20384";

@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { shortKey } from "@/lib/chain/explorer";
 import { testUSDAbi } from "@/lib/evm/abi";
+import { USDG_FAUCET } from "@/lib/evm/chains";
 import { useEvmChain } from "@/lib/evm/use-evm-chain";
 import { useEvmWallet, type EvmWalletKind } from "@/lib/evm/wallet";
 
@@ -92,6 +93,11 @@ export function EvmWalletButton({ className = "" }: { className?: string }) {
           <button className={item} disabled={dollars === "busy"} onClick={drip}>
             {dollars === "busy" ? t("usdcBusy") : dollars === "done" ? tb("usdDone") : dollars === "failed" ? t("usdcFailed") : tb("usd")}
           </button>
+          {cfg.usdg && (
+            <a className={`${item} block`} href={USDG_FAUCET} target="_blank" rel="noreferrer">
+              {tb("usdg")} ↗
+            </a>
+          )}
           <button
             className="w-full rounded px-3 py-2 text-left text-sm text-bad hover:bg-bad-soft"
             onClick={() => {

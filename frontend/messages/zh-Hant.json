@@ -854,7 +854,8 @@
       },
       "gas": "領取 {network} ETH",
       "usd": "領取 1,000 測試 USD",
-      "usdDone": "已收到 1,000 測試 USD"
+      "usdDone": "已收到 1,000 測試 USD",
+      "usdg": "從 Paxos 領取測試 USDG"
     },
     "home": {
       "eyebrow": "AssetFlow on {chain}",
@@ -883,7 +884,8 @@
         "directory": "名冊與債券目錄",
         "testUsd": "測試 USD（測試網上替代 USDC）",
         "eas": "以太坊認證服務",
-        "schema": "EAS 上的 AssetFlow 投資者模式"
+        "schema": "EAS 上的 AssetFlow 投資者模式",
+        "usdg": "Paxos 的 USDG（測試網）"
       },
       "mainnetTitle": "已上線 {name}",
       "mainnetPill": "主網",
@@ -917,7 +919,14 @@
         "eligible": "代幣在鑄造和每一筆轉賬時都會檢查名冊，而不只是在開户時檢查一次。",
         "everyTransfer": "批准失效或合規凍結會直接阻止該持有人的下一筆轉賬。",
         "history": "每一次餘額變化都附帶時間記錄，任何登記日的名冊都可以回溯讀取。"
-      }
+      },
+      "currencyLabel": "支付貨幣",
+      "currencyUsdg": "Paxos 的 USDG",
+      "currencyTest": "測試 USD（任何人都可鑄造）",
+      "currencyUsdgNote": "以 {network} 上的 USDG 支付。可通過錢包菜單從 Paxos 水龍頭領取測試 USDG，每天 100 個。",
+      "newBond": "新建債券",
+      "backToBond": "返回債券",
+      "yourBonds": "你的債券"
     },
     "policy": {
       "title": "KYC 服務商",
@@ -930,7 +939,7 @@
       "what": "設置 KYC 服務商"
     },
     "coupons": {
-      "termsLine": "每單位面值 {face} · 年利率 {rate}% · 30/360 · 以測試 USD 支付",
+      "termsLine": "每單位面值 {face} · 年利率 {rate}% · 30/360 · 以 {currency} 支付",
       "stage": {
         "scheduled": "已排期",
         "funding": "待注資",
@@ -939,7 +948,7 @@
       },
       "registerNote": "每個登記日的名冊，就是代幣記錄的當時每位持有人的餘額：無需任何人提交，也無需暫停。",
       "waiting": "等待登記日 {when}。登記日過後，從代幣的歷史記錄中讀取名冊。",
-      "lowBalance": "你的錢包持有 {balance} 測試 USD。",
+      "lowBalance": "你的錢包持有 {balance} {currency}。",
       "what": {
         "fund": "為本期付息注資",
         "pay": "向持有人付息"
@@ -972,6 +981,11 @@
       "onboardBody": "把此地址發給發行人，或者在其信任的 KYC 服務商處完成驗證後自助入駐。",
       "locked": "{units} 單位因贖回申請而被鎖定。",
       "redeemLede": "在到期前請發行人贖回單位。單位留在你的錢包中並被鎖定，直到發行人結算或拒絕；在此之前你可以隨時撤回申請。"
+    },
+    "currencyName": {
+      "usdg": "USDG",
+      "testUsd": "測試 USD",
+      "other": "支付貨幣"
     }
   }
 }

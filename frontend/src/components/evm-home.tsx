@@ -20,7 +20,8 @@ export async function EvmHome({ chain }: { chain: EvmChainKey }) {
       address: INVESTOR_SCHEMA,
       href: cfg.easscan ? `${cfg.easscan}/schema/view/${INVESTOR_SCHEMA}` : links.address(cfg.eas),
     },
-  ] as const;
+    ...(cfg.usdg ? [{ key: "usdg", address: cfg.usdg, href: links.address(cfg.usdg) } as const] : []),
+  ];
   const m = cfg.mainnet;
   const mainnet = m
     ? ([

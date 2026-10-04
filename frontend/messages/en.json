@@ -854,7 +854,8 @@
       },
       "gas": "Get {network} ETH",
       "usd": "Get 1,000 test USD",
-      "usdDone": "1,000 test USD received"
+      "usdDone": "1,000 test USD received",
+      "usdg": "Get test USDG from Paxos"
     },
     "home": {
       "eyebrow": "AssetFlow on {chain}",
@@ -883,7 +884,8 @@
         "directory": "Directory of registries and bonds",
         "testUsd": "Test USD (testnet stand-in for USDC)",
         "eas": "Ethereum Attestation Service",
-        "schema": "AssetFlow investor schema on EAS"
+        "schema": "AssetFlow investor schema on EAS",
+        "usdg": "USDG by Paxos (test network)"
       },
       "mainnetTitle": "Live on {name}",
       "mainnetPill": "Mainnet",
@@ -917,7 +919,14 @@
         "eligible": "The token checks the registry at mint and at every transfer, not once when an account was opened.",
         "everyTransfer": "A lapsed approval or a compliance hold stops the holder's next transfer outright.",
         "history": "Every balance change is recorded with its time, so any record date's register can be read back."
-      }
+      },
+      "currencyLabel": "Payment currency",
+      "currencyUsdg": "USDG by Paxos",
+      "currencyTest": "Test USD (anyone can mint)",
+      "currencyUsdgNote": "Paid in USDG on {network}. Get test USDG from Paxos's faucet, 100 a day, through the wallet menu.",
+      "newBond": "New bond",
+      "backToBond": "Back to the bond",
+      "yourBonds": "Your bonds"
     },
     "policy": {
       "title": "KYC provider",
@@ -930,7 +939,7 @@
       "what": "Setting the KYC provider"
     },
     "coupons": {
-      "termsLine": "{face} face per unit · {rate}% a year · 30/360 · paid in test USD",
+      "termsLine": "{face} face per unit · {rate}% a year · 30/360 · paid in {currency}",
       "stage": {
         "scheduled": "Scheduled",
         "funding": "Needs funding",
@@ -939,7 +948,7 @@
       },
       "registerNote": "The register on each record date is every holder's balance at that time, as the token recorded it: nobody commits it, and nothing is paused.",
       "waiting": "Waiting for the record date, {when}. The register is read from the token's history once it has passed.",
-      "lowBalance": "Your wallet holds {balance} of test USD.",
+      "lowBalance": "Your wallet holds {balance} of {currency}.",
       "what": {
         "fund": "Funding the payment",
         "pay": "Paying the holders"
@@ -972,6 +981,11 @@
       "onboardBody": "Send this address to the issuer, or get verified by a KYC provider it trusts and onboard yourself.",
       "locked": "{units} units are locked on a redemption request.",
       "redeemLede": "Ask the issuer to redeem units before maturity. They stay in your wallet, locked, until the issuer settles or declines, and you can withdraw the request until then."
+    },
+    "currencyName": {
+      "usdg": "USDG",
+      "testUsd": "test USD",
+      "other": "the payment currency"
     }
   }
 }

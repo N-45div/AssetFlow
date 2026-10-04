@@ -49,6 +49,7 @@ export function BaseIssuerConsole() {
   const [lists, setLists] = useState<{ registries: Address[]; bonds: Address[] } | null>(null);
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => setTick((n) => n + 1), []);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!address) return;
@@ -68,10 +69,10 @@ export function BaseIssuerConsole() {
   }, [params, lists]);
   const { view, refresh } = useBond(selected);
   const tab: Tab = (TABS as readonly string[]).includes(params.get("tab") ?? "") ? (params.get("tab") as Tab) : "investors";
-  const go = (next: Tab) => {
+  const go = (next: Tab, bond: Address | null = selected) => {
     const q = new URLSearchParams(params.toString());
     q.set("tab", next);
-    if (selected) q.set("bond", selected);
+    if (bond) q.set("bond", bond);
     router.replace(`${pathname}?${q.toString()}`, { scroll: false });
   };
 
@@ -109,6 +110,28 @@ export function BaseIssuerConsole() {
       </PageShell>
     );
   }
+  // Another bond under the same registry: each has its own terms, token and payment currency.
+  if (creating) {
+    return (
+      <PageShell
+        title={tb("title", { chain: cfg.brand })}
+        actions={
+          <button className="btn btn-secondary btn-sm" onClick={() => setCreating(false)}>
+            {tb("backToBond")}
+          </button>
+        }
+      >
+        <CreateBond
+          registry={lists.registries[lists.registries.length - 1]}
+          onDone={(servicer) => {
+            setCreating(false);
+            reload();
+            if (servicer) go("issuance", servicer);
+          }}
+        />
+      </PageShell>
+    );
+  }
 
   const onChange = () => refresh();
   return (
@@ -125,11 +148,30 @@ export function BaseIssuerConsole() {
         )
       }
       actions={
-        selected && (
-          <Link href={`${cfg.prefix}/holder?bond=${selected}`} className="btn btn-secondary btn-sm">
-            {t("holderLink")}
-          </Link>
-        )
+        <div className="flex flex-wrap items-center gap-2">
+          {lists.bonds.length > 1 && selected && (
+            <select
+              className="input h-9 w-auto py-1 text-sm"
+              aria-label={tb("yourBonds")}
+              value={selected}
+              onChange={(e) => go(tab, e.target.value as Address)}
+            >
+              {lists.bonds.map((b) => (
+                <option key={b} value={b}>
+                  {b === selected && view ? `${view.bond.symbol} · ${shortKey(b)}` : shortKey(b)}
+                </option>
+              ))}
+            </select>
+          )}
+          {selected && (
+            <Link href={`${cfg.prefix}/holder?bond=${selected}`} className="btn btn-secondary btn-sm">
+              {t("holderLink")}
+            </Link>
+          )}
+          <button className="btn btn-secondary btn-sm" onClick={() => setCreating(true)}>
+            {tb("newBond")}
+          </button>
+        </div>
       }
     >
       <div role="tablist" aria-label={t("tabsLabel")} className="flex gap-1 overflow-x-auto border-b border-line">
@@ -228,7 +270,7 @@ function addMonths(ts: number, months: number) {
 }
 
 /** Step 2: deploy a bond (its servicer, which creates the token) on test dollars, and list it. */
-function CreateBond({ registry, onDone }: { registry: Address; onDone: () => void }) {
+function CreateBond({ registry, onDone }: { registry: Address; onDone: (servicer?: Address) => void }) {
   const { cfg, pub, links } = useEvmChain();
   const t = useTranslations("issuer.coupons");
   const tb = useTranslations("base.issuer");
@@ -243,6 +285,8 @@ function CreateBond({ registry, onDone }: { registry: Address; onDone: () => voi
   const [count, setCount] = useState(4);
   const [demo, setDemo] = useState(true);
   const [anchor] = useState(() => Math.floor(Date.now() / 1000));
+  // USDG where Paxos runs it on this testnet; the test dollar anyone can mint otherwise, or by choice.
+  const [currency, setCurrency] = useState<Address>(cfg.usdg ?? cfg.testUsd);
 
   const periods = useMemo(() => {
     const start = Date.parse(`${first}T00:00:00Z`) / 1000;
@@ -265,7 +309,7 @@ function CreateBond({ registry, onDone }: { registry: Address; onDone: () => voi
       name,
       symbol,
       registry,
-      cfg.testUsd,
+      currency,
       facePerUnit,
       bps,
       periods.map((p) => ({ accrualStart: BigInt(p.accrualStart), accrualEnd: BigInt(p.accrualEnd), recordTs: BigInt(p.recordTs), paymentTs: BigInt(p.paymentTs) })),
@@ -274,7 +318,7 @@ function CreateBond({ registry, onDone }: { registry: Address; onDone: () => voi
     const r = await tx.run([{ address: cfg.directory, abi: directoryAbi as Abi, functionName: "listBond", args: [servicer] }]);
     if (r.status !== "confirmed" || !address) return;
     await listed(pub, cfg.directory, address, "bonds", servicer);
-    onDone();
+    onDone(servicer);
   };
 
   const date = (ts: number) => new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(ts * 1000);
@@ -315,7 +359,18 @@ function CreateBond({ registry, onDone }: { registry: Address; onDone: () => voi
           </select>
         </label>
       </div>
-      <p className="mt-3 text-xs text-ink-3">{tb("currency", { network: cfg.network })}</p>
+      {cfg.usdg && (
+        <label className="mt-4 block max-w-sm">
+          <span className="field-label">{tb("currencyLabel")}</span>
+          <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value as Address)}>
+            <option value={cfg.usdg}>{tb("currencyUsdg")}</option>
+            <option value={cfg.testUsd}>{tb("currencyTest")}</option>
+          </select>
+        </label>
+      )}
+      <p className="mt-3 text-xs text-ink-3">
+        {cfg.usdg && currency === cfg.usdg ? tb("currencyUsdgNote", { network: cfg.network }) : tb("currency", { network: cfg.network })}
+      </p>
       <label className="mt-3 flex items-center gap-2 text-sm">
         <input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
         {t("demo")}
