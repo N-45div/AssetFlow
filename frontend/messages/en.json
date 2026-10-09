@@ -879,7 +879,10 @@
       "distribution": "Payouts",
       "redemption": "Redemptions"
     },
-    "hashkeyHint": "AssetFlow's EVM contracts, deployed on HashKey Chain mainnet (chain 177) on {date}."
+    "hashkeyHint": "AssetFlow's EVM contracts, deployed on HashKey Chain mainnet (chain 177) on {date}.",
+    "poolsTitle": "Trading pools",
+    "poolValue": "worth {fair} at the bond's price",
+    "poolsHint": "A pool's account trades only while a fresh risk decision allows it and its price stays within the band of the bond's own value. Otherwise anyone can freeze it, and no swap against it can settle. Wallet-to-wallet transfers are never touched."
   },
   "kyc": {
     "title": "Demo KYC provider",

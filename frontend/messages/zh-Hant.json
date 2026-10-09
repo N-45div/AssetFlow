@@ -879,7 +879,10 @@
       "distribution": "派付",
       "redemption": "贖回"
     },
-    "hashkeyHint": "AssetFlow 的 EVM 合約，於 {date} 部署在 HashKey Chain 主網（鏈 ID 177）。"
+    "hashkeyHint": "AssetFlow 的 EVM 合約，於 {date} 部署在 HashKey Chain 主網（鏈 ID 177）。",
+    "poolsTitle": "交易池",
+    "poolValue": "按債券價格價值 {fair}",
+    "poolsHint": "只有在有效的風控決定允許、且價格保持在債券自身價值的區間內時，交易池賬户才能交易。否則任何人都可以凍結它，針對它的兑換都無法結算。錢包之間的轉賬完全不受影響。"
   },
   "kyc": {
     "title": "演示 KYC 服務商",

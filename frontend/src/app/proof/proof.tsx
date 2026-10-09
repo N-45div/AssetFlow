@@ -17,6 +17,7 @@ import {
 } from "@solana/spl-token";
 import { useLocale, useTranslations } from "next-intl";
 import { PageShell } from "@/components/page-shell";
+import { Breaker, deviationBps, fairValue, venueState, type Venue, type VenueState } from "@/lib/chain/breaker";
 import { assetFromQuery, PROGRAM_ID } from "@/lib/chain/config";
 import { explorer, shortKey } from "@/lib/chain/explorer";
 import { Coupons } from "@/lib/chain/coupons";
@@ -25,6 +26,7 @@ import { TokenAcl, TOKEN_ACL_ID } from "@/lib/chain/program";
 import { Redemptions } from "@/lib/chain/redemptions";
 import { formatUnits, program } from "@/lib/chain/use-asset";
 import { HASHKEY_MAINNET, hashkeyAddressUrl } from "@/lib/evm/hashkey";
+import { money } from "../issuer/coupons";
 
 interface Check {
   id: string;
@@ -33,12 +35,32 @@ interface Check {
   evidence: string;
 }
 
+interface PoolView {
+  venue: Venue;
+  state: VenueState;
+  frozen: boolean;
+  units: bigint;
+  quote: bigint;
+  fair: bigint;
+  deviation: number;
+}
+
 interface Proof {
   checks: Check[];
   extensions: string[];
   supply: bigint;
   decimals: number;
+  pools: PoolView[];
+  currencyDecimals: number;
 }
+
+const POOL_PILL: Record<VenueState, string> = {
+  open: "pill pill-ok",
+  tripped: "pill pill-bad",
+  blocked: "pill pill-bad",
+  expired: "pill pill-warn",
+  new: "pill pill-neutral",
+};
 
 /**
  * Every guarantee the product makes, read back from the chain rather than
@@ -46,6 +68,7 @@ interface Proof {
  */
 export function ProofView() {
   const t = useTranslations("proof");
+  const tp = useTranslations("issuer.pools");
   const locale = useLocale();
   const { connection } = useConnection();
   const params = useSearchParams();
@@ -115,7 +138,27 @@ export function ProofView() {
           : []),
       ];
       const extensions = getExtensionTypes(info.tlvData).map((e) => ExtensionType[e]);
-      return { checks, extensions, supply: info.supply, decimals: info.decimals };
+      // Trading pools, where the asset has them: each read from the chain, priced as the program prices it.
+      const now = Math.floor(Date.now() / 1000);
+      const venues = await new Breaker(PROGRAM_ID).fetchVenues(connection, assetAccount.registry, mint);
+      const pools: PoolView[] = await Promise.all(
+        venues.map(async (venue) => {
+          const base = await getAccount(connection, venue.baseVault, "confirmed", TOKEN_2022_PROGRAM_ID);
+          const quoteInfo = await connection.getAccountInfo(venue.quoteVault, "confirmed");
+          const quote = quoteInfo ? await getAccount(connection, venue.quoteVault, "confirmed", quoteInfo.owner) : null;
+          const fair = terms ? fairValue(terms, base.amount, now) : 0n;
+          return {
+            venue,
+            state: venueState(venue, now),
+            frozen: base.isFrozen,
+            units: base.amount,
+            quote: quote?.amount ?? 0n,
+            fair,
+            deviation: deviationBps(quote?.amount ?? 0n, fair),
+          };
+        }),
+      );
+      return { checks, extensions, supply: info.supply, decimals: info.decimals, pools, currencyDecimals: terms?.currencyDecimals ?? 6 };
     })()
       .then((p) => live && setProof(p))
       .catch(() => live && setProof(null));
@@ -185,6 +228,40 @@ export function ProofView() {
           </section>
 
           <div className="flex flex-col gap-4">
+            {proof.pools.length > 0 && (
+              <section className="card p-5">
+                <h2 className="font-semibold">{t("poolsTitle")}</h2>
+                <ul className="mt-3 divide-y divide-line text-sm">
+                  {proof.pools.map((p) => (
+                    <li key={p.venue.address.toBase58()} className="grid gap-1 py-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <a
+                          className="mono text-accent underline underline-offset-2"
+                          href={explorer.address(p.venue.baseVault.toBase58())}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {shortKey(p.venue.baseVault.toBase58())}
+                        </a>
+                        <span className="flex gap-1">
+                          <span className={POOL_PILL[p.state]}>{tp(`state.${p.state}`)}</span>
+                          <span className={p.frozen ? "pill pill-bad" : "pill pill-ok"}>{p.frozen ? tp("accountFrozen") : tp("accountOpen")}</span>
+                        </span>
+                      </div>
+                      <p className="text-ink-2">
+                        {tp("reservesValue", { units: p.units.toLocaleString(locale), quote: money(p.quote, proof.currencyDecimals, locale) })}
+                        {" · "}
+                        {t("poolValue", { fair: money(p.fair, proof.currencyDecimals, locale) })}
+                      </p>
+                      <p className={p.units > 0n && p.deviation > p.venue.maxDeviationBps ? "font-medium text-bad" : "text-ink-2"}>
+                        {tp("deviationValue", { pct: `${(p.deviation / 100).toFixed(2)}%`, band: `${(p.venue.maxDeviationBps / 100).toFixed(2)}%` })}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-sm text-ink-2">{t("poolsHint")}</p>
+              </section>
+            )}
             <section className="card p-5">
               <h2 className="font-semibold">{t("supplyTitle")}</h2>
               <p className="tabular mt-2 text-3xl font-semibold">{formatUnits(proof.supply, proof.decimals, locale)}</p>
