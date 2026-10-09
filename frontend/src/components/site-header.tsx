@@ -8,6 +8,7 @@ import { setLocale } from "@/i18n/actions";
 import { LOCALES } from "@/i18n/locales";
 import { CLUSTER } from "@/lib/chain/config";
 import { EVM_CHAINS, EVM_CHAIN_KEYS, chainForPath, type EvmChainConfig } from "@/lib/evm/chains";
+import { PILOT } from "@/lib/site";
 import { EvmWalletButton } from "./evm-wallet-button";
 import { Logo } from "./logo";
 import { WalletButton } from "./wallet-button";
@@ -48,6 +49,7 @@ export function SiteHeader() {
   const pathname = usePathname();
   const evm = chainForPath(pathname);
   const NAV = evm ? evmNav(evm.prefix) : SOLANA_NAV;
+  const landing = pathname === "/" || pathname === "/pricing";
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:gap-6 sm:px-6">
@@ -72,10 +74,18 @@ export function SiteHeader() {
           })}
         </nav>
         <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
-          <ChainSwitch evm={evm} pathname={pathname} />
-          <ClusterBadge evm={evm} />
+          {!landing && <ChainSwitch evm={evm} pathname={pathname} />}
+          {!landing && <ClusterBadge evm={evm} />}
           <LocaleSwitch />
-          {evm ? <EvmWalletButton /> : <WalletButton />}
+          {landing ? (
+            <a href={PILOT} className="btn btn-primary btn-sm" target="_blank" rel="noreferrer">
+              {t("pilot")}
+            </a>
+          ) : evm ? (
+            <EvmWalletButton />
+          ) : (
+            <WalletButton />
+          )}
         </div>
       </div>
       <nav className="flex gap-1 overflow-x-auto border-t border-line px-4 py-2 lg:hidden" aria-label={t("label")}>

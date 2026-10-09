@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { PILOT, REPO } from "@/lib/site";
 import { Logo } from "./logo";
-
-const REPO = "https://github.com/N-45div/AssetFlow";
 
 export async function SiteFooter() {
   const t = await getTranslations("footer");
@@ -28,7 +27,8 @@ export async function SiteFooter() {
     {
       title: t("company"),
       links: [
-        { href: "https://t.me/holaworked", label: t("pilot") },
+        { href: PILOT, label: t("pilot") },
+        { href: "/pricing", label: t("pricing") },
         { href: "/base", label: t("evm") },
       ],
     },
