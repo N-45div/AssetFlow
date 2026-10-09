@@ -56,6 +56,10 @@ const ASSETFLOW_ERRORS = [
   "PrivateAlreadyDelegated",
   "NotProtected",
   "HoldingOnHold",
+  "InvalidVenue",
+  "VenueClosed",
+  "VenueOpen",
+  "NotTheVenueAccount",
 ] as const;
 
 /** Refusals only the EVM contracts give (evm/src). */

@@ -18,10 +18,11 @@ import { Investors } from "./investors";
 import { Issuance } from "./issuance";
 import { Overview } from "./overview";
 import { Policy } from "./policy";
+import { PoolsTab } from "./pools";
 import { PrivateTab } from "./private";
 import { RedemptionsTab } from "./redemptions";
 
-const TABS = ["overview", "investors", "issuance", "coupons", "private", "redemptions", "policy"] as const;
+const TABS = ["overview", "investors", "issuance", "coupons", "private", "redemptions", "pools", "policy"] as const;
 type Tab = (typeof TABS)[number];
 
 export function IssuerConsole() {
@@ -168,6 +169,8 @@ export function IssuerConsole() {
           <CouponsTab view={view} />
         ) : tab === "private" ? (
           <PrivateTab view={view} />
+        ) : tab === "pools" ? (
+          <PoolsTab view={view} />
         ) : tab === "redemptions" ? (
           <RedemptionsTab
             view={view}
