@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "AssetFlow · Servicing for tokenized assets on Solana",
-    "description": "Holder eligibility, coupons on the record date and redemptions in USDC, enforced by Solana programs and run from one console."
+    "title": "AssetFlow: bond servicing, enforced on Solana",
+    "description": "Open-source servicing for tokenized bonds and funds: who may hold them, coupons counted on-chain on every record date and paid in USDC, redemptions and maturity, private holdings on MagicBlock, and a circuit breaker for trading pools."
   },
   "nav": {
     "label": "Main",
@@ -34,105 +34,249 @@
     "usdcFailed": "Faucet failed; try again"
   },
   "footer": {
-    "line": "Open source under MIT. Built on Solana with Token-2022 and Token ACL (sRFC-37), and on EVM chains with EAS; the EVM contracts live on Base, Arbitrum One and HashKey Chain mainnet, and on Robinhood Chain testnet.",
-    "source": "Source code"
+    "line": "Open source under MIT. Built natively on Solana with Token-2022, Token ACL (sRFC-37), the Solana Attestation Service and MagicBlock; also on Base, Arbitrum and Robinhood Chain with the Ethereum Attestation Service.",
+    "legal": "Devnet software, not audited. Nothing on this site is an offer to sell or a solicitation to buy any security.",
+    "source": "Source code",
+    "tagline": "Servicing for tokenized bonds and funds: who may hold them, what each holder is owed, and how they redeem.",
+    "product": "Product",
+    "developers": "Developers",
+    "company": "Company",
+    "issuer": "Issuer console",
+    "holder": "Holder portal",
+    "proof": "On-chain proof",
+    "kyc": "KYC provider (demo)",
+    "architecture": "Architecture",
+    "security": "Security notes (EVM)",
+    "research": "Research",
+    "pilot": "Book a pilot call",
+    "evm": "AssetFlow on EVM chains"
   },
   "home": {
-    "kicker": "Post-issuance servicing, on Solana",
-    "title": "Issuance is day one. AssetFlow runs every day after.",
-    "lede": "Who may hold a tokenized bond or fund, what each holder is owed on the record date, and how they redeem, enforced by Solana programs and run from one console. Mosaic mints it; AssetFlow runs it.",
-    "ctaIssuer": "Open the issuer console",
-    "ctaHolder": "I hold an asset",
-    "ctaProof": "See what is on-chain",
-    "termSheet": {
-      "label": "Term sheet",
-      "demo": "Demo instrument",
-      "name": "AssetFlow Note 10% 2028",
-      "face": {
-        "label": "Face amount per note",
-        "value": "US$1,000"
-      },
-      "coupon": {
-        "label": "Coupon",
-        "value": "10.00% a year, paid semi-annually"
-      },
-      "dayCount": {
-        "label": "Day count",
-        "value": "30/360"
-      },
-      "record": {
-        "label": "Record date",
-        "value": "Register fixed on-chain before each payment"
-      },
-      "settlement": {
-        "label": "Settlement",
-        "value": "USDC on Solana"
-      },
-      "holders": {
-        "label": "Holders",
-        "value": "Eligible wallets only"
-      }
+    "status": {
+      "live": "Live on Solana devnet",
+      "open": "Open source · MIT",
+      "audit": "Not audited yet"
     },
-    "jobsTitle": "Three jobs every issuer has after launch",
-    "jobsLede": "Today these run on spreadsheets and email next to a token on-chain. AssetFlow puts them where the token is.",
+    "kicker": "Servicing for tokenized bonds and funds",
+    "title": "Bond servicing, enforced on Solana.",
+    "lede": "AssetFlow decides who may hold a tokenized bond, counts the holders on-chain on every record date, pays coupons in USDC and settles redemptions. Every guarantee can be read back from the chain.",
+    "ctaConsole": "Open the live console",
+    "ctaPilot": "Book a pilot call",
+    "ctaProof": "Verify 11 guarantees on-chain",
+    "register": {
+      "title": "Coupon 1, counted on-chain",
+      "paid": "Paid",
+      "sub": "Devnet bond",
+      "holder": "Holder",
+      "units": "Units at record date",
+      "coupon": "Coupon",
+      "holderA": "Holder A",
+      "holderB": "Holder B",
+      "pool": "Private pool (MagicBlock)",
+      "total": "Total",
+      "supply": "equals supply",
+      "note": "Anyone counts the register on the record date, one account at a time, until it equals the supply. No Merkle root, no list to trust. Devnet, October 4, 2026."
+    },
+    "proof": {
+      "tests": {
+        "value": "91 / 91",
+        "label": "program tests pass, private holdings and the circuit breaker included",
+        "link": "Read the tests"
+      },
+      "guarantees": {
+        "value": "11 / 11",
+        "label": "guarantees read back from the chain on the proof page",
+        "link": "Open the proof page"
+      },
+      "lifecycle": {
+        "value": "1 bond",
+        "label": "run to maturity on devnet: 4 coupons, an early redemption, then maturity",
+        "link": "See that bond"
+      },
+      "open": {
+        "value": "MIT",
+        "label": "the program, the console and the tests, all open source",
+        "link": "Read the code"
+      },
+      "footnote": "Solana devnet, October 2026. Not audited, no mainnet deployment on Solana yet, and no customers yet: pilots are open."
+    },
+    "problem": {
+      "eyebrow": "The problem",
+      "title": "Issuance is day one. Servicing is every day after.",
+      "lede": "Tokenizing a bond takes one transaction. Running it takes years, and today that work lives in spreadsheets and email next to a token that knows nothing about it."
+    },
     "onSolana": "On Solana:",
     "jobs": {
       "eligibility": {
         "title": "Who may hold it",
-        "body": "Every holder account starts frozen. A wallet is let in only when its investor profile passes the registry: approved, KYC in date, allowed jurisdiction, sufficient tier. The profile can come from a KYC provider's attestation, so an investor verified once is admitted everywhere that provider is trusted. When an approval lapses, anyone can freeze that wallet.",
-        "solana": "Token-2022 default-frozen accounts, Token ACL asking AssetFlow's gate before any thaw or freeze, and profiles from Solana Attestation Service attestations."
+        "body": "Every holder account starts frozen. A wallet is let in only when its investor profile passes the registry: approved, KYC in date, an allowed jurisdiction, a sufficient tier. When an approval lapses, anyone can freeze that wallet.",
+        "solana": "Token-2022 accounts that start frozen, Token ACL asking AssetFlow's gate before any thaw or freeze, and profiles from Solana Attestation Service attestations."
       },
       "payments": {
         "title": "What each holder is owed",
-        "body": "On the record date the register is fixed on-chain, each holder's entitlement is computed from the instrument's terms, and the coupon is paid in USDC. The operator never types an amount.",
-        "solana": "Pausable mint for the record date, a funded vault per payment, and a cap so no payment can overdraw another."
+        "body": "On the record date the register is counted on-chain, each holder's coupon is computed from the bond's terms, and it is paid in USDC. Nobody types an amount.",
+        "solana": "A pausable mint for the record date, a funded vault per payment, and a cap so no payment can overdraw another."
       },
       "redemptions": {
         "title": "How they get out",
-        "body": "A holder asks to redeem and the units wait in escrow. The issuer settles, and the units burn while USDC moves in the same transaction, at face plus accrued interest the program computes; or declines, and the units go back. At maturity every unit is redeemed at face.",
-        "solana": "An escrow the asset's program account owns; at maturity the mint authority is dropped for good, and the permanent delegate burns each holding as it is paid."
+        "body": "A holder asks to redeem and the units wait in escrow. The issuer settles at face plus accrued interest, priced by the program, and the units burn as the cash moves. At maturity every eligible holding is redeemed at face.",
+        "solana": "An escrow the asset's program account owns; at maturity the mint authority is dropped for good and the permanent delegate burns each holding as it is paid."
       }
     },
-    "nowTitle": "Why now",
-    "now": {
-      "jpm": "J.P. Morgan arranged commercial paper on Solana in December 2025, issued and redeemed in USDC.",
-      "hkma": "Hong Kong's government has issued three batches of digital green bonds whose on-chain records are the legal record of ownership.",
-      "stack": "Solana's tokenization stack covers issuance and access control. Servicing after issuance is the missing chapter."
-    },
-    "source": "Source",
-    "openTitle": "Open, and checkable",
-    "openBody": "The programs, the console and the tests are MIT-licensed. Every guarantee on this site can be checked against the chain on the proof page.",
-    "networksTitle": "Where it runs",
-    "networksLede": "One product on more than one chain. The servicing layer is built natively on Solana and on Base; the EVM contracts AssetFlow started as are live on HashKey Chain mainnet.",
-    "networks": {
+    "why": {
+      "eyebrow": "Why Solana",
+      "title": "The pieces bond servicing needs shipped on Solana.",
+      "lede": "AssetFlow is built on Solana's own standards rather than around them: compliance at the account level, reusable KYC, payouts cheap enough to make one by one, and private balances that auditors can still read.",
       "program": "Program",
-      "solana": {
-        "status": "Devnet",
-        "body": "The servicing layer in this app: Token-2022 accounts that start frozen, Token ACL (sRFC-37), and the AssetFlow program as its gate."
-      },
-      "hashkey": {
-        "status": "Mainnet",
-        "body": "The EVM contracts AssetFlow started as, deployed on HashKey Chain mainnet (chain 177) on {date}: a compliance registry, a restricted asset token, payouts and redemptions.",
-        "contracts": {
-          "registry": "Compliance registry",
-          "token": "Asset token (AFPU)",
-          "distribution": "Payouts",
-          "redemption": "Redemptions"
+      "reasons": {
+        "tokenAcl": {
+          "title": "Compliance without a transfer hook",
+          "body": "Token ACL, the Solana Foundation's sRFC-37 standard, lets AssetFlow's program decide which accounts may thaw. A plain Token-2022 transfer runs none of our code, so any program that handles Token-2022 can move the asset.",
+          "source": "Token ACL, Solana Foundation"
+        },
+        "sas": {
+          "title": "KYC once, reusable",
+          "body": "The Solana Attestation Service holds credentials an investor can reuse. A registry that trusts the provider writes the profile from the attestation: verified once, admitted everywhere that provider is trusted.",
+          "source": "Solana Attestation Service announcement"
+        },
+        "fees": {
+          "title": "Pay every holder on-chain",
+          "body": "The base fee is 5,000 lamports per signature, so each holder's coupon can be its own on-chain payment instead of a line in a batch file.",
+          "source": "Solana docs: fees"
+        },
+        "privacy": {
+          "title": "Private balances, the same rules",
+          "body": "MagicBlock's Private Ephemeral Rollup runs holdings on a validator in a trusted execution environment. Only the holder, the issuer, compliance and a named auditor can read a balance.",
+          "source": "MagicBlock docs: private ephemeral rollups"
+        },
+        "institutions": {
+          "title": "Where tokenized funds are launching",
+          "body": "The Solana Foundation reports bond and fund launches on Solana including Baillie Gifford's BAGEY bond fund (June 2026) and commercial paper for Galaxy arranged by J.P. Morgan (December 2025).",
+          "source": "Solana Foundation, July 2026"
+        }
+      }
+    },
+    "life": {
+      "eyebrow": "How it works",
+      "title": "One bond, start to maturity.",
+      "steps": {
+        "issue": {
+          "title": "Issue",
+          "body": "A Token-2022 mint whose accounts start frozen. Every authority sits on a program account, not a person."
+        },
+        "admit": {
+          "title": "Admit",
+          "body": "KYC once: the investor presents an attestation, and the gate lets their account thaw."
+        },
+        "record": {
+          "title": "Record date",
+          "body": "The mint pauses and anyone counts the register on-chain until it equals the supply."
+        },
+        "pay": {
+          "title": "Pay",
+          "body": "Each holder's coupon is computed from the terms and paid in USDC. Ineligible holders are held back."
+        },
+        "redeem": {
+          "title": "Redeem",
+          "body": "Early redemptions settle at face plus accrued interest. The units burn as the cash moves."
+        },
+        "mature": {
+          "title": "Mature",
+          "body": "The mint authority is dropped for good, and every eligible holding redeems at face."
         }
       },
-      "next": {
-        "title": "Robinhood Chain",
-        "status": "Testnet",
-        "body": "Tokenized stocks here reinvest dividends through a multiplier and never pay them in cash; AssetFlow is the cash-payout rail. The same contracts run on Robinhood Chain testnet, with an Ethereum Attestation Service AssetFlow deployed there.",
-        "open": "AssetFlow on Robinhood Chain"
+      "note": "One devnet bond has run this whole life: four coupons, an early redemption and maturity.",
+      "noteLink": "Check it on the proof page"
+    },
+    "advanced": {
+      "breaker": {
+        "eyebrow": "New: circuit breaker",
+        "title": "A dump into a pool freezes the pool.",
+        "body": "Compliance approves a trading pool's account. It trades only while a fresh risk decision allows it. When the pool's price strays past its band from the bond's own value, anyone can trip it and freeze the pool before the next swap. No transfer hook, no oracle.",
+        "alt": "The issuer console showing a tripped trading pool, frozen, 64% below the bond's value",
+        "fact": "On devnet: a 200-unit dump left the pool 64% below the bond's value. It was tripped and frozen in one transaction."
       },
-      "base": {
-        "status": "Mainnet · Sepolia",
-        "body": "The same servicing as Solidity contracts: the register at every record date read from the token's own history, the gate checked on every transfer, and KYC once through the Ethereum Attestation Service. A pilot note runs on Base and Arbitrum One mainnet; the consoles run on Base Sepolia and Arbitrum Sepolia.",
-        "open": "AssetFlow on Base",
-        "title": "Base · Arbitrum",
-        "openArbitrum": "on Arbitrum"
+      "private": {
+        "eyebrow": "Private holdings: MagicBlock",
+        "title": "Positions out of public view, under the same rules.",
+        "body": "Holders can move units into MagicBlock's Private Ephemeral Rollup. AssetFlow's own instructions move them there, both sides must be eligible, coupons still add up, and exits settle back on Solana.",
+        "alt": "The issuer console's private pool: 500 units deposited, 100 released, 400 in escrow",
+        "fact": "On MagicBlock's devnet TEE: 500 units in, 200 sent privately, 100 units and a $15 private coupon out."
       }
+    },
+    "product": {
+      "eyebrow": "The product",
+      "title": "Three screens, one program.",
+      "lede": "What you see here is the running software on devnet, not a mock-up. In English, 简体中文 and 繁體中文.",
+      "console": {
+        "title": "Issuer console",
+        "body": "Registry, issuance, coupons, redemptions, private holdings and trading pools for one bond.",
+        "alt": "The issuer console's coupon tab: a paid coupon and its register counted on-chain"
+      },
+      "holder": {
+        "title": "Holder portal",
+        "body": "An eligibility checklist that names the rule a wallet fails, every coupon owed, and redemptions priced before signing.",
+        "alt": "The holder portal: an eligibility checklist and holdings"
+      },
+      "proof": {
+        "title": "Public proof page",
+        "body": "Every guarantee read back from the chain, with the account that proves it.",
+        "alt": "The proof page: 11 of 11 guarantees and a trading pool's state"
+      }
+    },
+    "open": {
+      "eyebrow": "Open source",
+      "title": "Read the code. Read the chain.",
+      "body": "The program, the console and the tests are MIT-licensed. ARCHITECTURE.md maps every account and every flow in diagrams, and the proof page checks the guarantees live.",
+      "repo": "GitHub",
+      "architecture": "Architecture",
+      "chainsTitle": "Solana is home. The same servicing runs elsewhere too.",
+      "chainsBody": "AssetFlow also runs as Solidity on Base, Arbitrum and Robinhood Chain, with pilot notes on Base and Arbitrum One mainnet and bonds paid in Paxos USDG on testnets. Its first version is on HashKey Chain mainnet."
+    },
+    "pilot": {
+      "eyebrow": "Pilots",
+      "title": "Run one coupon cycle with us.",
+      "body": "We are looking for our first design partners, starting in Hong Kong and Singapore. A pilot shadows one coupon cycle on devnet next to your current process: no custody, no real money, and nothing to change in how you issue today.",
+      "buyers": {
+        "issuers": "Issuers of tokenized bonds, notes and funds",
+        "admins": "Fund administrators and transfer agents who keep registers by hand",
+        "platforms": "Tokenization platforms that issue on Solana for their clients"
+      }
+    },
+    "pricing": {
+      "title": "Pricing",
+      "tag": "Proposed, not yet charged",
+      "programs": {
+        "label": "Programs",
+        "value": "Open source, MIT"
+      },
+      "console": {
+        "label": "Hosted console",
+        "value": "$399 or $1,499 a month"
+      },
+      "servicing": {
+        "label": "Servicing",
+        "value": "3 bps on assets serviced"
+      },
+      "actions": {
+        "label": "Corporate actions",
+        "value": "$0.25 per holder per event"
+      }
+    },
+    "recognition": {
+      "eyebrow": "Recognition",
+      "solar": {
+        "title": "One of six winning teams (4th place)",
+        "body": "Solar × 021Lab Hacker House, October 2026"
+      },
+      "hashkey": {
+        "title": "3rd place, DeFi track",
+        "body": "HashKey Chain Horizon, with AssetFlow's first version, 2026"
+      }
+    },
+    "closing": {
+      "title": "Issuance is day one. AssetFlow runs every day after.",
+      "body": "Bring one bond. We will run its next coupon on devnet beside your current process, and you can check every step on-chain."
     }
   },
   "tx": {
