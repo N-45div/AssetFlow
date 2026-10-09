@@ -12,7 +12,8 @@
     "language": "语言",
     "research": "研究",
     "kyc": "KYC 服务商",
-    "chain": "区块链"
+    "chain": "区块链",
+    "pilot": "预约试点沟通"
   },
   "wallet": {
     "choose": "连接钱包",
@@ -49,20 +50,15 @@
     "security": "安全说明（EVM）",
     "research": "研究",
     "pilot": "预约试点沟通",
-    "evm": "EVM 链上的 AssetFlow"
+    "evm": "EVM 链上的 AssetFlow",
+    "pricing": "定价"
   },
   "home": {
-    "status": {
-      "live": "已在 Solana devnet 上线",
-      "open": "开源 · MIT",
-      "audit": "尚未审计"
-    },
-    "kicker": "代币化债券与基金的存续期服务",
+    "pill": "已在 Solana devnet 上线 · 尚未审计",
     "title": "债券服务，由 Solana 强制执行。",
-    "lede": "AssetFlow 决定谁可以持有代币化债券，在每个登记日于链上清点持有人，以 USDC 支付票息并结算赎回。每一项保证都可以从链上读回。",
+    "lede": "AssetFlow 决定谁可以持有代币化债券，在每个登记日于链上清点持有人，并以 USDC 支付票息和赎回款。",
     "ctaConsole": "打开在线控制台",
     "ctaPilot": "预约试点沟通",
-    "ctaProof": "在链上核验 11 项保证",
     "register": {
       "title": "第 1 期票息，链上清点",
       "paid": "已支付",
@@ -77,6 +73,7 @@
       "supply": "等于总供应量",
       "note": "登记日当天，任何人都可以逐个账户清点名册，直到总数等于供应量。没有 Merkle 根，也没有需要信任的名单。Devnet，2026 年 10 月 4 日。"
     },
+    "builtWith": "构建于",
     "proof": {
       "tests": {
         "value": "91 / 91",
@@ -85,12 +82,12 @@
       },
       "guarantees": {
         "value": "11 / 11",
-        "label": "项保证在核验页上从链上读回",
+        "label": "项保证从链上读回",
         "link": "打开核验页"
       },
       "lifecycle": {
         "value": "1 只债券",
-        "label": "已在 devnet 上跑完到期：4 期票息、一次提前赎回、到期兑付",
+        "label": "已在 devnet 上跑完到期：四期票息、一次提前赎回、到期兑付",
         "link": "查看该债券"
       },
       "open": {
@@ -100,27 +97,77 @@
       },
       "footnote": "Solana devnet，2026 年 10 月。尚未审计，Solana 主网尚未部署，也还没有客户：试点开放中。"
     },
+    "recognition": {
+      "eyebrow": "荣誉",
+      "solar": {
+        "title": "六支获奖团队之一（第 4 名）",
+        "body": "Solar × 021Lab Hacker House，2026 年 10 月"
+      },
+      "hashkey": {
+        "title": "DeFi 赛道第 3 名",
+        "body": "HashKey Chain Horizon，AssetFlow 第一个版本，2026 年"
+      }
+    },
     "problem": {
       "eyebrow": "问题",
       "title": "发行只是第一天，服务是此后的每一天。",
       "lede": "把一只债券代币化只需一笔交易，运营它却要好几年。如今这些工作仍靠电子表格和邮件完成，而链上的代币对此一无所知。"
     },
-    "onSolana": "在 Solana 上：",
     "jobs": {
       "eligibility": {
         "title": "谁可以持有",
-        "body": "每个持有人账户开户即冻结。只有投资者档案通过登记册审核的钱包才会被放行：已批准、KYC 在有效期内、司法辖区获准、等级达标。一旦批准失效，任何人都可以冻结该钱包。",
-        "solana": "默认冻结的 Token-2022 账户，Token ACL 在任何解冻或冻结前询问 AssetFlow 的准入程序，以及来自 Solana Attestation Service 证明的投资者档案。"
+        "body": "每个持有人账户开户即冻结。只有投资者档案通过登记册审核的钱包才会被放行；一旦批准失效，任何人都可以冻结它。"
       },
       "payments": {
         "title": "每位持有人应得多少",
-        "body": "登记日当天名册在链上清点，每位持有人的票息按债券条款计算，并以 USDC 支付。无需任何人手工输入金额。",
-        "solana": "登记日可暂停的铸币、每笔付款独立注资的金库，以及确保任何付款都不会透支其他付款的上限。"
+        "body": "登记日当天名册在链上清点，每位持有人的票息按债券条款计算，并以 USDC 支付。无需任何人手工输入金额。"
       },
       "redemptions": {
         "title": "如何退出",
-        "body": "持有人申请赎回后，份额进入托管。发行人按面值加应计利息结算，价格由程序计算，资金到账的同时份额被销毁。到期时每个合格持仓按面值兑付。",
-        "solana": "由资产程序账户拥有的托管账户；到期时铸币权限被永久移除，永久委托方在付款时逐一销毁持仓。"
+        "body": "份额在托管中等待，发行人按面值加应计利息结算。资金到账的同时份额被销毁；到期时每个合格持仓按面值兑付。"
+      }
+    },
+    "onSolana": "在 Solana 上：",
+    "product": {
+      "eyebrow": "产品",
+      "title": "一个程序，运行债券的整个存续期。",
+      "lede": "以下是在 devnet 上运行的真实界面，不是设计稿：持有人门户、KYC 提供方和发行人控制台，支持英文、简体中文和繁體中文。"
+    },
+    "features": {
+      "eligibility": {
+        "title": "资格，由代币本身强制执行",
+        "body": "持有人门户列出钱包必须满足的每一条规则。通过后，Token ACL 询问 AssetFlow 的准入程序，账户随即解冻；一旦批准失效，任何人都可以冻结它。",
+        "solana": "默认冻结的 Token-2022 账户与 Token ACL 准入程序（sRFC-37）。普通转账完全不运行我们的代码。",
+        "link": "打开持有人门户",
+        "alt": "持有人门户的资格清单：档案已登记、合规已批准、无合规冻结、KYC 有效至 2027 年 10 月 5 日、等级达标、香港为获准辖区"
+      },
+      "kyc": {
+        "title": "一次 KYC，凡信任之处皆认可",
+        "body": "KYC 提供方签署一份证明。每个信任该提供方的登记册都依据它写入投资者档案：无需填表，也无需发行人后台。",
+        "solana": "Solana Attestation Service 上的凭证。",
+        "link": "试用演示 KYC 提供方",
+        "alt": "演示 KYC 提供方：选择司法辖区、投资者等级和合格投资者身份，然后为钱包出具证明"
+      },
+      "coupons": {
+        "title": "票息在链上清点，以 USDC 支付",
+        "body": "登记日当天铸币暂停，任何人都可以逐个账户清点名册，直到总数等于供应量。随后每位持有人按份额获得付款。",
+        "solana": "可暂停的铸币、每笔付款独立注资的金库，以及确保任何付款都不会透支其他付款的上限。",
+        "link": "打开票息计划",
+        "alt": "devnet 债券的第 1 期票息：名册已固定、已清点、已注资、已支付；1,000、2,500 和 500 份分别获付 50、125 和 25 美元"
+      },
+      "private": {
+        "title": "私密持仓，规则不变",
+        "body": "持有人可以把份额转入 MagicBlock 的 Private Ephemeral Rollup。余额不再公开，但双方仍须合格，票息依然对得上。",
+        "solana": "运行在可信执行环境中的验证者。只有持有人、发行人、合规方和指定的审计方可以查看余额。",
+        "link": "打开私密池",
+        "alt": "私密池：存入 500 份，提出 100 份，托管中 400 份，2 个私密账户"
+      },
+      "breaker": {
+        "title": "交易池熔断机制",
+        "body": "只有在有效的风控决定允许时，交易池才能交易。若池内价格偏离债券自身价值超出区间，任何人都可以触发熔断并冻结该池。",
+        "solana": "无需转账钩子，也无需预言机：程序本身就知道面值加应计利息。在 devnet 上，一笔 200 份的抛售在低于价值 64% 时触发了熔断。",
+        "link": "打开交易池",
+        "alt": "发行人控制台显示一个已熔断、已冻结、低于债券价值 64% 的交易池"
       }
     },
     "why": {
@@ -154,6 +201,10 @@
           "body": "据 Solana 基金会报告，Solana 上的债券与基金发行包括 Baillie Gifford 的 BAGEY 债券基金（2026 年 6 月），以及由摩根大通为 Galaxy 安排的商业票据（2025 年 12 月）。",
           "source": "Solana 基金会，2026 年 7 月"
         }
+      },
+      "programCard": {
+        "title": "一个程序，公开可读",
+        "body": "核验页上的每一项保证都由 devnet 上的同一个 Anchor 程序强制执行。可以在区块浏览器中查看，也可以在代码仓库中连同 91 项测试一起阅读。"
       }
     },
     "life": {
@@ -188,91 +239,44 @@
       "note": "一只 devnet 债券已经跑完全部周期：四期票息、一次提前赎回和到期兑付。",
       "noteLink": "在核验页上查看"
     },
-    "advanced": {
-      "breaker": {
-        "eyebrow": "新功能：熔断机制",
-        "title": "向池中抛售，池子随即冻结。",
-        "body": "合规方批准一个交易池的账户。只有在有效的风控决定允许时它才能交易。当池内价格偏离债券自身价值超出区间，任何人都可以触发熔断，在下一笔兑换之前冻结该池。无需转账钩子，也无需预言机。",
-        "alt": "发行人控制台显示一个已熔断、已冻结、低于债券价值 64% 的交易池",
-        "fact": "在 devnet 上：一笔 200 份的抛售使池价低于债券价值 64%，在同一笔交易中被熔断并冻结。"
-      },
-      "private": {
-        "eyebrow": "私密持仓：MagicBlock",
-        "title": "持仓不公开，规则不变。",
-        "body": "持有人可以把份额转入 MagicBlock 的 Private Ephemeral Rollup。份额由 AssetFlow 自己的指令转移，双方都必须合格，票息依然对得上，退出时在 Solana 上结算。",
-        "alt": "发行人控制台的私密池：存入 500 份，提出 100 份，托管中 400 份",
-        "fact": "在 MagicBlock 的 devnet TEE 上：存入 500 份，私密转出 200 份，提出 100 份和 15 美元私密票息。"
-      }
-    },
-    "product": {
-      "eyebrow": "产品",
-      "title": "三个界面，一个程序。",
-      "lede": "这里展示的是在 devnet 上运行的真实软件，不是设计稿。支持英文、简体中文和繁體中文。",
-      "console": {
-        "title": "发行人控制台",
-        "body": "为一只债券管理登记册、发行、票息、赎回、私密持仓和交易池。",
-        "alt": "发行人控制台的票息页：一期已支付的票息及其链上清点的名册"
-      },
-      "holder": {
-        "title": "持有人门户",
-        "body": "指出钱包未通过哪条规则的资格清单、每期应得票息，以及签名前即可看到价格的赎回。",
-        "alt": "持有人门户：资格清单与持仓"
-      },
-      "proof": {
-        "title": "公开核验页",
-        "body": "每一项保证都从链上读回，并附上证明它的账户。",
-        "alt": "核验页：11 项保证全部成立，以及交易池的状态"
-      }
-    },
     "open": {
       "eyebrow": "开源",
       "title": "读代码，也读链上数据。",
-      "body": "程序、控制台和测试均以 MIT 许可开源。ARCHITECTURE.md 用图表画出了每个账户和每条流程，核验页则实时检查各项保证。",
-      "repo": "GitHub",
-      "architecture": "架构文档",
-      "chainsTitle": "Solana 是主场，同样的服务也能在其他链上运行。",
-      "chainsBody": "AssetFlow 也以 Solidity 运行在 Base、Arbitrum 和 Robinhood Chain 上：Base 与 Arbitrum One 主网有试点票据，测试网上的债券以 Paxos USDG 支付。它的第一个版本部署在 HashKey Chain 主网。"
+      "lede": "程序、控制台和测试均以 MIT 许可开源，核验页实时检查每一项保证。",
+      "code": {
+        "title": "GitHub 上的源代码",
+        "body": "Anchor 程序、Next.js 控制台和 91 项测试，包括熔断机制与私密持仓。",
+        "link": "阅读代码"
+      },
+      "architecture": {
+        "title": "用图表呈现的架构",
+        "body": "ARCHITECTURE.md 用 22 张 Mermaid 图画出了每个账户、每条指令和每条流程。",
+        "link": "阅读 ARCHITECTURE.md"
+      },
+      "chains": {
+        "title": "也运行在 EVM 链上",
+        "body": "AssetFlow 也以 Solidity 运行在 Base、Arbitrum 和 Robinhood Chain 上：Base 与 Arbitrum One 主网有试点票据，测试网上的债券以 Paxos USDG 支付。它的第一个版本部署在 HashKey Chain 主网。"
+      }
     },
     "pilot": {
       "eyebrow": "试点",
       "title": "和我们一起跑一期票息。",
-      "body": "我们正在寻找首批设计合作伙伴，从香港和新加坡开始。试点会在 devnet 上、与您现有流程并行地影子运行一期票息：不托管资产，不动用真实资金，也无需改变您现在的发行方式。",
+      "lede": "我们正在寻找首批设计合作伙伴，从香港和新加坡开始。试点会在 devnet 上、与您现有流程并行地影子运行一期票息：不托管资产，不动用真实资金，也无需改变您现在的发行方式。",
       "buyers": {
-        "issuers": "代币化债券、票据和基金的发行人",
-        "admins": "仍在手工维护登记册的基金管理人和过户代理",
-        "platforms": "为客户在 Solana 上发行的代币化平台"
-      }
-    },
-    "pricing": {
-      "title": "定价",
-      "tag": "拟议定价，尚未收费",
-      "programs": {
-        "label": "程序",
-        "value": "开源，MIT"
+        "issuers": {
+          "title": "发行人",
+          "body": "代币化债券、票据和基金的发行人，希望资格、票息和赎回由代币本身强制执行。"
+        },
+        "admins": {
+          "title": "基金管理人与过户代理",
+          "body": "如今仍在手工维护登记册，希望登记日的清点任何人都能核验。"
+        },
+        "platforms": {
+          "title": "代币化平台",
+          "body": "为客户在 Solana 上发行，不想自己从头构建存续期服务。"
+        }
       },
-      "console": {
-        "label": "托管控制台",
-        "value": "每月 399 或 1,499 美元"
-      },
-      "servicing": {
-        "label": "服务费",
-        "value": "按服务资产收取 3 个基点"
-      },
-      "actions": {
-        "label": "公司行动",
-        "value": "每位持有人每次 0.25 美元"
-      }
-    },
-    "recognition": {
-      "eyebrow": "荣誉",
-      "solar": {
-        "title": "六支获奖团队之一（第 4 名）",
-        "body": "Solar × 021Lab Hacker House，2026 年 10 月"
-      },
-      "hashkey": {
-        "title": "DeFi 赛道第 3 名",
-        "body": "HashKey Chain Horizon，AssetFlow 第一个版本，2026 年"
-      }
+      "pricingLink": "查看拟议定价"
     },
     "closing": {
       "title": "发行只是第一天，AssetFlow 负责此后的每一天。",
@@ -1203,6 +1207,31 @@
       "usdg": "USDG",
       "testUsd": "测试 USD",
       "other": "支付货币"
+    }
+  },
+  "pricing": {
+    "eyebrow": "定价",
+    "title": "简单的拟议定价。",
+    "lede": "AssetFlow 目前还没有客户，因此不收取任何费用。以下是试点转入生产后我们拟收取的费用；程序始终开源。",
+    "metaTitle": "定价 · AssetFlow",
+    "tag": "拟议定价，尚未收费",
+    "rows": {
+      "programs": {
+        "label": "程序",
+        "value": "开源，MIT"
+      },
+      "console": {
+        "label": "托管控制台",
+        "value": "每月 399 或 1,499 美元"
+      },
+      "servicing": {
+        "label": "服务费",
+        "value": "按服务资产收取 3 个基点"
+      },
+      "actions": {
+        "label": "公司行动",
+        "value": "每位持有人每次 0.25 美元"
+      }
     }
   }
 }
