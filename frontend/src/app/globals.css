@@ -22,6 +22,11 @@
   --warn-soft: #fffaeb;
   --bad: #b42318;
   --bad-soft: #fef3f2;
+  /* the landing page's deep band and its one 'verified' accent */
+  --night: #0b1220;
+  --night-2: #131c2e;
+  --night-line: rgba(255, 255, 255, 0.1);
+  --mint: #5eead4;
 }
 
 @theme inline {
@@ -42,6 +47,11 @@
   --color-warn-soft: var(--warn-soft);
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
+  --color-night: var(--night);
+  --color-night-2: var(--night-2);
+  --color-night-line: var(--night-line);
+  --color-mint: var(--mint);
+  --font-serif: var(--font-serif-face), "Songti SC", "Noto Serif CJK SC", Georgia, serif;
   --font-sans: var(--font-inter), "PingFang SC", "PingFang HK", "Microsoft YaHei",
     "Microsoft JhengHei", "Noto Sans CJK SC", system-ui, sans-serif;
   --font-mono: var(--font-mono-face), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

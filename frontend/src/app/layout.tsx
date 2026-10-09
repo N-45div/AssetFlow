@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Instrument_Serif, Inter, JetBrains_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Providers } from "@/components/providers";
@@ -9,6 +9,7 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono-face" });
+const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", variable: "--font-serif-face" });
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("meta");
@@ -18,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale();
   return (
-    <html lang={locale === "zh-Hant" ? "zh-Hant-HK" : locale} className={`${inter.variable} ${mono.variable}`}>
+    <html lang={locale === "zh-Hant" ? "zh-Hant-HK" : locale} className={`${inter.variable} ${mono.variable} ${serif.variable}`}>
       <body className="min-h-screen flex flex-col">
         <NextIntlClientProvider>
           <Providers>
