@@ -36,6 +36,13 @@ The public [proof page](https://assetflow-servicing.vercel.app/proof) reads each
 
 **Redemptions and maturity.** A holder asks to redeem early and the units wait in an escrow the asset account owns. The issuer settles at face plus accrued interest, priced by the program, and the units burn in the same transaction as the USDC moves; or rejects, and the units go back, into a frozen account too. Units in escrow on a record date still count to their holder. Once the last payment date has passed and every coupon's register is counted, anyone can start maturity: the mint authority is dropped for good, and once the principal is fully funded anyone can redeem any holding at face. An ineligible holder keeps their units, and their principal waits in the vault.
 
+**A circuit breaker for trading pools, without a transfer hook.** A pool's token accounts belong to its authority, which is no investor, so the gate never thaws them. Compliance can approve one pool account of an asset as a venue, a record kept at the pool authority's investor address, where Token ACL's existing account list already hands it to the gate. The gate thaws that account only while the venue is open: a risk decision (from compliance, or a risk system compliance names) allows trading, has not expired (seven days at most), and was made after the venue last tripped. The moment that stops being true, anyone may freeze the pool's account, and a frozen account can neither send nor receive, so every swap against the pool fails before it trades, in any program that handles Token-2022. Wallet-to-wallet transfers are never touched.
+
+- **The price check needs no oracle.** The program already prices the bond: face plus accrued interest, what an early redemption pays. Anyone can compare what the pool holds in the payment currency with what its units are worth at that price, and trip the venue when they stray past its band. Tripping and freezing fit in one transaction.
+- **Reopening is explicit.** A tripped pool reopens only on a decision made after the trip, and trips again at the next check while its price is still out of line.
+- **What it does not do.** It acts when someone checks and freezes, not inside every transfer, so a watcher has to run; and it does not stop a compromised key from moving units it holds, only from selling them into a pool once the pool is frozen. One pool account per pool authority and registry.
+- **On devnet.** The featured bond has a stand-in pool (its authority is a keypair standing in for an AMM): a holder sold 200 units into it, a price check found it 64% below the bond's value and tripped it, a stranger froze it in the same transaction, and the next sale was refused with Token-2022's AccountFrozen.
+
 **Private holdings, in MagicBlock's Private Ephemeral Rollup.** An issuer can let holders park units out of public view. A holder deposits units on Solana into an escrow the asset account owns. Their share is kept in an AssetFlow account delegated to MagicBlock's private rollup, a validator running in an Intel TDX trusted execution environment. The program accepts no other validator. Inside the rollup, AssetFlow's own instructions move units between holders, and both sides must be eligible today, as on Solana. A compliance hold stops a holding from sending anything. Units come back out through an exit ticket the rollup commits to Solana, and a release from the escrow that anyone can send.
 
 - **Who sees what.** Balances, private transfers and each holder's coupon can be read only by the holder, the issuer, compliance and an auditor the issuer names. Public on Solana: who has a private account, every deposit and every release (they are token movements), and the escrow's total. A holding's balance is never committed to Solana; only exit amounts are, and they are public once they land.
@@ -56,15 +63,15 @@ The Solana program's rules and arithmetic, in Solidity: a `Registry` (the same p
 
 ## The app
 
-- **Issuer console** (`/issuer`): self-serve set-up (an investor registry, then the asset created and registered in one transaction), an investor register joined with every holder account on-chain, issuance, coupons from terms to paid (the register counted on-chain in a few signed batches), private holdings (open them, name an auditor, read the private register through the rollup, hold a holding), the redemption queue and maturity, and compliance policy.
+- **Issuer console** (`/issuer`): self-serve set-up (an investor registry, then the asset created and registered in one transaction), an investor register joined with every holder account on-chain, issuance, coupons from terms to paid (the register counted on-chain in a few signed batches), private holdings (open them, name an auditor, read the private register through the rollup, hold a holding), the redemption queue and maturity, trading pools under the circuit breaker (approve a pool, post risk decisions, check the price, freeze or reopen), and compliance policy.
 - **Holder portal** (`/holder`): an eligibility checklist that names the rule a wallet fails, onboarding with a KYC attestation, and one-transaction account activation. An ineligible wallet can "try anyway" and get the gate's refusal as its own on-chain transaction. Holders see each coupon and can collect one themselves once it is counted. They can open a private holding, sign in to the private rollup, and move units in, send them privately, take them out and credit their private coupons. They ask to redeem early with the price shown before they sign, and redeem at maturity.
 - **Demo KYC provider** (`/kyc`): attests a wallet on the Solana Attestation Service, and revokes it, to show KYC once end to end.
-- **Proof** (`/proof`): nine guarantees checked live against the chain, and two more for an asset with private holdings.
+- **Proof** (`/proof`): nine guarantees checked live against the chain, two more for an asset with private holdings, and each trading pool's state, frozen or not, and its price against the bond's value.
 - English, Simplified Chinese and Traditional Chinese (Hong Kong).
 
 ## Repository
 
-- [`solana/`](solana): the Anchor program, a hand-built client and local-validator tests (73 cases across eligibility, KYC once against the real Solana Attestation Service, coupons counted on-chain, redemptions and maturity, and private holdings on MagicBlock's local stack, including the attacks an adversarial review found).
+- [`solana/`](solana): the Anchor program, a hand-built client and local-validator tests (91 cases across eligibility, KYC once against the real Solana Attestation Service, coupons counted on-chain, redemptions and maturity, the circuit breaker for trading pools, and private holdings on MagicBlock's local stack, including the attacks an adversarial review found).
 - [`evm/`](evm): the Solidity contracts for Base, Arbitrum and Robinhood Chain (Foundry), with 19 tests against the real EAS contracts, including a fuzzed rounding check. [`evm/SECURITY.md`](evm/SECURITY.md) lists what the contracts guarantee and triages every Slither finding; they are not audited.
 - [`frontend/`](frontend): the Next.js app.
 - [`contracts/`](contracts): the Solidity contracts deployed on HashKey Chain.
@@ -85,7 +92,7 @@ The private-holdings tests need MagicBlock's local stack instead: a rollup valid
 ```bash
 wsl bash solana/build.sh --features local-rollup   # private holdings also accept the local rollup validator
 wsl bash solana/tests/rollup.sh                    # terminal 1: Solana :8899, rollup :7799, read filter :6699
-cd solana && npm test                              # terminal 2: all 73 cases
+cd solana && npm test                              # terminal 2: all 91 cases
 ```
 
 EVM contracts and tests (Foundry):

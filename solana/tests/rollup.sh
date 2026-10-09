@@ -102,7 +102,7 @@ ID="$(sed -nE 's/^declare_id!\("([^"]+)"\);/\1/p' "$HERE/../programs/assetflow/s
 echo "assetflow at $ID"
 ACCOUNT_ARGS=()
 for name in "${ACCOUNTS[@]}"; do ACCOUNT_ARGS+=(--account - "$MB/accounts/$name.json"); done
-solana-test-validator --reset --quiet --ledger "$LEDGER" \
+solana-test-validator --reset --quiet --ledger "$LEDGER" --faucet-port "${FAUCET_PORT:-9900}" \
   --bpf-program "$ID" "$SO" \
   --bpf-program "$TOKEN_ACL_ID" "$TARGET/token_acl.so" \
   --bpf-program "$SAS_ID" "$TARGET/sas.so" \
