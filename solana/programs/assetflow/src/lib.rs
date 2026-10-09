@@ -18,6 +18,7 @@
 //! No personal key can thaw a holder past the gate or swap the gate out.
 
 use anchor_lang::prelude::*;
+use anchor_lang::Discriminator;
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     program::invoke_signed,
@@ -46,6 +47,8 @@ pub mod kyc;
 pub use kyc::*;
 pub mod private;
 pub use private::*;
+pub mod breaker;
+pub use breaker::*;
 
 declare_id!("BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR");
 
@@ -542,13 +545,49 @@ pub mod assetflow {
         kyc::lapse(ctx)
     }
 
+    /// Compliance approves one trading pool's account of the asset as a
+    /// venue. It starts closed: a risk decision opens it.
+    pub fn approve_venue(ctx: Context<ApproveVenue>, risk_authority: Pubkey, max_deviation_bps: u16) -> Result<()> {
+        breaker::approve(ctx, risk_authority, max_deviation_bps)
+    }
+
+    /// The venue's risk authority, or compliance: allow trading for
+    /// `valid_for` seconds, or block it now.
+    pub fn decide_venue(ctx: Context<DecideVenue>, allow: bool, valid_for: i64) -> Result<()> {
+        breaker::decide(ctx, allow, valid_for)
+    }
+
+    /// Anyone: compare the pool's price with the bond's own value, and trip
+    /// the venue when they stray past its band.
+    pub fn check_venue(ctx: Context<CheckVenue>) -> Result<()> {
+        breaker::check(ctx)
+    }
+
+    /// Compliance withdraws a venue. The pool's account is then held by no
+    /// one eligible, and anyone may freeze it.
+    pub fn close_venue(_ctx: Context<CloseVenue>) -> Result<()> {
+        Ok(())
+    }
+
     /// Token ACL asks this before a permissionless thaw: yes only if the
-    /// account's owner is eligible today and can never be changed.
+    /// account's owner is eligible today and can never be changed, or the
+    /// account is an approved pool's and its venue is open.
     #[instruction(discriminator = ThawQuestion::SPL_DISCRIMINATOR_SLICE)]
     pub fn can_thaw_permissionless(ctx: Context<GateCheck>) -> Result<()> {
         // The asset's own accounts (the redemption escrow) are opened only
         // by the program itself, so nothing can be sent into them from outside.
         require_keys_neq!(ctx.accounts.owner.key(), ctx.accounts.asset.key(), AssetFlowError::NotAHolding);
+        if let Some(venue) = ctx.accounts.venue()? {
+            // An approved pool trades only while its risk decision allows it.
+            // Were the account ever handed to a new owner, the record would no
+            // longer be found at that owner's address.
+            require!(
+                venue.covers(&ctx.accounts.mint.key(), &ctx.accounts.token_account.key()),
+                AssetFlowError::NotTheVenueAccount
+            );
+            require!(venue.is_open(Clock::get()?.unix_timestamp), AssetFlowError::VenueClosed);
+            return Ok(());
+        }
         // A thawed account whose owner could still be reassigned would carry
         // one holder's approval to any wallet it is handed to.
         require_immutable_owner(&ctx.accounts.token_account.to_account_info(), &ctx.accounts.mint.key())?;
@@ -558,9 +597,18 @@ pub mod assetflow {
 
     /// Token ACL asks this before a permissionless freeze: yes only if the
     /// owner is no longer eligible, so anyone can enforce a lapsed approval
-    /// and no one can freeze a holder in good standing.
+    /// and no one can freeze a holder in good standing. An approved pool's
+    /// account may be frozen exactly when its venue is not open.
     #[instruction(discriminator = FreezeQuestion::SPL_DISCRIMINATOR_SLICE)]
     pub fn can_freeze_permissionless(ctx: Context<GateCheck>) -> Result<()> {
+        if let Some(venue) = ctx.accounts.venue()? {
+            // Any other account of the pool's authority holds the asset
+            // without approval, like any wallet that is not eligible.
+            if venue.covers(&ctx.accounts.mint.key(), &ctx.accounts.token_account.key()) {
+                require!(!venue.is_open(Clock::get()?.unix_timestamp), AssetFlowError::VenueOpen);
+            }
+            return Ok(());
+        }
         require!(!ctx.accounts.owner_is_eligible()?, AssetFlowError::StillEligible);
         Ok(())
     }
@@ -713,6 +761,11 @@ fn holder_is_eligible(
         return Ok(true);
     }
     if investor.owner != &crate::ID || investor.data_is_empty() {
+        return Ok(false);
+    }
+    // A trading pool's venue record sits at the same address; a pool is a
+    // market, never an investor.
+    if !investor.try_borrow_data()?.starts_with(InvestorProfile::DISCRIMINATOR) {
         return Ok(false);
     }
     let profile = InvestorProfile::try_deserialize(&mut &investor.try_borrow_data()?[..])?;
@@ -887,6 +940,20 @@ pub struct GateCheck<'info> {
 }
 
 impl GateCheck<'_> {
+    /// The venue record at the owner's investor address, if the owner is an
+    /// approved pool's authority rather than an investor.
+    fn venue(&self) -> Result<Option<Venue>> {
+        let info = self.investor.to_account_info();
+        if info.owner != &crate::ID || !info.try_borrow_data()?.starts_with(Venue::DISCRIMINATOR) {
+            return Ok(None);
+        }
+        let venue = Venue::try_deserialize(&mut &info.try_borrow_data()?[..])?;
+        // The address already binds it to this registry and owner; check anyway.
+        require_keys_eq!(venue.registry, self.registry.key(), AssetFlowError::InvalidVenue);
+        require_keys_eq!(venue.owner, self.owner.key(), AssetFlowError::InvalidVenue);
+        Ok(Some(venue))
+    }
+
     fn owner_is_eligible(&self) -> Result<bool> {
         holder_is_eligible(
             &self.asset.key(),
@@ -1111,4 +1178,12 @@ pub enum AssetFlowError {
     NotProtected,
     #[msg("the private holding is on a compliance hold")]
     HoldingOnHold,
+    #[msg("the trading venue's terms are not valid")]
+    InvalidVenue,
+    #[msg("the trading venue is closed: no fresh allow decision since it last tripped")]
+    VenueClosed,
+    #[msg("the trading venue is open; its pool account cannot be frozen permissionlessly")]
+    VenueOpen,
+    #[msg("only the venue's approved pool account can be thawed")]
+    NotTheVenueAccount,
 }
