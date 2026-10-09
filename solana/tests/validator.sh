@@ -3,6 +3,8 @@
 #
 #   wsl bash solana/tests/validator.sh          # run in the foreground
 #   wsl bash solana/tests/validator.sh --stop   # stop a running one
+#   wsl bash solana/tests/validator.sh --faucet-port 9911
+#                                               # extra flags go to solana-test-validator
 #
 # Token ACL and the Solana Attestation Service are the Solana Foundation's
 # deployed programs, not builds of ours: each is copied once from devnet
@@ -39,4 +41,4 @@ echo "assetflow at $ID"
 exec solana-test-validator --reset --quiet --ledger "$LEDGER" \
   --bpf-program "$ID" "$SO" \
   --bpf-program "$TOKEN_ACL_ID" "$TOKEN_ACL_SO" \
-  --bpf-program "$SAS_ID" "$SAS_SO"
+  --bpf-program "$SAS_ID" "$SAS_SO" "$@"

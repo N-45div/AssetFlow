@@ -1024,6 +1024,71 @@ export class AssetFlow {
     ]);
   }
 
+  /** An approved trading pool's record, kept at its authority's investor address. */
+  venue(registry: PublicKey, owner: PublicKey) {
+    return this.investor(registry, owner);
+  }
+
+  /** Compliance approves one pool's account of the asset as a venue. It starts closed. */
+  approveVenue(
+    compliance: PublicKey,
+    registry: PublicKey,
+    mint: PublicKey,
+    baseVault: PublicKey,
+    quoteVault: PublicKey,
+    owner: PublicKey,
+    riskAuthority: PublicKey,
+    maxDeviationBps: number,
+  ) {
+    return this.ix(
+      "approve_venue",
+      [
+        { pubkey: compliance, isSigner: true, isWritable: true },
+        { pubkey: registry, isSigner: false, isWritable: false },
+        { pubkey: this.asset(mint), isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: this.terms(mint), isSigner: false, isWritable: false },
+        { pubkey: baseVault, isSigner: false, isWritable: false },
+        { pubkey: quoteVault, isSigner: false, isWritable: false },
+        { pubkey: this.venue(registry, owner), isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      [riskAuthority.toBuffer(), u16(maxDeviationBps)],
+    );
+  }
+
+  /** The venue's risk authority, or compliance: allow for `validFor` seconds, or block now. */
+  decideVenue(authority: PublicKey, registry: PublicKey, venue: PublicKey, allow: boolean, validFor: number) {
+    return this.ix(
+      "decide_venue",
+      [
+        { pubkey: authority, isSigner: true, isWritable: false },
+        { pubkey: registry, isSigner: false, isWritable: false },
+        { pubkey: venue, isSigner: false, isWritable: true },
+      ],
+      [bool(allow), i64(validFor)],
+    );
+  }
+
+  /** Anyone: price the pool against the bond's own value, tripping the venue past its band. */
+  checkVenue(venue: PublicKey, mint: PublicKey, baseVault: PublicKey, quoteVault: PublicKey) {
+    return this.ix("check_venue", [
+      { pubkey: venue, isSigner: false, isWritable: true },
+      { pubkey: this.terms(mint), isSigner: false, isWritable: false },
+      { pubkey: baseVault, isSigner: false, isWritable: false },
+      { pubkey: quoteVault, isSigner: false, isWritable: false },
+    ]);
+  }
+
+  /** Compliance withdraws a venue; its rent goes back to compliance. */
+  closeVenue(compliance: PublicKey, registry: PublicKey, venue: PublicKey) {
+    return this.ix("close_venue", [
+      { pubkey: compliance, isSigner: true, isWritable: true },
+      { pubkey: registry, isSigner: false, isWritable: false },
+      { pubkey: venue, isSigner: false, isWritable: true },
+    ]);
+  }
+
   /** The accounts Token ACL must be handed so it can resolve the gate's list. */
   gateAccounts(question: "thaw" | "freeze", mint: PublicKey, registry: PublicKey, owner: PublicKey) {
     const list = question === "thaw" ? this.thawMetas(mint) : this.freezeMetas(mint);
