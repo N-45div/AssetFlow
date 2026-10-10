@@ -51,6 +51,8 @@
   --color-night-2: var(--night-2);
   --color-night-line: var(--night-line);
   --color-mint: var(--mint);
+  /* the landing pages run narrower than the app, for air */
+  --container-page: 62.5rem;
   --font-serif: var(--font-serif-face), "Songti SC", "Noto Serif CJK SC", Georgia, serif;
   --font-sans: var(--font-inter), "PingFang SC", "PingFang HK", "Microsoft YaHei",
     "Microsoft JhengHei", "Noto Sans CJK SC", system-ui, sans-serif;
@@ -197,4 +199,83 @@ body {
 .mono {
   font-family: var(--font-mono);
   font-size: 0.92em;
+}
+
+/*
+ * The landing pages' one visual treatment: soft painted gradients with film grain, and real devnet data
+ * on them in frosted glass. Every scene uses the same recipe; only the palette changes.
+ */
+.scene {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 16px;
+  background-color: #6f9f93;
+}
+.scene::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.3;
+  mix-blend-mode: overlay;
+}
+.scene > * {
+  position: relative;
+}
+.scene-sea {
+  background-image: radial-gradient(44% 58% at 8% 8%, rgba(240,234,214,0.7) 0%, transparent 62%),
+    radial-gradient(58% 72% at 90% 88%, rgba(15,94,87,0.95) 0%, transparent 66%),
+    radial-gradient(46% 60% at 56% 42%, rgba(143,191,180,0.9) 0%, transparent 72%),
+    linear-gradient(140deg, #a9c4ba 0%, #5f9284 52%, #1f4a44 100%);
+}
+.scene-sky {
+  background-image: radial-gradient(44% 58% at 8% 8%, rgba(238,243,248,0.7) 0%, transparent 62%),
+    radial-gradient(58% 72% at 90% 88%, rgba(44,84,128,0.95) 0%, transparent 66%),
+    radial-gradient(46% 60% at 56% 42%, rgba(156,192,226,0.9) 0%, transparent 72%),
+    linear-gradient(140deg, #b3cbe3 0%, #5f8fc0 52%, #284d78 100%);
+}
+.scene-moss {
+  background-image: radial-gradient(44% 58% at 8% 8%, rgba(239,233,207,0.7) 0%, transparent 62%),
+    radial-gradient(58% 72% at 90% 88%, rgba(61,85,39,0.95) 0%, transparent 66%),
+    radial-gradient(46% 60% at 56% 42%, rgba(169,185,120,0.9) 0%, transparent 72%),
+    linear-gradient(140deg, #c4c79c 0%, #7f9257 52%, #364c22 100%);
+}
+.scene-sand {
+  background-image: radial-gradient(44% 58% at 8% 8%, rgba(246,234,210,0.7) 0%, transparent 62%),
+    radial-gradient(58% 72% at 90% 88%, rgba(106,69,40,0.95) 0%, transparent 66%),
+    radial-gradient(46% 60% at 56% 42%, rgba(212,176,122,0.9) 0%, transparent 72%),
+    linear-gradient(140deg, #d9c29c 0%, #b08350 52%, #5f3d22 100%);
+}
+.scene-dusk {
+  background-image: radial-gradient(44% 58% at 8% 8%, rgba(230,233,242,0.7) 0%, transparent 62%),
+    radial-gradient(58% 72% at 90% 88%, rgba(38,50,77,0.95) 0%, transparent 66%),
+    radial-gradient(46% 60% at 56% 42%, rgba(138,156,192,0.9) 0%, transparent 72%),
+    linear-gradient(140deg, #b9c1d4 0%, #66789c 52%, #222d46 100%);
+}
+.scene-sage {
+  background-image: radial-gradient(44% 58% at 8% 8%, rgba(238,240,230,0.7) 0%, transparent 62%),
+    radial-gradient(58% 72% at 90% 88%, rgba(44,74,63,0.95) 0%, transparent 66%),
+    radial-gradient(46% 60% at 56% 42%, rgba(148,179,162,0.9) 0%, transparent 72%),
+    linear-gradient(140deg, #bccdbf 0%, #6f9180 52%, #274337 100%);
+}
+
+/* the closing call to action: dark where its text sits, with the light away to the top right */
+.scene-deep {
+  background-image: radial-gradient(48% 70% at 88% 8%, rgba(201,216,207,0.5) 0%, transparent 62%),
+    radial-gradient(55% 70% at 12% 92%, rgba(15,94,87,0.9) 0%, transparent 66%),
+    radial-gradient(46% 60% at 62% 50%, rgba(95,146,132,0.55) 0%, transparent 72%),
+    linear-gradient(140deg, #24524c 0%, #1b4540 52%, #0f2f2b 100%);
+}
+
+.glass {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06)), rgba(12, 26, 26, 0.26);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  color: #fff;
+  box-shadow: 0 12px 32px -12px rgba(10, 20, 20, 0.35);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
 }
