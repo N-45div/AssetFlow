@@ -10,6 +10,7 @@ import { CLUSTER } from "@/lib/chain/config";
 import { EVM_CHAINS, EVM_CHAIN_KEYS, chainForPath, type EvmChainConfig } from "@/lib/evm/chains";
 import { PILOT } from "@/lib/site";
 import { EvmWalletButton } from "./evm-wallet-button";
+import { isLanding } from "./landing-frame";
 import { Logo } from "./logo";
 import { WalletButton } from "./wallet-button";
 
@@ -25,6 +26,15 @@ const CHAINS = [
   { key: "solana", label: "Solana", prefix: "", dot: "#14f195" },
   ...EVM_CHAIN_KEYS.map((k) => ({ key: k, label: EVM_CHAINS[k].brand, prefix: EVM_CHAINS[k].prefix, dot: EVM_CHAINS[k].dot })),
 ];
+
+/** The marketing pages' nav: their own sections, then pricing. */
+const LANDING_NAV = [
+  { href: "/#product", key: "product" },
+  { href: "/#why-solana", key: "why" },
+  { href: "/#how-it-works", key: "how" },
+  { href: "/#faq", key: "faq" },
+  { href: "/pricing", key: "pricing" },
+] as const;
 
 const evmNav = (prefix: string) =>
   [
@@ -48,11 +58,11 @@ export function SiteHeader() {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const evm = chainForPath(pathname);
-  const NAV = evm ? evmNav(evm.prefix) : SOLANA_NAV;
-  const landing = pathname === "/" || pathname === "/pricing";
+  const landing = isLanding(pathname);
+  const NAV = landing ? LANDING_NAV : evm ? evmNav(evm.prefix) : SOLANA_NAV;
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:gap-6 sm:px-6">
+    <header className={`sticky top-0 z-20 backdrop-blur-sm ${landing ? "bg-canvas/90" : "border-b border-line bg-surface/95"}`}>
+      <div className={`mx-auto flex h-14 items-center gap-2 px-4 sm:gap-6 sm:px-6 ${landing ? "max-w-page" : "max-w-6xl"}`}>
         <Link href="/" aria-label="AssetFlow">
           <Logo />
         </Link>
@@ -78,7 +88,7 @@ export function SiteHeader() {
           {!landing && <ClusterBadge evm={evm} />}
           <LocaleSwitch />
           {landing ? (
-            <a href={PILOT} className="btn btn-primary btn-sm" target="_blank" rel="noreferrer">
+            <a href={PILOT} className="inline-flex h-8 items-center whitespace-nowrap rounded-full bg-ink px-4 text-[13px] font-medium text-white hover:bg-ink/85" target="_blank" rel="noreferrer">
               {t("pilot")}
             </a>
           ) : evm ? (
@@ -88,7 +98,7 @@ export function SiteHeader() {
           )}
         </div>
       </div>
-      <nav className="flex gap-1 overflow-x-auto border-t border-line px-4 py-2 lg:hidden" aria-label={t("label")}>
+      <nav className={`flex gap-1 overflow-x-auto px-4 py-2 lg:hidden ${landing ? "" : "border-t border-line"}`} aria-label={t("label")}>
         {NAV.map((item) => (
           <Link
             key={item.href}

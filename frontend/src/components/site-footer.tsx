@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { PILOT, REPO } from "@/lib/site";
+import { ChromeWidth, FooterSurface } from "./landing-frame";
 import { Logo } from "./logo";
 
 export async function SiteFooter() {
@@ -34,8 +35,8 @@ export async function SiteFooter() {
     },
   ];
   return (
-    <footer className="border-t border-line bg-surface">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_repeat(3,1fr)]">
+    <FooterSurface>
+      <ChromeWidth className="grid gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_repeat(3,1fr)]">
         <div>
           <Logo />
           <p className="mt-3 max-w-xs text-sm text-ink-2">{t("tagline")}</p>
@@ -60,13 +61,13 @@ export async function SiteFooter() {
             </ul>
           </nav>
         ))}
-      </div>
-      <div className="border-t border-line">
-        <div className="mx-auto max-w-6xl px-4 py-5 text-xs leading-relaxed text-ink-3 sm:px-6">
+      </ChromeWidth>
+      <ChromeWidth className="px-4 sm:px-6">
+        <div className="border-t border-line py-5 text-xs leading-relaxed text-ink-3">
           <p>{t("line")}</p>
           <p className="mt-1">{t("legal")}</p>
         </div>
-      </div>
-    </footer>
+      </ChromeWidth>
+    </FooterSurface>
   );
 }
