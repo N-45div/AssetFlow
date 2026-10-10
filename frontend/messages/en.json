@@ -13,7 +13,12 @@
     "research": "Research",
     "kyc": "KYC provider",
     "chain": "Chain",
-    "pilot": "Book a pilot call"
+    "pilot": "Book a pilot call",
+    "product": "Product",
+    "why": "Why Solana",
+    "how": "How it works",
+    "faq": "FAQs",
+    "pricing": "Pricing"
   },
   "wallet": {
     "choose": "Connect a wallet",
@@ -57,8 +62,8 @@
     "pill": "Live on Solana devnet · not audited yet",
     "title": "Bond servicing, enforced on Solana.",
     "lede": "AssetFlow decides who may hold a tokenized bond, counts its holders on-chain on every record date, and pays coupons and redemptions in USDC.",
-    "ctaConsole": "Open the live console",
     "ctaPilot": "Book a pilot call",
+    "ctaConsole": "Open the live console",
     "register": {
       "title": "Coupon 1, counted on-chain",
       "paid": "Paid",
@@ -108,73 +113,184 @@
         "body": "HashKey Chain Horizon, with AssetFlow's first version, 2026"
       }
     },
-    "problem": {
-      "eyebrow": "The problem",
-      "title": "Issuance is day one. Servicing is every day after.",
+    "product": {
+      "title": "Issuance is day one. AssetFlow runs every day after.",
       "lede": "Tokenizing a bond takes one transaction. Running it takes years, and today that work lives in spreadsheets and email next to a token that knows nothing about it."
     },
-    "jobs": {
-      "eligibility": {
-        "title": "Who may hold it",
-        "body": "Every holder account starts frozen. A wallet is let in only while its investor profile passes the registry, and anyone can freeze it when an approval lapses."
-      },
-      "payments": {
-        "title": "What each holder is owed",
-        "body": "On the record date the register is counted on-chain, each holder's coupon is computed from the bond's terms, and it is paid in USDC. Nobody types an amount."
-      },
-      "redemptions": {
-        "title": "How they get out",
-        "body": "Units wait in escrow while the issuer settles at face plus accrued interest. They burn as the cash moves, and at maturity every eligible holding redeems at face."
-      }
-    },
-    "onSolana": "On Solana:",
-    "product": {
-      "eyebrow": "The product",
-      "title": "One program runs the bond's whole life.",
-      "lede": "These are the live devnet screens, not mock-ups: the holder portal, the KYC provider and the issuer console, in English, 简体中文 and 繁體中文."
-    },
     "features": {
-      "eligibility": {
-        "title": "Eligibility, enforced by the token",
-        "body": "The holder portal lists every rule a wallet must pass. When it passes, Token ACL asks AssetFlow's gate and the account thaws. When an approval lapses, anyone can freeze it.",
-        "solana": "Default-frozen Token-2022 accounts and the Token ACL gate (sRFC-37). A plain transfer runs none of our code.",
+      "admit": {
+        "label": "Admit",
+        "title": "Only eligible wallets can hold it.",
+        "body": "Every holder account starts frozen. A wallet is let in only while its investor profile passes the registry, checked by the token itself.",
+        "checks": {
+          "c1": "Accounts thaw through Token ACL, never by hand",
+          "c2": "KYC once, from a Solana Attestation Service credential",
+          "c3": "A lapsed approval can be frozen by anyone"
+        },
         "link": "Open the holder portal",
-        "alt": "The holder portal's eligibility checklist: profile on file, approved by compliance, no hold, KYC valid until Oct 5, 2027, tier met, Hong Kong allowed"
+        "card": {
+          "title": "Eligibility",
+          "badge": "Eligible",
+          "rows": {
+            "r1": "Investor profile on file",
+            "r2": "Approved by compliance",
+            "r3": "No compliance hold",
+            "r4": "KYC valid until Oct 5, 2027",
+            "r5": "Investor tier 1 meets the minimum of 1",
+            "r6": "Hong Kong is an allowed jurisdiction"
+          }
+        }
       },
-      "kyc": {
-        "title": "KYC once, accepted wherever it is trusted",
-        "body": "A KYC provider signs one attestation. Every registry that trusts that provider writes the investor's profile from it: no forms, no issuer back office.",
-        "solana": "Credentials on the Solana Attestation Service.",
-        "link": "Try the demo KYC provider",
-        "alt": "The demo KYC provider: jurisdiction, investor tier and accreditation, then Attest my wallet"
-      },
-      "coupons": {
-        "title": "Coupons counted on-chain, paid in USDC",
-        "body": "On the record date the mint pauses and anyone counts the register, account by account, until it equals the supply. Then each holder is paid their share.",
-        "solana": "A pausable mint, a funded vault per payment, and a cap so no payment can overdraw another.",
+      "pay": {
+        "label": "Pay",
+        "title": "Every coupon, counted on-chain.",
+        "body": "On the record date anyone counts the register, account by account, until it equals the supply. Then every eligible holder is paid in USDC.",
+        "checks": {
+          "c1": "A funded vault per payment, capped so none overdraws another",
+          "c2": "Ineligible holders are held back, not paid",
+          "c3": "Nobody types an amount"
+        },
         "link": "Open the coupon schedule",
-        "alt": "Coupon 1 on the devnet bond: register fixed, counted, funded and paid; 1,000, 2,500 and 500 units paid $50, $125 and $25"
+        "card": {
+          "title": "Coupon 1",
+          "sub": "Period ending Apr 1, 2027",
+          "badge": "Paid",
+          "rows": {
+            "r1": {
+              "k": "Record date",
+              "v": "Oct 4, 2026"
+            },
+            "r2": {
+              "k": "Register fixed",
+              "v": "Transfers paused"
+            },
+            "r3": {
+              "k": "Register counted",
+              "v": "4,000 of 4,000 units"
+            },
+            "r4": {
+              "k": "Funded",
+              "v": "$200.00"
+            },
+            "r5": {
+              "k": "Paid",
+              "v": "$200.00, $0.00 held back"
+            }
+          }
+        }
+      },
+      "redeem": {
+        "label": "Redeem",
+        "title": "Redemptions priced by the program.",
+        "body": "Early redemptions settle at face plus accrued interest. At maturity the mint authority is dropped and every eligible holding is paid at face.",
+        "link": "See the matured bond",
+        "card": {
+          "title": "Matured bond",
+          "badge": "Matured",
+          "rows": {
+            "r1": {
+              "k": "Early redemption",
+              "v": "$500.00"
+            },
+            "r2": {
+              "k": "Maturity funded",
+              "v": "$5,000.00"
+            },
+            "r3": {
+              "k": "Paid at face",
+              "v": "$3,500.00"
+            },
+            "r4": {
+              "k": "Held back",
+              "v": "1,500 units"
+            }
+          },
+          "foot": "Nobody can mint"
+        }
       },
       "private": {
-        "title": "Private holdings, the same rules",
-        "body": "Holders can move units into MagicBlock's Private Ephemeral Rollup. Balances leave public view, but both sides must still be eligible and coupons still add up.",
-        "solana": "A validator in a trusted execution environment. Only the holder, the issuer, compliance and a named auditor can read a balance.",
+        "label": "Private",
+        "title": "Private holdings, the same rules.",
+        "body": "Holders can move units into MagicBlock's Private Ephemeral Rollup. Balances leave public view; both sides must still be eligible.",
         "link": "Open the private pool",
-        "alt": "The private pool: 500 units deposited, 100 released, 400 in escrow, 2 private accounts"
+        "card": {
+          "title": "Private pool",
+          "rows": {
+            "r1": {
+              "k": "In escrow",
+              "v": "400"
+            },
+            "r2": {
+              "k": "Deposited",
+              "v": "500"
+            },
+            "r3": {
+              "k": "Released",
+              "v": "100"
+            },
+            "r4": {
+              "k": "Private accounts",
+              "v": "2"
+            }
+          },
+          "foot": "On MagicBlock's TEE validator"
+        }
       },
-      "breaker": {
-        "title": "A circuit breaker for trading pools",
-        "body": "A pool trades only while a fresh risk decision allows it. If its price strays past its band from the bond's own value, anyone can trip it and freeze the pool.",
-        "solana": "No transfer hook and no oracle: the program already knows face plus accrued interest. On devnet, a 200-unit dump tripped it at 64% below value.",
+      "protect": {
+        "label": "Protect",
+        "title": "A dump freezes the pool.",
+        "body": "A trading pool trades only while a fresh risk decision allows it. Past its band from the bond's value, anyone can freeze it. No oracle.",
         "link": "Open the trading pools",
-        "alt": "The issuer console showing a tripped trading pool, frozen, 64% below the bond's value"
+        "card": {
+          "title": "Trading pool",
+          "badge": "Tripped",
+          "rows": {
+            "r1": {
+              "k": "Price deviation",
+              "v": "64.00%"
+            },
+            "r2": {
+              "k": "Band",
+              "v": "±5.00%"
+            },
+            "r3": {
+              "k": "Reserves",
+              "v": "500 units · $180"
+            },
+            "r4": {
+              "k": "Bond value",
+              "v": "$500.00"
+            }
+          },
+          "foot": "Frozen in the same transaction"
+        }
       }
     },
     "why": {
-      "eyebrow": "Why Solana",
-      "title": "The pieces bond servicing needs shipped on Solana.",
+      "title": "Why Solana.",
       "lede": "AssetFlow is built on Solana's own standards rather than around them: compliance at the account level, reusable KYC, payouts cheap enough to make one by one, and private balances that auditors can still read.",
-      "program": "Program",
+      "layers": {
+        "r1": {
+          "k": "Holder's wallet",
+          "v": "Any wallet that supports Token-2022"
+        },
+        "r2": {
+          "k": "Token-2022 account",
+          "v": "Starts frozen"
+        },
+        "r3": {
+          "k": "Token ACL (sRFC-37)",
+          "v": "Asks AssetFlow before any thaw or freeze"
+        },
+        "r4": {
+          "k": "Solana Attestation Service",
+          "v": "KYC once, reused by every registry"
+        },
+        "r5": {
+          "k": "MagicBlock Private Ephemeral Rollup",
+          "v": "Private balances, the same rules"
+        }
+      },
       "reasons": {
         "tokenAcl": {
           "title": "Compliance without a transfer hook",
@@ -205,7 +321,8 @@
       "programCard": {
         "title": "One program, open to read",
         "body": "Every guarantee on the proof page is enforced by one Anchor program on devnet. Read it in the explorer, or in the repository with its 91 tests."
-      }
+      },
+      "program": "Program"
     },
     "life": {
       "eyebrow": "How it works",
@@ -239,48 +356,56 @@
       "note": "One devnet bond has run this whole life: four coupons, an early redemption and maturity.",
       "noteLink": "Check it on the proof page"
     },
-    "open": {
-      "eyebrow": "Open source",
-      "title": "Read the code. Read the chain.",
-      "lede": "The program, the console and the tests are MIT-licensed, and the proof page checks every guarantee live.",
-      "code": {
-        "title": "Source on GitHub",
-        "body": "The Anchor program, the Next.js console and 91 tests, the circuit breaker and private holdings included.",
-        "link": "Read the code"
+    "buyers": {
+      "title": "Built for the people who run bonds.",
+      "issuers": {
+        "title": "Issuers",
+        "body": "Of tokenized bonds, notes and funds who want eligibility, coupons and redemptions enforced by the token itself."
       },
-      "architecture": {
-        "title": "Architecture in diagrams",
-        "body": "ARCHITECTURE.md maps every account, instruction and flow in 22 Mermaid diagrams.",
-        "link": "Read ARCHITECTURE.md"
+      "admins": {
+        "title": "Fund administrators and transfer agents",
+        "body": "Who keep registers by hand today and want a record-date count that anyone can check."
       },
-      "chains": {
-        "title": "Also on EVM chains",
-        "body": "AssetFlow also runs as Solidity on Base, Arbitrum and Robinhood Chain, with pilot notes on Base and Arbitrum One mainnet and bonds paid in Paxos USDG on testnets. Its first version is on HashKey Chain mainnet."
+      "platforms": {
+        "title": "Tokenization platforms",
+        "body": "That issue on Solana for their clients and would rather not build servicing themselves."
       }
     },
-    "pilot": {
-      "eyebrow": "Pilots",
-      "title": "Run one coupon cycle with us.",
-      "lede": "We are looking for our first design partners, starting in Hong Kong and Singapore. A pilot shadows one coupon cycle on devnet next to your current process: no custody, no real money, and nothing to change in how you issue today.",
-      "buyers": {
-        "issuers": {
-          "title": "Issuers",
-          "body": "Of tokenized bonds, notes and funds who want eligibility, coupons and redemptions enforced by the token itself."
-        },
-        "admins": {
-          "title": "Fund administrators and transfer agents",
-          "body": "Who keep registers by hand today and want a record-date count that anyone can check."
-        },
-        "platforms": {
-          "title": "Tokenization platforms",
-          "body": "That issue on Solana for their clients and would rather not build servicing themselves."
-        }
+    "faq": {
+      "title": "FAQs",
+      "custody": {
+        "q": "Is AssetFlow a custodian?",
+        "a": "No. Units sit in holders' own token accounts, and the escrows for redemptions and private holdings belong to program accounts, not to a person. AssetFlow is servicing software; it does not take custody of investor assets."
       },
-      "pricingLink": "See proposed pricing"
+      "audit": {
+        "q": "Is it audited?",
+        "a": "Not yet. It runs on Solana devnet only, with 91 program tests passing. An independent audit comes before any real money."
+      },
+      "wallets": {
+        "q": "Which wallets can hold the token?",
+        "a": "Any wallet that supports Token-2022. Accounts start frozen; the holder portal thaws an eligible holder's account through Token ACL, and after that a plain transfer runs none of our code."
+      },
+      "pilot": {
+        "q": "What does a pilot cost?",
+        "a": "Nothing. A pilot shadows one coupon cycle on devnet beside your current process: no custody, no real money, nothing to change in how you issue. Proposed production pricing is on the pricing page."
+      },
+      "chains": {
+        "q": "Does it run beyond Solana?",
+        "a": "Yes. The same servicing runs as Solidity on Base, Arbitrum and Robinhood Chain with the Ethereum Attestation Service, with pilot notes on Base and Arbitrum One mainnet. Its first version runs on HashKey Chain mainnet."
+      },
+      "open": {
+        "q": "Is the code open source?",
+        "a": "Yes, under MIT: the Anchor program, the console and the tests. ARCHITECTURE.md maps every account and flow in 22 diagrams."
+      },
+      "links": {
+        "code": "Read the code",
+        "architecture": "Read ARCHITECTURE.md",
+        "pricing": "See pricing"
+      }
     },
     "closing": {
-      "title": "Issuance is day one. AssetFlow runs every day after.",
-      "body": "Bring one bond. We will run its next coupon on devnet beside your current process, and you can check every step on-chain."
+      "title": "Run one coupon cycle with us.",
+      "body": "We are looking for our first design partners, starting in Hong Kong and Singapore. Bring one bond, and we will run its next coupon on devnet beside your current process."
     }
   },
   "tx": {
