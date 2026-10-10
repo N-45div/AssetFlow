@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { Actions, Card, SectionHeader } from "@/components/landing";
+import { Actions, Scene, Section, Title } from "@/components/landing";
 
 const ROWS = ["programs", "console", "servicing", "actions"] as const;
 
@@ -14,27 +14,28 @@ export default async function Pricing() {
   const t = await getTranslations("pricing");
   const home = await getTranslations("home");
   return (
-    <div className="bg-surface">
-      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
-        <SectionHeader as="h1" eyebrow={t("eyebrow")} title={t("title")} lede={t("lede")} />
-        <div className="mt-12 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-          <article className="card p-6">
-            <span className="pill pill-neutral">{t("tag")}</span>
-            <dl className="mt-4 divide-y divide-line">
+    <div className="bg-canvas">
+      <Section>
+        <Title as="h1" title={t("title")} lede={t("lede")} />
+        <div className="mt-14 grid gap-12 lg:grid-cols-[1.3fr_1fr]">
+          <div>
+            <p className="text-[13px] uppercase tracking-[0.08em] text-ink-3">{t("tag")}</p>
+            <dl className="mt-4 divide-y divide-line border-y border-line">
               {ROWS.map((k) => (
-                <div key={k} className="flex justify-between gap-4 py-4 text-base">
+                <div key={k} className="flex justify-between gap-6 py-5 text-lg">
                   <dt className="text-ink-2">{t(`rows.${k}.label`)}</dt>
-                  <dd className="tabular text-right font-semibold text-ink">{t(`rows.${k}.value`)}</dd>
+                  <dd className="tabular text-right font-medium text-ink">{t(`rows.${k}.value`)}</dd>
                 </div>
               ))}
             </dl>
-          </article>
-          <Card title={home("pilot.title")}>
-            {home("pilot.lede")}
-            <Actions pilot={home("ctaPilot")} console={home("ctaConsole")} />
-          </Card>
+          </div>
+          <Scene tone="deep" className="p-8">
+            <h2 className="font-serif text-3xl leading-[1.1] tracking-tight text-white">{home("closing.title")}</h2>
+            <p className="mt-3 text-[15px] leading-relaxed text-white/85">{home("closing.body")}</p>
+            <Actions pilot={home("ctaPilot")} console={home("ctaConsole")} onScene />
+          </Scene>
         </div>
-      </div>
+      </Section>
     </div>
   );
 }
