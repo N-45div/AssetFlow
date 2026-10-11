@@ -18,7 +18,8 @@
     "why": "为什么选择 Solana",
     "how": "工作方式",
     "faq": "常见问题",
-    "pricing": "定价"
+    "pricing": "定价",
+    "watch": "池监控"
   },
   "wallet": {
     "choose": "连接钱包",
@@ -56,7 +57,8 @@
     "research": "研究",
     "pilot": "预约试点沟通",
     "evm": "EVM 链上的 AssetFlow",
-    "pricing": "定价"
+    "pricing": "定价",
+    "watch": "池监控"
   },
   "home": {
     "pill": "已在 Solana devnet 上线 · 尚未审计",
@@ -1358,5 +1360,93 @@
         "value": "每位持有人每次 0.25 美元"
       }
     }
+  },
+  "watch": {
+    "metaTitle": "池监控 · AssetFlow",
+    "status": "已在 Solana 主网运行 · 只读 · 数据来自 Solami",
+    "title": "池监控。",
+    "lede": "把 AssetFlow 的熔断机制放到真实市场上运行：在 Solana 上交易的每一只官方 xStock、它所在的每一个交易池（相互比价），以及每一笔实时成交。",
+    "stats": {
+      "official": "个官方 xStocks 铸币，读自发行方密钥",
+      "watched": "只被监控，分布在 {pools} 个池中",
+      "swaps": "笔成交，自您打开本页起",
+      "outside": "个池当前超出 ±{band}% 区间",
+      "lookalikes": "个仿冒代币，其池中共 {liquidity}"
+    },
+    "live": {
+      "title": "实时成交",
+      "sub": "一条 Solami 成交流，过滤为 {n} 个铸币",
+      "connecting": "正在连接成交流…",
+      "waiting": "等待下一笔成交…",
+      "time": "时间",
+      "asset": "资产",
+      "venue": "交易场所",
+      "size": "金额",
+      "price": "价格",
+      "vsRef": "相对参考价",
+      "buy": "买入",
+      "sell": "卖出",
+      "trip": "将触发熔断",
+      "notCompared": "不参与比较"
+    },
+    "pools": {
+      "title": "每一个池，与同类相比。",
+      "lede": "参考价是每只资产以 USDC、USDT、SOL、PYUSD 或 USDG 计价、且流动性不少于 1,000 美元的 AMM 池按流动性加权的中位价。偏离超过 {band}% 的池，就是 AssetFlow 熔断机制会触发的地方。",
+      "asset": "资产",
+      "reference": "参考价",
+      "pools": "计入 / 全部",
+      "liquidity": "流动性",
+      "widest": "最大偏离",
+      "status": "状态",
+      "inBand": "区间内",
+      "outside": "{n} 个超出",
+      "noReference": "无参考价",
+      "venue": "交易场所",
+      "quote": "计价",
+      "price": "价格",
+      "deviation": "相对参考价",
+      "basis": {
+        "thin": "不足 1,000 美元",
+        "book": "订单簿",
+        "quote": "其他计价"
+      },
+      "updated": "池数据 {seconds} 秒前刷新"
+    },
+    "spoofs": {
+      "title": "仿冒代币。",
+      "lede": "使用 xStock 代码、但并非由发行方密钥铸造的代币。每一个都在链上核验：铸币权限是仿冒者唯一无法伪造的东西。",
+      "loading": "正在链上核验仿冒代币…",
+      "ticker": "代码",
+      "count": "仿冒数",
+      "liquidity": "其池中资金",
+      "official": "官方铸币",
+      "largest": "最大的仿冒代币",
+      "note": "仿冒仅表示并非由 xStocks 发行方发行，不代表对任何人意图的判断。"
+    },
+    "how": {
+      "title": "工作方式。",
+      "registry": {
+        "title": "发行方密钥就是登记册",
+        "body": "通过 Solami RPC 的 getProgramAccountsV2，找出 xStocks 发行方可以铸造的每一个 Token-2022 铸币：共 {n} 个。其中拥有两个以上交易池、流动性达 10,000 美元的 {watched} 只被监控。"
+      },
+      "pools": {
+        "title": "来自 Blur 的池数据",
+        "body": "Solami 的 Blur /data/token/pools 提供每个池的交易场所、计价资产、价格和流动性。参考价与每个池的偏离每分钟据此计算一次。"
+      },
+      "stream": {
+        "title": "每一笔成交，实时呈现",
+        "body": "一条在服务端过滤为被监控铸币的 Blur 成交流被转发到本页。每笔成交到达时，都会与其资产的参考价比较。"
+      },
+      "verify": {
+        "title": "仿冒代币，链上核验",
+        "body": "Blur 的代币搜索找出使用被监控代码的每一个代币，再通过 Solami RPC 的 getMultipleAccounts 读取每一个的铸币权限。"
+      }
+    },
+    "links": {
+      "code": "本页背后的代码",
+      "breaker": "devnet 上的 AssetFlow 熔断机制"
+    },
+    "disclaimer": "只读。价格是 Solana 上的池价格，而非标的股票价格，本页内容不构成任何投资建议。",
+    "error": "Solami 暂时没有响应，正在重试。"
   }
 }
