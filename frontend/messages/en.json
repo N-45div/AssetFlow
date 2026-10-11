@@ -18,7 +18,8 @@
     "why": "Why Solana",
     "how": "How it works",
     "faq": "FAQs",
-    "pricing": "Pricing"
+    "pricing": "Pricing",
+    "watch": "Pool Watch"
   },
   "wallet": {
     "choose": "Connect a wallet",
@@ -56,7 +57,8 @@
     "research": "Research",
     "pilot": "Book a pilot call",
     "evm": "AssetFlow on EVM chains",
-    "pricing": "Pricing"
+    "pricing": "Pricing",
+    "watch": "Pool Watch"
   },
   "home": {
     "pill": "Live on Solana devnet · not audited yet",
@@ -1358,5 +1360,93 @@
         "value": "$0.25 per holder per event"
       }
     }
+  },
+  "watch": {
+    "metaTitle": "Pool Watch · AssetFlow",
+    "status": "Live on Solana mainnet · read-only · data from Solami",
+    "title": "Pool Watch.",
+    "lede": "AssetFlow's circuit breaker, run on real markets. Every official xStock that trades on Solana, every pool it trades in priced against the others, and every swap as it lands.",
+    "stats": {
+      "official": "official xStocks mints, read from the issuer's key",
+      "watched": "watched across {pools} pools",
+      "swaps": "swaps since you opened this page",
+      "outside": "pools outside the ±{band}% band now",
+      "lookalikes": "lookalike tokens, {liquidity} in their pools"
+    },
+    "live": {
+      "title": "Live swaps",
+      "sub": "One Solami swap stream, filtered to {n} mints",
+      "connecting": "Connecting to the swap stream…",
+      "waiting": "Waiting for the next swap…",
+      "time": "Time",
+      "asset": "Asset",
+      "venue": "Venue",
+      "size": "Size",
+      "price": "Price",
+      "vsRef": "vs reference",
+      "buy": "Buy",
+      "sell": "Sell",
+      "trip": "would trip",
+      "notCompared": "not compared"
+    },
+    "pools": {
+      "title": "Every pool, against its siblings.",
+      "lede": "The reference is the liquidity-weighted median of each asset's AMM pools quoted in USDC, USDT, SOL, PYUSD or USDG with at least $1,000 in them. A pool more than {band}% away is where AssetFlow's breaker would trip.",
+      "asset": "Asset",
+      "reference": "Reference",
+      "pools": "Counted / all",
+      "liquidity": "Liquidity",
+      "widest": "Widest",
+      "status": "Status",
+      "inBand": "In band",
+      "outside": "{n} outside",
+      "noReference": "No reference",
+      "venue": "Venue",
+      "quote": "Quote",
+      "price": "Price",
+      "deviation": "vs reference",
+      "basis": {
+        "thin": "Under $1,000",
+        "book": "Order book",
+        "quote": "Other quote"
+      },
+      "updated": "Pool data refreshed {seconds}s ago"
+    },
+    "spoofs": {
+      "title": "Lookalike tokens.",
+      "lede": "Tokens that answer to an xStock's ticker but were not minted by the issuer's key. Each one is checked on-chain: the mint authority is the one thing a copy cannot fake.",
+      "loading": "Checking lookalikes on-chain…",
+      "ticker": "Ticker",
+      "count": "Lookalikes",
+      "liquidity": "In their pools",
+      "official": "Official mint",
+      "largest": "Largest lookalike",
+      "note": "Lookalike means not issued by the xStocks issuer. It says nothing about anyone's intent."
+    },
+    "how": {
+      "title": "How it works.",
+      "registry": {
+        "title": "The issuer's key is the registry",
+        "body": "getProgramAccountsV2 over Solami RPC finds every Token-2022 mint the xStocks issuer can mint: {n} of them. The {watched} with two or more pools and $10,000 of liquidity are watched."
+      },
+      "pools": {
+        "title": "Pools from Blur",
+        "body": "Solami's Blur /data/token/pools gives every pool's venue, quote, price and liquidity. The reference and each pool's deviation are computed from them once a minute."
+      },
+      "stream": {
+        "title": "Every swap, live",
+        "body": "One Blur swap stream, filtered server-side to the watched mints, is relayed to this page. Each swap is priced against its asset's reference as it lands."
+      },
+      "verify": {
+        "title": "Lookalikes, verified",
+        "body": "Blur's token search finds every token answering to a watched ticker, and getMultipleAccounts over Solami RPC reads each one's mint authority."
+      }
+    },
+    "links": {
+      "code": "The code behind this page",
+      "breaker": "AssetFlow's breaker on devnet"
+    },
+    "disclaimer": "Read-only. Prices are pool prices on Solana, not the underlying shares, and nothing here is investment advice.",
+    "error": "Solami did not answer just now; retrying."
   }
 }
