@@ -33,6 +33,7 @@ const LANDING_NAV = [
   { href: "/#why-solana", key: "why" },
   { href: "/#how-it-works", key: "how" },
   { href: "/#faq", key: "faq" },
+  { href: "/watch", key: "watch" },
   { href: "/pricing", key: "pricing" },
 ] as const;
 

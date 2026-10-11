@@ -14,6 +14,7 @@ export async function SiteFooter() {
         { href: "/holder", label: t("holder") },
         { href: "/proof", label: t("proof") },
         { href: "/kyc", label: t("kyc") },
+        { href: "/watch", label: t("watch") },
       ],
     },
     {

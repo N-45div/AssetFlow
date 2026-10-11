@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 /** The marketing pages; they run narrower than the app, on one background. */
-export const isLanding = (pathname: string) => pathname === "/" || pathname === "/pricing";
+export const isLanding = (pathname: string) => pathname === "/" || pathname === "/pricing" || pathname === "/watch";
 
 /** A centred container for chrome the app and the landing share, at whichever width the current page uses. */
 export function ChromeWidth({ className = "", children }: { className?: string; children: ReactNode }) {
