@@ -4,13 +4,13 @@
 
 Issuance is day one. A tokenized bond or fund still has to be run every day after: holder eligibility, transfer restrictions, coupons and dividends, redemptions, maturity. Today that work lives in spreadsheets and email next to a token on-chain. AssetFlow puts it where the token is.
 
-Live app (Solana devnet): **https://assetflow-servicing.vercel.app** (also at assetflow-hashkey.vercel.app)
+Live app (Solana devnet): **https://assetflow-servicing.vercel.app** (also at assetflow-hashkey.vercel.app). Pool Watch, the circuit breaker's rule on live Solana mainnet markets, read-only: **https://assetflow-servicing.vercel.app/watch**
 
 ## Where it runs
 
 | Chain | Status | What is there |
 |---|---|---|
-| **Solana** | Devnet | The servicing layer, built natively on Token-2022 and Token ACL (sRFC-37), with optional private holdings in MagicBlock's Private Ephemeral Rollup. Program `BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR`. |
+| **Solana** | Devnet | The servicing layer, built natively on Token-2022 and Token ACL (sRFC-37), with optional private holdings in MagicBlock's Private Ephemeral Rollup; [Pool Watch](#pool-watch-the-breakers-rule-on-live-mainnet-markets) reads mainnet, read-only. Program `BWDCF6dLYETPYquDGKm8X6pyLnMZGhisporuTbozjtwR`. |
 | **HashKey Chain** | Mainnet (chain 177), deployed 11 May 2026 | The EVM contracts AssetFlow started as: [ComplianceRegistry](https://hsk.blockscout.com/address/0xd06ea0b9AD8935df0e823555F0433604B880711D), [ServicedAssetToken "AssetFlow Pilot Unit"](https://hsk.blockscout.com/address/0x59E0f69FF6d25b5ceE757c874adAdC42E9857f2A), [DistributionModule](https://hsk.blockscout.com/address/0x93995825CA13fBbf74f6876480bf7565f33a8717), [RedemptionModule](https://hsk.blockscout.com/address/0x7495d785B5edA74E2c3ebc4B4c0909DeF86078bB). Recorded in [`contracts/deployments/hashkey-mainnet.json`](contracts/deployments/hashkey-mainnet.json). |
 | **Base** | Mainnet and Sepolia, deployed 29 Sep 2026 | The same servicing as Solidity contracts ([`evm/`](evm)). Mainnet: the [directory](https://base.blockscout.com/address/0x1C1867cC4899157B8c6fb2D1d351985f73fe125e), AssetFlow's investor schema on Base's EAS, and a pilot note on native USDC ([servicer](https://base.blockscout.com/address/0xCc673fD915EE01f2F712A880a51E42EDC9A7d320), [token](https://base.blockscout.com/address/0xDABea95f39ef319AE4C775Ca8c8b3c37971Aa977)), sources verified on Sourcify. The console at [`/base`](https://assetflow-servicing.vercel.app/base) runs on Sepolia with test dollars. Recorded in [`evm/deployments`](evm/deployments). |
 | **Arbitrum** | One and Sepolia, deployed 29 Sep 2026 | The same contracts at the same addresses as on Base mainnet: the [directory](https://arbitrum.blockscout.com/address/0x1C1867cC4899157B8c6fb2D1d351985f73fe125e), the investor schema on Arbitrum's EAS, and the pilot note on native USDC ([servicer](https://arbitrum.blockscout.com/address/0xCc673fD915EE01f2F712A880a51E42EDC9A7d320), [token](https://arbitrum.blockscout.com/address/0xDABea95f39ef319AE4C775Ca8c8b3c37971Aa977)), verified on Sourcify. The console at [`/arbitrum`](https://assetflow-servicing.vercel.app/arbitrum) runs on Arbitrum Sepolia, against Arbitrum's EAS there; its featured bond pays in Paxos's test USDG ([servicer](https://arbitrum-sepolia.blockscout.com/address/0xd7d04b199b5b7e08d14cae1e57e9129ebab0c8ca)) and has run two coupons, an early redemption and maturity. Recorded in [`evm/deployments/arbitrum.json`](evm/deployments/arbitrum.json) and [`arbitrum-sepolia.json`](evm/deployments/arbitrum-sepolia.json). |
@@ -24,7 +24,7 @@ Live app (Solana devnet): **https://assetflow-servicing.vercel.app** (also at as
 - anyone can freeze a holder who no longer passes, so a lapsed approval is enforceable without the issuer;
 - nobody can freeze a holder in good standing.
 
-A plain Token-2022 transfer runs none of AssetFlow's code, so every wallet and program that handles Token-2022 handles the asset.
+A plain Token-2022 transfer runs none of AssetFlow's code, so once a holder's account is thawed, any wallet or program that handles Token-2022 can move the asset.
 
 **No personal key can reach around the gate.** Every authority over the mint, including mint, freeze via Token ACL, pause and permanent delegate, belongs to the asset account, a PDA of the program. Registration is one step that checks how the mint is built (holder accounts frozen by default, no transfer hook, close authority, confidential transfers or fees) and hands the freeze authority to Token ACL itself. The gate thaws only accounts whose owner can never change, and issuance re-checks eligibility.
 
@@ -136,7 +136,7 @@ The app defaults to a local validator and offers a dev wallet there; with `rollu
 
 ## Development history
 
-AssetFlow began as an EVM project for the HashKey Chain Horizon hackathon (April 2026): the Solidity contracts, the Express backend and the first console, deployed to HashKey testnet in April and HashKey mainnet in May. The Solana program, its tests and the current app were written from 28 September 2026 for Colosseum's Crypto World's Fair; see the git history.
+AssetFlow began as an EVM project for the HashKey Chain Horizon hackathon (April 2026): the Solidity contracts, the Express backend and the first console, deployed to HashKey testnet in April and HashKey mainnet in May. The Solana program, its tests and the current app were written from 28 September 2026 for Colosseum's Crypto World's Fair, the EVM contracts in `evm/` from 29 September, private holdings on MagicBlock and the circuit breaker in early October, and Pool Watch on 11 October; see the git history.
 
 ## License
 
