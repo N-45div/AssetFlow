@@ -67,7 +67,32 @@ The Solana program's rules and arithmetic, in Solidity: a `Registry` (the same p
 - **Holder portal** (`/holder`): an eligibility checklist that names the rule a wallet fails, onboarding with a KYC attestation, and one-transaction account activation. An ineligible wallet can "try anyway" and get the gate's refusal as its own on-chain transaction. Holders see each coupon and can collect one themselves once it is counted. They can open a private holding, sign in to the private rollup, and move units in, send them privately, take them out and credit their private coupons. They ask to redeem early with the price shown before they sign, and redeem at maturity.
 - **Demo KYC provider** (`/kyc`): attests a wallet on the Solana Attestation Service, and revokes it, to show KYC once end to end.
 - **Proof** (`/proof`): nine guarantees checked live against the chain, two more for an asset with private holdings, and each trading pool's state, frozen or not, and its price against the bond's value.
+- **Pool Watch** (`/watch`): the circuit breaker's rule run read-only on live Solana mainnet markets (below).
 - English, Simplified Chinese and Traditional Chinese (Hong Kong).
+
+## Pool Watch: the breaker's rule on live mainnet markets
+
+Live at **https://assetflow-servicing.vercel.app/watch**. Read-only, on Solana mainnet, with every byte of data through [Solami](https://solami.dev).
+
+AssetFlow's circuit breaker trips a pool that strays past its band from the bond's value. Pool Watch runs the same rule on real tokenized stocks: every official xStock that trades on Solana, every pool it trades in priced against the others, and every swap as it lands.
+
+- **The issuer's key is the registry.** `getProgramAccountsV2`, paged over Solami RPC, finds every Token-2022 mint whose mint authority is the xStocks issuer's key; `getMultipleAccounts` reads their metadata and supply. The ones that trade in two or more pools with $10,000 or more between them are watched: 30 on 11 October 2026.
+- **Every pool against its siblings.** Blur's `/data/token/pools` gives each pool's venue, quote, price and liquidity. The reference is the liquidity-weighted median of the AMM pools quoted in USDC, USDT, SOL, PYUSD or USDG holding at least $1,000; a pool more than 1% away is where AssetFlow's breaker would trip. Pools quoted in anything else (NVDAx's busiest pool is quoted in a memecoin) and order books are listed but never counted.
+- **Every swap, live.** One Blur swap stream (`wss://ws.solami.dev/data/subscribe`, `type=swap`, filtered server-side to the watched mints) is relayed to the page as server-sent events, and each swap is priced against its asset's reference as it lands.
+- **Lookalikes, checked on-chain.** Blur's token search finds every token answering to a watched ticker, and `getMultipleAccounts` reads each one's mint authority: anything the issuer's key cannot mint is a lookalike, whatever it calls itself. On 11 October 2026 that was 314 tokens with $1.8M in their pools, 25 of them for NVDAx.
+- **The key stays on the server.** The routes under `/api/watch` call Solami with `SOLAMI_API_KEY` and pass on only the fields the page shows. Solami's token metadata frames carry image URLs with the key in them, so they are never relayed.
+
+Run it with your own key (a Solami plan with WebSocket access, Dev or above, for the live stream):
+
+```bash
+cd frontend && npm install
+echo "SOLAMI_API_KEY=sk_your_key" >> .env.local
+npm run dev                  # http://localhost:3000/watch
+npm run test:watch           # the rule's tests
+npm run watch:universe       # rebuild the watched list from the chain (a few minutes)
+```
+
+The rule is pure functions in [`frontend/src/lib/watch/engine.ts`](frontend/src/lib/watch/engine.ts); the Solami calls are in [`solami.ts`](frontend/src/lib/watch/solami.ts) and [`state.ts`](frontend/src/lib/watch/state.ts), the routes in [`frontend/src/app/api/watch`](frontend/src/app/api/watch), the page in [`frontend/src/app/watch`](frontend/src/app/watch).
 
 ## Repository
 
